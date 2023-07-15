@@ -10,5 +10,16 @@
   "bugs": {
     "url": "https://github.com/impulsejs/impulse/issues"
   },
-  "homepage": "https://github.com/impulsejs/impulse#readme"
+  "homepage": "https://github.com/impulsejs/impulse#readme",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.2",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "rollup": "^3.26.2",
+    "typescript": "^5.1.6"
+  }
 }
