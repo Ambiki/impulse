@@ -1,0 +1,29 @@
+{
+  "name": "impulse",
+  "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/impulsejs/impulse.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/impulsejs/impulse/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/impulsejs/impulse#readme",
+  "type": "module",
+  "module": "dist/index.js",
+  "main": "dist/index.umd.js",
+  "unpkg": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "clean": "rm -fr dist",
+    "prerelease": "yarn clean && yarn build && git --no-pager diff && echo && npm pack --dry-run"
+  }
+}
