@@ -1,7 +1,6 @@
 {
   "name": "impulse",
   "version": "0.1.0",
-  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/impulsejs/impulse.git"
@@ -10,5 +9,35 @@
   "bugs": {
     "url": "https://github.com/impulsejs/impulse/issues"
   },
-  "homepage": "https://github.com/impulsejs/impulse#readme"
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/impulsejs/impulse#readme",
+  "type": "module",
+  "module": "dist/index.js",
+  "main": "dist/index.umd.js",
+  "unpkg": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rollup --config rollup.config.js",
+    "clean": "rm -fr dist",
+    "lint": "eslint 'src/**/*.ts'",
+    "prerelease": "yarn clean && yarn build && git --no-pager diff && echo && npm pack --dry-run",
+    "prettier": "prettier --write --loglevel warn .",
+    "prettier:check": "prettier --check --loglevel warn ."
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^11.1.2",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.45.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "rollup": "^3.26.2",
+    "typescript": "^5.1.6"
+  }
 }
