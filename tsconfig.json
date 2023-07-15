@@ -11,6 +11,7 @@
     "module": "ESNext",
     "moduleResolution": "node",
     "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "sourceMap": false,
     "strict": true,
@@ -18,5 +19,5 @@
     "target": "ES2020",
     "useDefineForClassFields": false
   },
-  "include": ["packages/core"]
+  "include": ["packages/core", "packages/playground"]
 }
