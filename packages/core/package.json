@@ -1,6 +1,10 @@
 {
   "name": "@ambiki/impulse",
   "version": "0.1.0",
+  "author": "Ambitious Idea Labs",
+  "contributors": [
+    "Abeid Ahmed <aahmed@mysidekicktherapy.com>"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/impulsejs/impulse.git"

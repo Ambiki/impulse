@@ -2,7 +2,7 @@ import typescript from '@rollup/plugin-typescript';
 import { readFileSync } from 'fs';
 
 const json = JSON.parse(readFileSync('./package.json'));
-const banner = `/*\nImpulse ${json.version}\n */`;
+const banner = `/*\nImpulse ${json.version} © ${new Date().getFullYear()} Ambitious Idea Labs\n */`;
 
 /**
  * @type {import('rollup').RollupOptions}
