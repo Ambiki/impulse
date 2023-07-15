@@ -1,5 +1,5 @@
 {
-  "name": "impulse",
+  "name": "@ambiki/impulse",
   "version": "0.1.0",
   "repository": {
     "type": "git",
@@ -23,6 +23,7 @@
   ],
   "scripts": {
     "build": "rollup --config rollup.config.js",
+    "build:watch": "rollup --config rollup.config.js --watch",
     "clean": "rm -fr dist",
     "prerelease": "yarn clean && yarn build && git --no-pager diff && echo && npm pack --dry-run"
   }
