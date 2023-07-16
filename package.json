@@ -5,6 +5,11 @@
   ],
   "version": "0.0.0",
   "scripts": {
+    "build": "concurrently \"yarn build:core\" \"yarn playground\"",
+    "build:watch": "concurrently \"yarn build:core:watch\" \"yarn playground\"",
+    "build:core": "yarn workspace @ambiki/impulse build",
+    "build:core:watch": "yarn workspace @ambiki/impulse build --watch",
+    "playground": "yarn workspace @ambiki/playground dev",
     "lint": "eslint 'packages/**/*.ts'",
     "prettier": "prettier --write --log-level warn .",
     "prettier:check": "prettier --check --log-level warn ."
@@ -13,6 +18,7 @@
     "@rollup/plugin-typescript": "^11.1.2",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "concurrently": "^8.2.0",
     "eslint": "^8.45.0",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^5.0.0",
