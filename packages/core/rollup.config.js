@@ -23,6 +23,6 @@ export default [
         format: 'es',
       },
     ],
-    plugins: [typescript()],
+    plugins: [typescript({ tsconfig: './tsconfig.build.json' })],
   },
 ];

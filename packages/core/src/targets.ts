@@ -3,7 +3,7 @@ import AttributeObserver from './observers/attribute_observer';
 
 const ATTRIBUTE_NAME = 'data-target';
 
-export default class Target {
+export default class Targets {
   private attributeObserver: AttributeObserver;
 
   constructor(private readonly instance: ImpulseElement) {
@@ -32,9 +32,9 @@ export default class Target {
       if (!elementName || !key || elementName !== this.identifier) return;
       // Element needs to be registered before we can process its addition.
       if (!this.targetKeys.has(key)) return;
-      // In the callback function, we should be able to call `this.element` and get back the element. Therefore, we
-      // need to set the property before calling the function.
-      this.defineProperty(key, element);
+      // In the callback function, we should be able to call `this.elements` and get back all the elements. Therefore,
+      // we need to set the property before calling the function.
+      this.defineProperty(key, this.findTargets(key));
       this.processAddedElement(key, element);
     });
   }
@@ -47,10 +47,10 @@ export default class Target {
       // Element needs to be registered before we can process its removal.
       if (!this.targetKeys.has(key)) return;
       this.processRemovedElement(key, element);
-      // In the callback function, we should be able to call `this.element` and get back the element. Therefore, we
-      // need to set the property after calling the function. If you need an updated element (i.e., null) within this
+      // In the callback function, we should be able to call `this.elements` and get back all the elements. Therefore,
+      // we need to set the property after calling the function. If you need an updated list of elements within this
       // function, consider running the code after `await new Promise((resolve) => requestAnimationFrame(resolve))`.
-      this.defineProperty(key, null);
+      this.defineProperty(key, this.findTargets(key));
     });
   }
 
@@ -58,21 +58,21 @@ export default class Target {
     // If the key has not been registered, return.
     if (!this.targetKeys.has(key)) return;
 
-    const target = this.findTarget(key);
-    this.defineProperty(key, target);
-    if (target) this.processAddedElement(key, target);
+    const targets = this.findTargets(key);
+    this.defineProperty(key, targets);
+    targets.forEach((target) => this.processAddedElement(key, target));
   }
 
   private terminateKey(key: string) {
     // If the key has not been registered, return.
     if (!this.targetKeys.has(key)) return;
 
-    const target = this.findTarget(key);
-    if (target) this.processRemovedElement(key, target);
-    this.defineProperty(key, null);
+    const targets = this.findTargets(key);
+    targets.forEach((target) => this.processRemovedElement(key, target));
+    this.defineProperty(key, targets);
   }
 
-  private defineProperty(key: string, value: Element | null) {
+  private defineProperty(key: string, value: Element[]) {
     const descriptor: PropertyDescriptor = { configurable: true, get: () => value };
     Object.defineProperty(this.instance, key, descriptor);
   }
@@ -91,13 +91,13 @@ export default class Target {
     }
   }
 
-  private findTarget(key: string) {
+  private findTargets(key: string) {
     const selector = `[${ATTRIBUTE_NAME}~="${this.identifier}.${key}"]`;
-    return this.instance.querySelector(selector);
+    return Array.from(this.instance.querySelectorAll(selector));
   }
 
   private get targetKeys() {
-    return (Object.getPrototypeOf(this.instance).constructor as typeof ImpulseElement).targetKeys;
+    return (Object.getPrototypeOf(this.instance).constructor as typeof ImpulseElement).targetsKeys;
   }
 
   private get identifier() {

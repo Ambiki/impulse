@@ -119,7 +119,7 @@ describe('@target', () => {
     });
   });
 
-  it('terminates the target when element is removed from the DOM', async () => {
+  it('terminates the target when the element is removed from the DOM', async () => {
     @registerElement('target-element-terminate-test')
     class TargetTest extends ImpulseElement {
       panelDisconnectedSpy = Sinon.spy();

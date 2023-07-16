@@ -5,8 +5,7 @@
   ],
   "version": "0.0.0",
   "scripts": {
-    "build": "concurrently \"yarn build:core\" \"yarn playground\"",
-    "build:watch": "concurrently \"yarn build:core:watch\" \"yarn playground\"",
+    "dev": "concurrently \"yarn build:core:watch\" \"yarn playground\"",
     "build:core": "yarn workspace @ambiki/impulse build",
     "build:core:watch": "yarn workspace @ambiki/impulse build --watch",
     "playground": "yarn workspace @ambiki/playground dev",

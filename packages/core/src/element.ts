@@ -1,12 +1,15 @@
 import { PropertyConstructor } from './decorators/property';
 import Property from './property';
 import Target from './target';
+import Targets from './targets';
 
 export default class ImpulseElement extends HTMLElement {
   static properties = new Map<string, { type: PropertyConstructor }>();
+  static targetsKeys = new Set<string>();
   static targetKeys = new Set<string>();
 
   private property = new Property(this);
+  private targets = new Targets(this);
   private target = new Target(this);
 
   async connectedCallback() {
@@ -17,6 +20,7 @@ export default class ImpulseElement extends HTMLElement {
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     await this._resolveUndefinedElements();
+    this.targets.start();
     this.target.start();
     this.connected();
   }
@@ -24,6 +28,7 @@ export default class ImpulseElement extends HTMLElement {
   disconnectedCallback() {
     // Order is important
     this.target.stop();
+    this.targets.stop();
     this.property.stop();
     this.disconnected();
   }
@@ -38,6 +43,10 @@ export default class ImpulseElement extends HTMLElement {
 
   static addProperty(name: string, { type }: { type: PropertyConstructor }) {
     this.properties.set(name, { type });
+  }
+
+  static registerTargets(name: string) {
+    this.targetsKeys.add(name);
   }
 
   static registerTarget(name: string) {
