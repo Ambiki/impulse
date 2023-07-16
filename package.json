@@ -12,7 +12,9 @@
     "playground": "yarn workspace @ambiki/playground dev",
     "lint": "eslint 'packages/**/*.ts'",
     "prettier": "prettier --write --log-level warn .",
-    "prettier:check": "prettier --check --log-level warn ."
+    "prettier:check": "prettier --check --log-level warn .",
+    "test": "yarn workspace @ambiki/impulse test",
+    "test:watch": "yarn workspace @ambiki/impulse test:watch"
   },
   "devDependencies": {
     "@rollup/plugin-typescript": "^11.1.2",
