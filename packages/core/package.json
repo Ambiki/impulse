@@ -36,6 +36,7 @@
   "devDependencies": {
     "@open-wc/testing": "^3.2.0",
     "@web/dev-server-esbuild": "^0.4.1",
-    "@web/test-runner": "^0.17.0"
+    "@web/test-runner": "^0.17.0",
+    "sinon": "^15.2.0"
   }
 }
