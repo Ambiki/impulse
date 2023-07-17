@@ -1,5 +1,35 @@
+const STRING_CAMELIZE_REGEXP_1 = /(-|_|\.|\s)+(.)?/g;
+const STRING_CAMELIZE_REGEXP_2 = /(^|\/)([A-Z])/g;
 const STRING_DASHERIZE_REGEXP = /[ _]/g;
 const STRING_DECAMELIZE_REGEXP = /([a-z\d])([A-Z])/g;
+
+/**
+ * Returns the lowerCamelCase form of a string.
+ *
+ * @example
+ * camelize('innerHTML');
+ * //=> innerHTML
+ *
+ * camelize('action_name');
+ * //=> actionName
+ *
+ * camelize('css-class-name');
+ * //=> cssClassName
+ *
+ * camelize('my favorite items');
+ * //=> myFavoriteItems
+ *
+ * camelize('My Favorite Items');
+ * //=> myFavoriteItems
+ *
+ * camelize('private-docs/owner-invoice');
+ * //=> privateDocs/ownerInvoice
+ */
+export function camelize(value: string) {
+  return value
+    .replace(STRING_CAMELIZE_REGEXP_1, (_match, _separator, chr) => (chr ? chr.toUpperCase() : ''))
+    .replace(STRING_CAMELIZE_REGEXP_2, (match) => match.toLowerCase());
+}
 
 /**
  * Replaces underscores, spaces, or camelCase with dashes.

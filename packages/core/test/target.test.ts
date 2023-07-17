@@ -1,4 +1,4 @@
-import { expect, fixture, html, nextFrame } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement, target } from '../src';
 
@@ -56,7 +56,7 @@ describe('@target', () => {
       const element = document.createElement('div');
       element.setAttribute('data-target', 'target-initialize-test.sheet');
       el.append(element);
-      await nextFrame();
+      await waitUntil(() => el.sheetConnectedSpy.called);
 
       expect(el.sheetConnectedSpy.calledWith(element, element)).to.be.true;
       expect(el.sheetConnectedSpy.calledOn(el)).to.be.true;
@@ -102,8 +102,9 @@ describe('@target', () => {
       const button = el.querySelector('#button');
       panel?.remove();
       button?.remove();
-      await nextFrame();
 
+      await waitUntil(() => el.panelDisconnectedSpy.called);
+      await waitUntil(() => el.buttonDisconnectedSpy.called);
       expect(el.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
       expect(el.panelDisconnectedSpy.calledOn(el)).to.be.true;
       expect(el.buttonDisconnectedSpy.calledOnceWith(button, button)).to.be.true;

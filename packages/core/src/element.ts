@@ -1,4 +1,5 @@
 import { PropertyConstructor } from './decorators/property';
+import { camelize, dasherize } from './helpers/string';
 import Property from './property';
 import Target from './target';
 import Targets from './targets';
@@ -11,6 +12,7 @@ export default class ImpulseElement extends HTMLElement {
   private property = new Property(this);
   private targets = new Targets(this);
   private target = new Target(this);
+  private _started = false;
 
   async connectedCallback() {
     await domReady();
@@ -22,7 +24,33 @@ export default class ImpulseElement extends HTMLElement {
     await this._resolveUndefinedElements();
     this.targets.start();
     this.target.start();
+    this._started = true;
+
+    this.setAttribute('data-impulse-element', '');
     this.connected();
+  }
+
+  static get observedAttributes(): string[] {
+    return Array.from(this.properties.keys()).map((key) => dasherize(key));
+  }
+
+  attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
+    if (!this._started || _oldValue === _newValue) return;
+
+    const camelizedName = camelize(name);
+    const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
+    if (typeof fn !== 'function') return;
+
+    const { properties } = Object.getPrototypeOf(this).constructor as typeof ImpulseElement;
+    const property = properties.get(camelizedName);
+    if (!property) {
+      throw new Error(
+        `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`
+      );
+    }
+
+    const { newValue, oldValue } = attributeValueTransformer(_newValue, _oldValue, property.type);
+    fn.call(this, newValue, oldValue);
   }
 
   disconnectedCallback() {
@@ -31,6 +59,7 @@ export default class ImpulseElement extends HTMLElement {
     this.targets.stop();
     this.property.stop();
     this.disconnected();
+    this._started = false;
   }
 
   connected() {
@@ -61,6 +90,19 @@ export default class ImpulseElement extends HTMLElement {
     const undefinedElements = Array.from(this.querySelectorAll(':not(:defined)'));
     const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
     await Promise.all(promises);
+  }
+}
+
+function attributeValueTransformer(_newValue: string | null, _oldValue: string | null, type: PropertyConstructor) {
+  switch (type) {
+    case Boolean: {
+      const transform = (value: string | null) => value !== null && value !== 'false';
+      return { newValue: transform(_newValue), oldValue: transform(_oldValue) };
+    }
+    case Number:
+      return { newValue: Number(_newValue), oldValue: Number(_oldValue) };
+    default:
+      return { newValue: _newValue, oldValue: _oldValue };
   }
 }
 

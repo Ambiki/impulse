@@ -37,34 +37,28 @@ export default class Property {
 }
 
 function descriptorProperties(element: HTMLElement, attributeName: string, type: PropertyConstructor) {
-  if (type === Number) {
-    return {
-      get: () => Number(element.getAttribute(attributeName) || 0),
-      set: (value?: number) => {
-        if (typeof value === 'number') {
-          element.setAttribute(attributeName, value.toString());
-        } else {
-          element.removeAttribute(attributeName);
-        }
-      },
-    };
+  switch (type) {
+    case Number:
+      return {
+        get: () => Number(element.getAttribute(attributeName) || 0),
+        set: (value: number) => element.setAttribute(attributeName, (value || 0).toString()),
+      };
+    case Boolean:
+      return {
+        get: () => element.hasAttribute(attributeName) && element.getAttribute(attributeName) !== 'false',
+        set: (value: boolean) => {
+          // Simply toggling the attribute will not work.
+          if (value) {
+            element.setAttribute(attributeName, '');
+          } else {
+            element.removeAttribute(attributeName);
+          }
+        },
+      };
+    default:
+      return {
+        get: () => element.getAttribute(attributeName) || '',
+        set: (value: string) => element.setAttribute(attributeName, value || ''),
+      };
   }
-
-  if (type === Boolean) {
-    return {
-      get: () => element.hasAttribute(attributeName) && element.getAttribute(attributeName) !== 'false',
-      set: (value?: boolean) => element.toggleAttribute(attributeName, !!value),
-    };
-  }
-
-  return {
-    get: () => element.getAttribute(attributeName) || '',
-    set: (value?: string) => {
-      if (value) {
-        element.setAttribute(attributeName, value);
-      } else {
-        element.removeAttribute(attributeName);
-      }
-    },
-  };
 }

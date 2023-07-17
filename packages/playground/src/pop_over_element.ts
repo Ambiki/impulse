@@ -4,7 +4,7 @@ import { ImpulseElement, property, registerElement, target } from '@ambiki/impul
 export default class PopOverElement extends ImpulseElement {
   @property() placement: string;
   @property({ type: Number }) delay: number;
-  @property({ type: Boolean }) fallback: boolean;
+  @property({ type: Boolean }) fallback: boolean = true;
 
   @target() panel: HTMLElement;
 
@@ -25,5 +25,17 @@ export default class PopOverElement extends ImpulseElement {
     console.log({ thisPanel: this.panel });
     await new Promise((resolve) => requestAnimationFrame(resolve));
     console.log('next tick this.panel disconnected: ', this.panel);
+  }
+
+  placementChanged(newValue: string, oldValue: string) {
+    console.log('placement changed: ', { newValue, oldValue });
+  }
+
+  delayChanged(newValue: number, oldValue: number) {
+    console.log('delay changed: ', { newValue, oldValue });
+  }
+
+  fallbackChanged(newValue: boolean, oldValue: boolean) {
+    console.log('fallback changed: ', { newValue, oldValue });
   }
 }

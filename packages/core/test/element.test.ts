@@ -51,12 +51,12 @@ describe('ImpulseElement', () => {
       `);
     });
 
-    it('fires the connected callbacks in order', async () => {
+    it('fires the connected callbacks in order', () => {
       expect(el.connectedSpy.calledAfter(el.panelConnectedSpy)).to.be.true;
       expect(el.connectedSpy.calledAfter(el.sheetsConnectedSpy)).to.be.true;
     });
 
-    it('fires the disconnected callbacks in order', async () => {
+    it('fires the disconnected callbacks in order', () => {
       el.remove();
       expect(el.disconnectedSpy.calledAfter(el.panelDisconnectedSpy)).to.be.true;
       expect(el.disconnectedSpy.calledAfter(el.sheetsDisconnectedSpy)).to.be.true;
