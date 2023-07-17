@@ -55,3 +55,23 @@ export function dasherize(value: string): string {
 export function decamelize(value: string): string {
   return value.replace(STRING_DECAMELIZE_REGEXP, '$1_$2').toLowerCase();
 }
+
+/**
+ * Returns the output of JSON.parse or fallbacks to a specified default value.
+ *
+ * @example
+ * parseJSON('[]');
+ * //=> []
+ *
+ * parseJSON(undefined, '');
+ * //=> ''
+ */
+export function parseJSON(value: string | null | undefined, fallback: unknown = '') {
+  if (!value) return fallback;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}

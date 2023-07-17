@@ -1,6 +1,6 @@
 import type ImpulseElement from '../element';
 
-export type PropertyConstructor = StringConstructor | BooleanConstructor | NumberConstructor;
+export type PropertyConstructor = StringConstructor | BooleanConstructor | NumberConstructor | ArrayConstructor;
 
 export default function property({ type = String }: { type?: PropertyConstructor } = {}) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

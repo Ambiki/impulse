@@ -5,17 +5,22 @@ import { ImpulseElement, property, registerElement } from '../src';
 describe('@property', () => {
   @registerElement('property-test')
   class PropertyTest extends ImpulseElement {
-    placementChangedSpy = Sinon.spy();
-    fallbackChangedSpy = Sinon.spy();
-    startedChangedSpy = Sinon.spy();
-    lastNameChangedSpy = Sinon.spy();
-    joiningChangedSpy = Sinon.spy();
-    timeoutChangedSpy = Sinon.spy();
+    placementChanged = Sinon.fake();
+    fallbackChanged = Sinon.fake();
+    startedChanged = Sinon.fake();
+    lastNameChanged = Sinon.fake();
+    joiningChanged = Sinon.fake();
+    timeoutChanged = Sinon.fake();
+    fruitsChanged = Sinon.fake();
+    sportsChanged = Sinon.fake();
+    namesChanged = Sinon.fake();
+    friendsChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
     @property({ type: Boolean }) fallback: boolean;
     @property({ type: Number }) delay: number;
+    @property({ type: Array }) fruits: string[];
 
     // Default value
     @property() name = 'foo';
@@ -23,40 +28,19 @@ describe('@property', () => {
     @property({ type: Boolean }) newRecord = true;
     @property({ type: Number }) age = 0;
     @property({ type: Number }) session = 12;
+    @property({ type: Array }) sports = ['Football', 'Cricket'];
 
     // Override default value
     @property() value = 'litchi';
     @property({ type: Boolean }) started = true;
     @property({ type: Number }) recordCount = 44;
+    @property({ type: Array }) names: string[] = [];
 
     // Without explicitly setting the default value
     @property() lastName: string;
     @property({ type: Number }) timeout: number;
     @property({ type: Boolean }) joining: boolean;
-
-    placementChanged(newValue: string, oldValue: string) {
-      this.placementChangedSpy.call(this, newValue, oldValue);
-    }
-
-    fallbackChanged(newValue: boolean, oldValue: boolean) {
-      this.fallbackChangedSpy.call(this, newValue, oldValue);
-    }
-
-    startedChanged(newValue: boolean, oldValue: boolean) {
-      this.startedChangedSpy.call(this, newValue, oldValue);
-    }
-
-    lastNameChanged(newValue: string, oldValue: string) {
-      this.lastNameChangedSpy.call(this, newValue, oldValue);
-    }
-
-    joiningChanged(newValue: boolean, oldValue: boolean) {
-      this.joiningChangedSpy.call(this, newValue, oldValue);
-    }
-
-    timeoutChanged(newValue: boolean, oldValue: boolean) {
-      this.timeoutChangedSpy.call(this, newValue, oldValue);
-    }
+    @property({ type: Array }) friends: string[];
   }
 
   let el: PropertyTest;
@@ -66,9 +50,11 @@ describe('@property', () => {
         placement="bottom"
         fallback
         delay="0"
+        fruits='["Guava", "Litchi"]'
         value="guava"
         started="false"
         record-count="22"
+        names='["Md", "Abeid"]'
       ></property-test>
     `);
   });
@@ -82,6 +68,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('delay', 0);
     expect(el).to.have.attribute('delay', '0');
+
+    expect(el).to.have.property('fruits').to.deep.equal(['Guava', 'Litchi']);
+    expect(el).to.have.attribute('fruits').to.deep.equal('["Guava", "Litchi"]');
   });
 
   it('sets the property value by default', () => {
@@ -99,6 +88,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('session', 12);
     expect(el).to.have.attribute('session', '12');
+
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
+    expect(el).to.have.attribute('sports').to.deep.equal('["Football","Cricket"]');
   });
 
   it('default property value can be overwritten from the element', () => {
@@ -110,6 +102,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('recordCount', 22);
     expect(el).to.have.attribute('record-count', '22');
+
+    expect(el).to.have.property('names').to.deep.equal(['Md', 'Abeid']);
+    expect(el).to.have.attribute('names').to.deep.equal('["Md", "Abeid"]');
   });
 
   it('sets the property value to the element', () => {
@@ -121,6 +116,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('joining', false);
     expect(el).not.to.have.attribute('joining');
+
+    expect(el).to.have.property('friends').to.deep.equal([]);
+    expect(el).to.have.attribute('friends').to.deep.equal('[]');
   });
 
   it('value can be assigned to a property', () => {
@@ -148,32 +146,48 @@ describe('@property', () => {
 
   it('calls the property changed callback', () => {
     el.placement = 'top';
-    expect(el.placementChangedSpy.calledOnceWith('top', 'bottom')).to.be.true;
-    expect(el.placementChangedSpy.calledOn(el)).to.be.true;
+    expect(el.placementChanged.calledOnceWith('top', 'bottom')).to.be.true;
+    expect(el.placementChanged.calledOn(el)).to.be.true;
 
     el.fallback = false;
-    expect(el.fallbackChangedSpy.calledOnceWith(false, true)).to.be.true;
-    expect(el.fallbackChangedSpy.calledOn(el)).to.be.true;
+    expect(el.fallbackChanged.calledOnceWith(false, true)).to.be.true;
+    expect(el.fallbackChanged.calledOn(el)).to.be.true;
     el.fallback = true;
-    expect(el.fallbackChangedSpy.calledTwice).to.be.true;
-    expect(el.fallbackChangedSpy.calledWith(true, false)).to.be.true;
-    expect(el.fallbackChangedSpy.calledOn(el)).to.be.true;
+    expect(el.fallbackChanged.calledTwice).to.be.true;
+    expect(el.fallbackChanged.calledWith(true, false)).to.be.true;
+    expect(el.fallbackChanged.calledOn(el)).to.be.true;
 
     // element has `started='false'` attribute.
     el.started = true;
-    expect(el.startedChangedSpy.calledOnceWith(true, false)).to.be.true;
-    expect(el.startedChangedSpy.calledOn(el)).to.be.true;
+    expect(el.startedChanged.calledOnceWith(true, false)).to.be.true;
+    expect(el.startedChanged.calledOn(el)).to.be.true;
 
     el.lastName = 'Fleming';
-    expect(el.lastNameChangedSpy.calledOnceWith('Fleming', '')).to.be.true;
-    expect(el.lastNameChangedSpy.calledOn(el)).to.be.true;
+    expect(el.lastNameChanged.calledOnceWith('Fleming', '')).to.be.true;
+    expect(el.lastNameChanged.calledOn(el)).to.be.true;
 
     el.joining = true;
-    expect(el.joiningChangedSpy.calledOnceWith(true, false)).to.be.true;
-    expect(el.joiningChangedSpy.calledOn(el)).to.be.true;
+    expect(el.joiningChanged.calledOnceWith(true, false)).to.be.true;
+    expect(el.joiningChanged.calledOn(el)).to.be.true;
 
     el.timeout = 100;
-    expect(el.timeoutChangedSpy.calledOnceWith(100, 0)).to.be.true;
-    expect(el.timeoutChangedSpy.calledOn(el)).to.be.true;
+    expect(el.timeoutChanged.calledOnceWith(100, 0)).to.be.true;
+    expect(el.timeoutChanged.calledOn(el)).to.be.true;
+
+    el.fruits = ['Guava'];
+    expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal(['Guava']);
+    expect(el.fruitsChanged.getCall(0).args[1]).to.deep.equal(['Guava', 'Litchi']);
+
+    el.sports = [];
+    expect(el.sportsChanged.getCall(0).args[0]).to.deep.equal([]);
+    expect(el.sportsChanged.getCall(0).args[1]).to.deep.equal(['Football', 'Cricket']);
+
+    el.names = ['Rachel'];
+    expect(el.namesChanged.getCall(0).args[0]).to.deep.equal(['Rachel']);
+    expect(el.namesChanged.getCall(0).args[1]).to.deep.equal(['Md', 'Abeid']);
+
+    el.friends = ['Mike'];
+    expect(el.friendsChanged.getCall(0).args[0]).to.deep.equal(['Mike']);
+    expect(el.friendsChanged.getCall(0).args[1]).to.deep.equal([]);
   });
 });

@@ -55,6 +55,11 @@ function descriptorProperties(element: HTMLElement, attributeName: string, type:
           }
         },
       };
+    case Array:
+      return {
+        get: () => JSON.parse(element.getAttribute(attributeName) || '[]'),
+        set: (value: unknown[]) => element.setAttribute(attributeName, JSON.stringify(value) || '[]'),
+      };
     default:
       return {
         get: () => element.getAttribute(attributeName) || '',

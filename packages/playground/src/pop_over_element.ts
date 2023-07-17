@@ -5,6 +5,7 @@ export default class PopOverElement extends ImpulseElement {
   @property() placement: string;
   @property({ type: Number }) delay: number;
   @property({ type: Boolean }) fallback: boolean = true;
+  @property({ type: Array }) fallbackPlacements = ['top', 'bottom'];
 
   @target() panel: HTMLElement;
 
