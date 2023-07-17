@@ -1,3 +1,4 @@
+import Action from './action';
 import { PropertyConstructor } from './decorators/property';
 import { camelize, dasherize } from './helpers/string';
 import Property from './property';
@@ -12,18 +13,20 @@ export default class ImpulseElement extends HTMLElement {
   private property = new Property(this);
   private targets = new Targets(this);
   private target = new Target(this);
+  private action = new Action(this);
   private _started = false;
 
   async connectedCallback() {
     await domReady();
     customElements.upgrade(this);
-    // Order is important
-    this.property.start();
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     await this._resolveUndefinedElements();
+    // Order is important
+    this.property.start();
     this.targets.start();
     this.target.start();
+    this.action.start();
     this._started = true;
 
     this.setAttribute('data-impulse-element', '');
@@ -55,6 +58,7 @@ export default class ImpulseElement extends HTMLElement {
 
   disconnectedCallback() {
     // Order is important
+    this.action.stop();
     this.target.stop();
     this.targets.stop();
     this.property.stop();

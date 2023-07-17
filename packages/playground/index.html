@@ -7,10 +7,12 @@
     <title>Playground</title>
   </head>
   <body>
-    <pop-over fallback="false">
-      <button type="button">Toggle</button>
-      <div data-target="pop-over.panel">Panel</div>
-    </pop-over>
+    <parent-container>
+      <pop-over fallback="false">
+        <button type="button" data-action="resize@window->pop-over#toggle click->pop-over#toggle">Toggle</button>
+        <div data-target="pop-over.panel">Panel</div>
+      </pop-over>
+    </parent-container>
 
     <div style="margin-top: 1rem">
       <dropdown-menu>

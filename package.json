@@ -5,9 +5,10 @@
   ],
   "version": "0.0.0",
   "scripts": {
-    "dev": "concurrently \"yarn build:core:watch\" \"yarn playground\"",
     "build:core": "yarn workspace @ambiki/impulse build",
     "build:core:watch": "yarn workspace @ambiki/impulse build --watch",
+    "clean": "yarn workspace @ambiki/impulse clean",
+    "dev": "concurrently \"yarn build:core:watch\" \"yarn playground\"",
     "playground": "yarn workspace @ambiki/playground dev",
     "lint": "eslint 'packages/**/*.ts'",
     "prettier": "prettier --write --log-level warn .",

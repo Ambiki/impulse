@@ -1,4 +1,5 @@
 import type ImpulseElement from './element';
+import { getAttributeValues } from './helpers/dom';
 import AttributeObserver from './observers/attribute_observer';
 
 const ATTRIBUTE_NAME = 'data-target';
@@ -26,7 +27,7 @@ export default class Targets {
   }
 
   elementConnected(element: Element) {
-    const values = getIdentifiers(element, ATTRIBUTE_NAME);
+    const values = getAttributeValues(element, ATTRIBUTE_NAME);
     values.forEach((value) => {
       const [elementName, key] = value.split('.');
       if (!elementName || !key || elementName !== this.identifier) return;
@@ -40,7 +41,7 @@ export default class Targets {
   }
 
   elementDisconnected(element: Element) {
-    const values = getIdentifiers(element, ATTRIBUTE_NAME);
+    const values = getAttributeValues(element, ATTRIBUTE_NAME);
     values.forEach((value) => {
       const [elementName, key] = value.split('.');
       if (!elementName || !key || elementName !== this.identifier) return;
@@ -103,8 +104,4 @@ export default class Targets {
   private get identifier() {
     return this.instance.identifier;
   }
-}
-
-function getIdentifiers(target: Element, attributeName: string): string[] {
-  return target.getAttribute(attributeName)?.trim().split(/\s+/) || [];
 }
