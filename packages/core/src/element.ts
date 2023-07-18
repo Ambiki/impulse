@@ -86,6 +86,24 @@ export default class ImpulseElement extends HTMLElement {
     this.targetKeys.add(name);
   }
 
+  /**
+   * Emits a custom event from the element.
+   */
+  emit<T extends Record<string, unknown>>(
+    name: string,
+    {
+      target = this,
+      prefix = this.identifier,
+      detail = {} as T,
+      ...rest
+    }: CustomEventInit<T> & { target?: Element | Window | Document; prefix?: boolean | string } = {}
+  ): CustomEvent<T> {
+    const eventName = prefix ? `${prefix}:${name}` : name;
+    const event = new CustomEvent(eventName, { bubbles: true, composed: true, detail, ...rest });
+    target.dispatchEvent(event);
+    return event;
+  }
+
   get identifier() {
     return this.tagName.toLowerCase();
   }

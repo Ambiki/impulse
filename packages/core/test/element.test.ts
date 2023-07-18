@@ -62,4 +62,72 @@ describe('ImpulseElement', () => {
       expect(el.disconnectedSpy.calledAfter(el.sheetsDisconnectedSpy)).to.be.true;
     });
   });
+
+  describe('emit', () => {
+    @registerElement('element-emit-test')
+    class ElementTest extends ImpulseElement {
+      @target() panel: HTMLElement;
+    }
+
+    let el: ElementTest;
+    beforeEach(async () => {
+      el = await fixture(html`
+        <element-emit-test>
+          <div data-target="element-emit-test.panel"></div>
+        </element-emit-test>
+      `);
+    });
+
+    it('emits a custom event', () => {
+      const handleChange = Sinon.spy();
+      document.addEventListener('element-emit-test:change', handleChange);
+      el.emit('change');
+
+      expect(handleChange).to.have.callCount(1);
+      expect(handleChange.getCall(0).args[0] instanceof CustomEvent).to.be.true;
+    });
+
+    it('prefix can be changed', () => {
+      const handleChange = Sinon.spy();
+      document.addEventListener('foo:change', handleChange);
+      el.emit('change', { prefix: 'foo' });
+
+      expect(handleChange).to.have.callCount(1);
+    });
+
+    it('prefix can be removed', () => {
+      const handleChange = Sinon.spy();
+      document.addEventListener('change', handleChange);
+      el.emit('change', { prefix: false });
+
+      expect(handleChange).to.have.callCount(1);
+    });
+
+    it('detail defaults to an empty object', () => {
+      const handleChange = Sinon.spy();
+      document.addEventListener('element-emit-test:change', handleChange);
+      el.emit('change');
+
+      expect(handleChange).to.have.callCount(1);
+      expect(handleChange.getCall(0).args[0].detail).to.deep.equal({});
+    });
+
+    it('detail can be set', () => {
+      const handleChange = Sinon.spy();
+      document.addEventListener('element-emit-test:change', handleChange);
+      el.emit<Record<string, string>>('change', { detail: { foo: 'bar' } });
+
+      expect(handleChange).to.have.callCount(1);
+      expect(handleChange.getCall(0).args[0].detail).to.deep.equal({ foo: 'bar' });
+    });
+
+    it('target can be changed', () => {
+      const handleChange = Sinon.spy();
+      el.panel.addEventListener('element-emit-test:change', handleChange);
+      el.emit('change', { target: el.panel });
+
+      expect(handleChange).to.have.callCount(1);
+      expect(handleChange.getCall(0).args[0].detail).to.deep.equal({});
+    });
+  });
 });
