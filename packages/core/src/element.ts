@@ -107,6 +107,8 @@ function attributeValueTransformer(_newValue: string | null, _oldValue: string |
       return { newValue: Number(_newValue), oldValue: Number(_oldValue) };
     case Array:
       return { newValue: parseJSON(_newValue, []), oldValue: parseJSON(_oldValue, []) };
+    case Object:
+      return { newValue: parseJSON(_newValue, {}), oldValue: parseJSON(_oldValue, {}) };
     default:
       return { newValue: _newValue, oldValue: _oldValue };
   }

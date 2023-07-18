@@ -15,12 +15,15 @@ describe('@property', () => {
     sportsChanged = Sinon.fake();
     namesChanged = Sinon.fake();
     friendsChanged = Sinon.fake();
+    configChanged = Sinon.fake();
+    zeroConfigChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
     @property({ type: Boolean }) fallback: boolean;
     @property({ type: Number }) delay: number;
     @property({ type: Array }) fruits: string[];
+    @property({ type: Object }) config: Record<string, string>;
 
     // Default value
     @property() name = 'foo';
@@ -29,18 +32,21 @@ describe('@property', () => {
     @property({ type: Number }) age = 0;
     @property({ type: Number }) session = 12;
     @property({ type: Array }) sports = ['Football', 'Cricket'];
+    @property({ type: Object }) defaultConfig = { routes: false };
 
     // Override default value
     @property() value = 'litchi';
     @property({ type: Boolean }) started = true;
     @property({ type: Number }) recordCount = 44;
     @property({ type: Array }) names: string[] = [];
+    @property({ type: Object }) overrideConfig = {};
 
     // Without explicitly setting the default value
     @property() lastName: string;
     @property({ type: Number }) timeout: number;
     @property({ type: Boolean }) joining: boolean;
     @property({ type: Array }) friends: string[];
+    @property({ type: Object }) zeroConfig: Record<string, string>;
   }
 
   let el: PropertyTest;
@@ -51,10 +57,12 @@ describe('@property', () => {
         fallback
         delay="0"
         fruits='["Guava", "Litchi"]'
+        config='{ "foo": "bar" }'
         value="guava"
         started="false"
         record-count="22"
         names='["Md", "Abeid"]'
+        override-config='{ "property": false }'
       ></property-test>
     `);
   });
@@ -71,6 +79,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('fruits').to.deep.equal(['Guava', 'Litchi']);
     expect(el).to.have.attribute('fruits').to.deep.equal('["Guava", "Litchi"]');
+
+    expect(el).to.have.property('config').to.deep.equal({ foo: 'bar' });
+    expect(el).to.have.attribute('config').to.deep.equal('{ "foo": "bar" }');
   });
 
   it('sets the property value by default', () => {
@@ -91,6 +102,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
     expect(el).to.have.attribute('sports').to.deep.equal('["Football","Cricket"]');
+
+    expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
+    expect(el).to.have.attribute('default-config').to.deep.equal('{"routes":false}');
   });
 
   it('default property value can be overwritten from the element', () => {
@@ -105,6 +119,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('names').to.deep.equal(['Md', 'Abeid']);
     expect(el).to.have.attribute('names').to.deep.equal('["Md", "Abeid"]');
+
+    expect(el).to.have.property('overrideConfig').to.deep.equal({ property: false });
+    expect(el).to.have.attribute('override-config').to.deep.equal('{ "property": false }');
   });
 
   it('sets the property value to the element', () => {
@@ -119,6 +136,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('friends').to.deep.equal([]);
     expect(el).to.have.attribute('friends').to.deep.equal('[]');
+
+    expect(el).to.have.property('zeroConfig').to.deep.equal({});
+    expect(el).to.have.attribute('zero-config').to.deep.equal('{}');
   });
 
   it('value can be assigned to a property', () => {
@@ -142,6 +162,10 @@ describe('@property', () => {
     el.delay = 0;
     expect(el).to.have.property('delay', 0);
     expect(el).to.have.attribute('delay', '0');
+
+    el.zeroConfig = { fallback: 'yes' };
+    expect(el).to.have.property('zeroConfig').to.deep.equal({ fallback: 'yes' });
+    expect(el).to.have.attribute('zero-config').to.deep.equal('{"fallback":"yes"}');
   });
 
   it('calls the property changed callback', () => {
@@ -189,5 +213,13 @@ describe('@property', () => {
     el.friends = ['Mike'];
     expect(el.friendsChanged.getCall(0).args[0]).to.deep.equal(['Mike']);
     expect(el.friendsChanged.getCall(0).args[1]).to.deep.equal([]);
+
+    el.config = { bar: 'foo' };
+    expect(el.configChanged.getCall(0).args[0]).to.deep.equal({ bar: 'foo' });
+    expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
+
+    el.zeroConfig = { name: 'Abeid' };
+    expect(el.zeroConfigChanged.getCall(0).args[0]).to.deep.equal({ name: 'Abeid' });
+    expect(el.zeroConfigChanged.getCall(0).args[1]).to.deep.equal({});
   });
 });
