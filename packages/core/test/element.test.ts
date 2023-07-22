@@ -6,39 +6,15 @@ describe('ImpulseElement', () => {
   describe('callbacks', () => {
     @registerElement('element-connected-callback')
     class ElementTest extends ImpulseElement {
-      connectedSpy = Sinon.spy();
-      disconnectedSpy = Sinon.spy();
-      panelConnectedSpy = Sinon.spy();
-      panelDisconnectedSpy = Sinon.spy();
-      sheetsConnectedSpy = Sinon.spy();
-      sheetsDisconnectedSpy = Sinon.spy();
+      connected = Sinon.fake();
+      disconnected = Sinon.fake();
+      panelConnected = Sinon.fake();
+      panelDisconnected = Sinon.fake();
+      sheetsConnected = Sinon.fake();
+      sheetsDisconnected = Sinon.fake();
 
       @target() panel: HTMLElement;
       @targets() sheets: HTMLElement[];
-
-      connected() {
-        this.connectedSpy();
-      }
-
-      disconnected() {
-        this.disconnectedSpy();
-      }
-
-      panelConnected() {
-        this.panelConnectedSpy();
-      }
-
-      panelDisconnected() {
-        this.panelDisconnectedSpy();
-      }
-
-      sheetsConnected() {
-        this.sheetsConnectedSpy();
-      }
-
-      sheetsDisconnected() {
-        this.sheetsDisconnectedSpy();
-      }
     }
 
     let el: ElementTest;
@@ -52,14 +28,14 @@ describe('ImpulseElement', () => {
     });
 
     it('fires the connected callbacks in order', () => {
-      expect(el.connectedSpy.calledAfter(el.panelConnectedSpy)).to.be.true;
-      expect(el.connectedSpy.calledAfter(el.sheetsConnectedSpy)).to.be.true;
+      expect(el.connected.calledAfter(el.panelConnected)).to.be.true;
+      expect(el.connected.calledAfter(el.sheetsConnected)).to.be.true;
     });
 
     it('fires the disconnected callbacks in order', () => {
       el.remove();
-      expect(el.disconnectedSpy.calledAfter(el.panelDisconnectedSpy)).to.be.true;
-      expect(el.disconnectedSpy.calledAfter(el.sheetsDisconnectedSpy)).to.be.true;
+      expect(el.disconnected.calledAfter(el.panelDisconnected)).to.be.true;
+      expect(el.disconnected.calledAfter(el.sheetsDisconnected)).to.be.true;
     });
   });
 
