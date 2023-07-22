@@ -31,7 +31,7 @@ export default class ClipBoardElement extends ImpulseElement {
 Next, we need to tell Impulse how this element should be linked to the DOM. To do this, first, we will register the
 element.
 
-```ts
+```ts{4}
 // clip_board_element.ts
 import { ImpulseElement, registerElement } from 'impulse';
 
@@ -42,7 +42,7 @@ export default class ClipBoardElement extends ImpulseElement {
 
 Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 
-```html
+```html{1,4}
 <clip-board>
   <input type="text" value="Copy this value!" readonly>
   <button type="button">Copy</button>
@@ -51,7 +51,7 @@ Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 
 ## Binding actions and responding to it
 
-```ts
+```ts{6-8}
 // clip_board_element.ts
 import { ImpulseElement, registerElement } from 'impulse';
 
@@ -67,7 +67,7 @@ We want to call the `copy` function when the button is clicked. You can do this 
 in the `connected` [hook](/reference/lifecycle-callbacks.md), but Impulse has a better way of doing it. Impulse will automatically
 remove the event listener when the element is removed from the DOM.
 
-```html
+```html{3}
 <clip-board>
   <input type="text" value="Copy this value!" readonly>
   <button type="button" data-action="click->clip-board#copy">Copy</button>
@@ -99,7 +99,7 @@ In the above code, we retrieved the value by first querying (`querySelector`) th
 value attribute of the input element. There's nothing wrong in doing that, but Impulse has a robust way of querying
 targets using the `@target()` decorator. [Learn more](/reference/targets.md).
 
-```ts
+```ts{6,9-10}
 // clip_board_element.ts
 import { ImpulseElement, registerElement, target } from 'impulse';
 
@@ -114,7 +114,7 @@ export default class ClipBoardElement extends ImpulseElement {
 }
 ```
 
-```html
+```html{2}
 <clip-board>
   <input type="text" value="Copy this value!" readonly data-target="clip-board.input">
   <button type="button" data-action="click->clip-board#copy">Copy</button>
