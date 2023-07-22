@@ -36,7 +36,7 @@ The `data-action` value `click->greet-user#greet` is called an action descriptor
 You can add `@window` or `@document` to the descriptor to listen for events on the `window` or `document` respectively.
 
 ```html
-<image-gallery data-action="resize@window->image-gallery#resize-layout">
+<image-gallery data-action="resize@window->image-gallery#resizeLayout">
 </image-gallery>
 ```
 

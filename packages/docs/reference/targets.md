@@ -9,7 +9,7 @@ The `data-target` attribute is a space-separated list of target names that can b
 ```html
 <greet-user>
   <div data-target="greet-user.result"></div>
-  <div data-target="greet-user.error-message"></div>
+  <div data-target="greet-user.errorMessage"></div>
 </greet-user>
 ```
 
@@ -21,7 +21,7 @@ An element can have multiple target references.
 <user-settings>
   <greet-user>
     <div data-target="greet-user.result user-settings.result"></div>
-    <div data-target="greet-user.error-message"></div>
+    <div data-target="greet-user.errorMessage"></div>
   </greet-user>
 </user-settings>
 ```
