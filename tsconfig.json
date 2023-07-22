@@ -19,5 +19,5 @@
     "target": "ES2020",
     "useDefineForClassFields": false
   },
-  "include": ["packages/core", "packages/playground"]
+  "include": ["packages/core", "packages/playground", "packages/docs"]
 }
