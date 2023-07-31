@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2023-07-31
+
 ### Changed
 
-- Drop build target to `2017`
+- Drop build target to `2017` ([#6](https://github.com/Ambiki/impulse/pull/6))
 
 ## [0.1.2] - 2023-07-31
 
