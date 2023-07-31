@@ -70,7 +70,6 @@ export default class Targets {
 
     const targets = this.findTargets(key);
     targets.forEach((target) => this.processRemovedElement(key, target));
-    this.defineProperty(key, targets);
   }
 
   private defineProperty(key: string, value: Element[]) {
