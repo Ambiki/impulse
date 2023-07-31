@@ -138,4 +138,29 @@ describe('@targets', () => {
     expect(el.panelsDisconnectedSpy.getCall(0).args).to.deep.equal([panels[0], panels]);
     expect(el.panelsDisconnectedSpy.getCall(1).args).to.deep.equal([panels[1], panels]);
   });
+
+  it('can access the targets when element is removed from the DOM', async () => {
+    @registerElement('targets-element-disconnect-test')
+    class TargetTest extends ImpulseElement {
+      disconnectedSpy = Sinon.spy();
+
+      @targets() panels: HTMLElement;
+
+      disconnected() {
+        this.disconnectedSpy.call(this, this.panels);
+      }
+    }
+
+    const el: TargetTest = await fixture(html`
+      <targets-element-disconnect-test>
+        <div class="panel" data-target="targets-element-disconnect-test.panels">
+      </targets-element-disconnect-test>
+    `);
+
+    const panels = Array.from(el.querySelectorAll('.panel'));
+    el.remove();
+
+    expect(el.disconnectedSpy.getCall(0).args).to.deep.equal([panels]);
+    expect(el.disconnectedSpy.calledOn(el)).to.be.true;
+  });
 });

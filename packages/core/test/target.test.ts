@@ -144,4 +144,29 @@ describe('@target', () => {
     expect(el.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
     expect(el.panelDisconnectedSpy.calledOn(el)).to.be.true;
   });
+
+  it('can access the target when element is removed from the DOM', async () => {
+    @registerElement('target-element-disconnect-test')
+    class TargetTest extends ImpulseElement {
+      disconnectedSpy = Sinon.spy();
+
+      @target() panel: HTMLElement;
+
+      disconnected() {
+        this.disconnectedSpy.call(this, this.panel);
+      }
+    }
+
+    const el: TargetTest = await fixture(html`
+      <target-element-disconnect-test>
+        <div id="panel1" data-target="target-element-disconnect-test.panel">
+      </target-element-disconnect-test>
+    `);
+
+    const panel = el.querySelector('#panel1');
+    el.remove();
+
+    expect(el.disconnectedSpy.calledOnceWith(panel)).to.be.true;
+    expect(el.disconnectedSpy.calledOn(el)).to.be.true;
+  });
 });
