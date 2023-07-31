@@ -1,4 +1,9 @@
-import type ImpulseElement from '../element';
+import Store from '../store';
+
+export type PropertyType = {
+  key: string;
+  type: PropertyConstructor;
+};
 
 export type PropertyConstructor =
   | StringConstructor
@@ -9,7 +14,8 @@ export type PropertyConstructor =
 
 export default function property({ type = String }: { type?: PropertyConstructor } = {}) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (ctor: any, name: string) => {
-    (ctor.constructor as typeof ImpulseElement).registerProperty(name, { type });
+  return (ctor: any, key: string) => {
+    const store = new Store(ctor, 'property');
+    store.add({ key, type });
   };
 }

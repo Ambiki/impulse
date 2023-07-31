@@ -1,14 +1,18 @@
+import type { PropertyConstructor, PropertyType } from './decorators/property';
 import type ImpulseElement from './element';
 import { dasherize } from './helpers/string';
-import { PropertyConstructor } from './decorators/property';
+import Store from './store';
 
 export default class Property {
+  private store: Store;
+
   constructor(private instance: ImpulseElement) {
     this.instance = instance;
+    this.store = new Store(Object.getPrototypeOf(this.instance), 'property');
   }
 
   start() {
-    for (const [key, { type }] of this.values.entries()) {
+    for (const [{ key, type }] of this.values.entries()) {
       this.initializeProperty(key, type);
     }
   }
@@ -18,9 +22,6 @@ export default class Property {
   }
 
   private initializeProperty(key: string, type: PropertyConstructor) {
-    // Do not initialize property that is not defined in the element.
-    if (!Object.prototype.hasOwnProperty.call(this.instance, key)) return;
-
     const attributeName = dasherize(key);
     const defaultValue = (this.instance as unknown as Record<string, unknown>)[key];
     const descriptor: PropertyDescriptor = {
@@ -35,7 +36,7 @@ export default class Property {
   }
 
   private get values() {
-    return (Object.getPrototypeOf(this.instance).constructor as typeof ImpulseElement).properties;
+    return this.store.value as Set<PropertyType>;
   }
 }
 

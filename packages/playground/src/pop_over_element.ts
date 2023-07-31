@@ -14,9 +14,9 @@ export default class PopOverElement extends ImpulseElement {
   }
 
   // connected() {
-  //   console.log('connected: ', this.panel);
+  // console.log('connected: ', this.panel);
   // }
-  //
+
   // disconnected() {
   //   console.log('disconnected: ', this.panel);
   // }

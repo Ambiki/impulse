@@ -1,28 +1,27 @@
 import type ImpulseElement from './element';
 import { getAttributeValues } from './helpers/dom';
 import AttributeObserver from './observers/attribute_observer';
+import Store from './store';
 
 const ATTRIBUTE_NAME = 'data-target';
 
 export default class Target {
+  private store: Store;
   private attributeObserver: AttributeObserver;
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
+    this.store = new Store(Object.getPrototypeOf(this.instance), 'target');
     this.attributeObserver = new AttributeObserver(this.instance, ATTRIBUTE_NAME, this);
   }
 
   start() {
     this.attributeObserver.start();
-    for (const [key] of this.targetKeys.entries()) {
-      this.initializeKey(key);
-    }
+    this.targetKeys.forEach((key) => this.initializeKey(key));
   }
 
   stop() {
-    for (const [key] of this.targetKeys.entries()) {
-      this.terminateKey(key);
-    }
+    this.targetKeys.forEach((key) => this.terminateKey(key));
     this.attributeObserver.stop();
   }
 
@@ -32,7 +31,7 @@ export default class Target {
       const [elementName, key] = value.split('.');
       if (!elementName || !key || elementName !== this.identifier) return;
       // Element needs to be registered before we can process its addition.
-      if (!this.targetKeys.has(key)) return;
+      if (!this.targetKeys.includes(key)) return;
       // In the callback function, we should be able to call `this.element` and get back the element. Therefore, we
       // need to set the property before calling the function.
       this.defineProperty(key, element);
@@ -46,7 +45,7 @@ export default class Target {
       const [elementName, key] = value.split('.');
       if (!elementName || !key || elementName !== this.identifier) return;
       // Element needs to be registered before we can process its removal.
-      if (!this.targetKeys.has(key)) return;
+      if (!this.targetKeys.includes(key)) return;
       this.processRemovedElement(key, element);
       // In the callback function, we should be able to call `this.element` and get back the element. Therefore, we
       // need to set the property after calling the function. If you need an updated element (i.e., null) within this
@@ -57,7 +56,7 @@ export default class Target {
 
   private initializeKey(key: string) {
     // If the key has not been registered, return.
-    if (!this.targetKeys.has(key)) return;
+    if (!this.targetKeys.includes(key)) return;
 
     const target = this.findTarget(key);
     this.defineProperty(key, target);
@@ -66,7 +65,7 @@ export default class Target {
 
   private terminateKey(key: string) {
     // If the key has not been registered, return.
-    if (!this.targetKeys.has(key)) return;
+    if (!this.targetKeys.includes(key)) return;
 
     const target = this.findTarget(key);
     if (target) this.processRemovedElement(key, target);
@@ -97,7 +96,7 @@ export default class Target {
   }
 
   private get targetKeys() {
-    return (Object.getPrototypeOf(this.instance).constructor as typeof ImpulseElement).targetKeys;
+    return Array.from(this.store.value as Set<{ key: string }>).map(({ key }) => key);
   }
 
   private get identifier() {
