@@ -29,7 +29,7 @@
     "build": "rollup --config rollup.config.js",
     "build:watch": "rollup --config rollup.config.js --watch",
     "clean": "rm -fr dist",
-    "prerelease": "yarn clean && yarn build && git --no-pager diff && echo && npm pack --dry-run",
+    "prepublishOnly": "yarn clean && yarn build",
     "test": "web-test-runner",
     "test:watch": "web-test-runner --watch"
   },
