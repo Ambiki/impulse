@@ -19,11 +19,11 @@ export default class ImpulseElement extends HTMLElement {
   async connectedCallback() {
     await domReady();
     customElements.upgrade(this);
+    // Order is important
+    this.property.start();
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     await this._resolveUndefinedElements();
-    // Order is important
-    this.property.start();
     this.targets.start();
     this.target.start();
     this.action.start();

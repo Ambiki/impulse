@@ -70,7 +70,6 @@ export default class Target {
 
     const target = this.findTarget(key);
     if (target) this.processRemovedElement(key, target);
-    this.defineProperty(key, null);
   }
 
   private defineProperty(key: string, value: Element | null) {
