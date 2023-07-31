@@ -1,22 +1,22 @@
 {
   "name": "@ambiki/impulse",
   "version": "0.1.0",
-  "author": "Ambitious Idea Labs",
+  "author": "Ambitious Idea Labs <info@ambiki.com> (https://ambiki.com/)",
   "contributors": [
     "Abeid Ahmed <aahmed@mysidekicktherapy.com>"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/impulsejs/impulse.git"
+    "url": "git+https://github.com/Ambiki/impulse.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/impulsejs/impulse/issues"
+    "url": "https://github.com/Ambiki/impulse/issues"
   },
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/impulsejs/impulse#readme",
+  "homepage": "https://github.com/Ambiki/impulse#readme",
   "type": "module",
   "module": "dist/index.js",
   "main": "dist/index.umd.js",
