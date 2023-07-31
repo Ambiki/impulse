@@ -7,6 +7,6 @@ export default {
   concurrentBrowsers: 3,
   nodeResolve: true,
   preserveSymlinks: true,
-  plugins: [esbuildPlugin({ ts: true, target: 'es2020' })],
+  plugins: [esbuildPlugin({ ts: true, target: 'es2017' })],
   watch: process.argv.includes('--watch'),
 };
