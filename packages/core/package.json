@@ -1,6 +1,7 @@
 {
   "name": "@ambiki/impulse",
   "version": "0.1.0",
+  "description": "A JavaScript framework that leverages the Web Components API.",
   "author": "Ambitious Idea Labs <info@ambiki.com> (https://ambiki.com/)",
   "contributors": [
     "Abeid Ahmed <aahmed@mysidekicktherapy.com>"
@@ -24,6 +25,9 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist"
+  ],
+  "keywords": [
+    "web-components"
   ],
   "scripts": {
     "build": "rollup --config rollup.config.js",
