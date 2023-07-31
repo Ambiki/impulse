@@ -18,6 +18,9 @@ export default class Property {
   }
 
   private initializeProperty(key: string, type: PropertyConstructor) {
+    // Do not initialize property that is not defined in the element.
+    if (!Object.prototype.hasOwnProperty.call(this.instance, key)) return;
+
     const attributeName = dasherize(key);
     const defaultValue = (this.instance as unknown as Record<string, unknown>)[key];
     const descriptor: PropertyDescriptor = {

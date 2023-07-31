@@ -74,7 +74,7 @@ export default class ImpulseElement extends HTMLElement {
     // Override in your subclass to respond when the element is removed from the DOM.
   }
 
-  static addProperty(name: string, { type }: { type: PropertyConstructor }) {
+  static registerProperty(name: string, { type }: { type: PropertyConstructor }) {
     this.properties.set(name, { type });
   }
 
