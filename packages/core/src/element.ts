@@ -1,15 +1,12 @@
 import Action from './action';
-import { PropertyConstructor } from './decorators/property';
+import type { PropertyConstructor, PropertyType } from './decorators/property';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
+import Store from './store';
 import Target from './target';
 import Targets from './targets';
 
 export default class ImpulseElement extends HTMLElement {
-  static properties = new Map<string, { type: PropertyConstructor }>();
-  static targetsKeys = new Set<string>();
-  static targetKeys = new Set<string>();
-
   private property = new Property(this);
   private targets = new Targets(this);
   private target = new Target(this);
@@ -34,7 +31,8 @@ export default class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    return Array.from(this.properties.keys()).map((key) => dasherize(key));
+    const store = new Store(this.prototype, 'property');
+    return Array.from(store.value as Set<PropertyType>).map(({ key }) => dasherize(key));
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
@@ -44,8 +42,9 @@ export default class ImpulseElement extends HTMLElement {
     const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
     if (typeof fn !== 'function') return;
 
-    const { properties } = Object.getPrototypeOf(this).constructor as typeof ImpulseElement;
-    const property = properties.get(camelizedName);
+    const store = new Store(Object.getPrototypeOf(this), 'property');
+    const propertyArray = Array.from(store.value as Set<PropertyType>).map(({ key, type }) => ({ key, type }));
+    const property = propertyArray.find(({ key }) => key === camelizedName);
     if (!property) {
       throw new Error(
         `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`
@@ -72,18 +71,6 @@ export default class ImpulseElement extends HTMLElement {
 
   disconnected() {
     // Override in your subclass to respond when the element is removed from the DOM.
-  }
-
-  static addProperty(name: string, { type }: { type: PropertyConstructor }) {
-    this.properties.set(name, { type });
-  }
-
-  static registerTargets(name: string) {
-    this.targetsKeys.add(name);
-  }
-
-  static registerTarget(name: string) {
-    this.targetKeys.add(name);
   }
 
   /**
