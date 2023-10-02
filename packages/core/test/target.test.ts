@@ -1,172 +1,187 @@
-import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
+import { expect, fixture, html, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement, target } from '../src';
 
 describe('@target', () => {
-  describe('initialize', () => {
-    @registerElement('target-initialize-test')
-    class TargetTest extends ImpulseElement {
-      panelConnectedSpy = Sinon.spy();
-      buttonConnectedSpy = Sinon.spy();
-      sheetConnectedSpy = Sinon.spy();
+  @registerElement('target-test')
+  class TargetTest extends ImpulseElement {
+    connectedSpy = Sinon.spy();
+    disconnectedSpy = Sinon.spy();
+    panelConnectedSpy = Sinon.spy();
+    buttonConnectedSpy = Sinon.spy();
+    sheetConnectedSpy = Sinon.spy();
+    panelDisconnectedSpy = Sinon.spy();
+    buttonDisconnectedSpy = Sinon.spy();
+    sheetDisconnectedSpy = Sinon.spy();
 
-      @target() panel: HTMLElement;
-      @target() button: HTMLButtonElement;
-      @target() sheet: HTMLElement;
+    @target() panel: HTMLElement;
+    @target() sheet: HTMLElement;
+    @target() button: HTMLButtonElement;
 
-      panelConnected(panel: HTMLElement) {
-        this.panelConnectedSpy.call(this, panel, this.panel);
-      }
-
-      buttonConnected(button: HTMLButtonElement) {
-        this.buttonConnectedSpy.call(this, button, this.button);
-      }
-
-      sheetConnected(sheet: HTMLElement) {
-        this.sheetConnectedSpy.call(this, sheet, this.sheet);
-      }
+    connected() {
+      this.connectedSpy();
     }
 
-    let el: TargetTest;
-    beforeEach(async () => {
-      el = await fixture(html`
-        <target-initialize-test>
-          <div id="panel1" data-target="target-initialize-test.panel"></div>
-          <div id="panel2" data-target="target-initialize-test.panel"></div>
-          <button type="button" id="button" data-target="target-initialize-test.button"></button>
-        </target-initialize-test>
-      `);
-    });
-
-    it('callbacks are invoked when the target connects to the DOM', () => {
-      const panel = el.querySelector('#panel1');
-      const button = el.querySelector('#button');
-
-      expect(el.panelConnectedSpy.calledOnceWith(panel, panel)).to.be.true;
-      expect(el.panelConnectedSpy.calledOn(el)).to.be.true;
-      expect(el.buttonConnectedSpy.calledOnceWith(button, button)).to.be.true;
-      expect(el.buttonConnectedSpy.calledOn(el)).to.be.true;
-    });
-
-    it('can reference the target', () => {
-      expect(el).to.have.property('panel').exist.with.attribute('id', 'panel1');
-    });
-
-    it('calls the lifecycle function after appending the target element', async () => {
-      const element = document.createElement('div');
-      element.setAttribute('data-target', 'target-initialize-test.sheet');
-      el.append(element);
-      await waitUntil(() => el.sheetConnectedSpy.called);
-
-      expect(el.sheetConnectedSpy.calledWith(element, element)).to.be.true;
-      expect(el.sheetConnectedSpy.calledOn(el)).to.be.true;
-    });
-  });
-
-  describe('terminates the target', () => {
-    @registerElement('target-terminate-test')
-    class TargetTest extends ImpulseElement {
-      panelDisconnectedSpy = Sinon.spy();
-      sheetDisconnectedSpy = Sinon.spy();
-      buttonDisconnectedSpy = Sinon.spy();
-
-      @target() panel: HTMLElement;
-      @target() button: HTMLButtonElement;
-
-      panelDisconnected(panel: HTMLElement) {
-        this.panelDisconnectedSpy.call(this, panel, this.panel);
-      }
-
-      sheetDisconnected() {
-        this.sheetDisconnectedSpy();
-      }
-
-      buttonConnected(button: HTMLButtonElement) {
-        this.buttonDisconnectedSpy.call(this, button, this.button);
-      }
+    disconnected() {
+      this.disconnectedSpy();
     }
 
-    let el: TargetTest;
-    beforeEach(async () => {
-      el = await fixture(html`
-        <target-terminate-test>
-          <div id="panel1" data-target="target-terminate-test.panel"></div>
-          <div id="sheet" data-target="target-terminate-test.sheet"></div>
-          <button type="button" id="button" data-target="target-terminate-test.button"></button>
-        </target-terminate-test>
-      `);
-    });
-
-    it('calls the target disconnected callback', async () => {
-      const panel = el.querySelector('#panel1');
-      const button = el.querySelector('#button');
-      panel?.remove();
-      button?.remove();
-
-      await waitUntil(() => el.panelDisconnectedSpy.called);
-      await waitUntil(() => el.buttonDisconnectedSpy.called);
-      expect(el.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
-      expect(el.panelDisconnectedSpy.calledOn(el)).to.be.true;
-      expect(el.buttonDisconnectedSpy.calledOnceWith(button, button)).to.be.true;
-      expect(el.buttonDisconnectedSpy.calledOn(el)).to.be.true;
-    });
-
-    it('does not call target disconnected callback for unregistered target', async () => {
-      const sheet = el.querySelector('sheet');
-      sheet?.remove();
-      await nextFrame();
-
-      expect(el.sheetDisconnectedSpy.called).to.be.false;
-    });
-  });
-
-  it('terminates the target when the element is removed from the DOM', async () => {
-    @registerElement('target-element-terminate-test')
-    class TargetTest extends ImpulseElement {
-      panelDisconnectedSpy = Sinon.spy();
-
-      @target() panel: HTMLElement;
-
-      panelDisconnected(panel: HTMLElement) {
-        this.panelDisconnectedSpy.call(this, panel, this.panel);
-      }
+    panelConnected(panel: HTMLElement) {
+      this.panelConnectedSpy(panel, this.panel);
     }
 
-    const el: TargetTest = await fixture(html`
-      <target-element-terminate-test>
-        <div id="panel1" data-target="target-element-terminate-test.panel"></div>
-      </target-element-terminate-test>
+    buttonConnected(button: HTMLButtonElement) {
+      this.buttonConnectedSpy(button, this.button);
+    }
+
+    sheetConnected(sheet: HTMLElement) {
+      this.sheetConnectedSpy(sheet, this.sheet);
+    }
+
+    panelDisconnected(panel: HTMLElement) {
+      this.panelDisconnectedSpy(panel, this.panel);
+    }
+
+    buttonDisconnected(button: HTMLButtonElement) {
+      this.buttonDisconnectedSpy(button, this.button);
+    }
+
+    sheetDisconnected(sheet: HTMLElement) {
+      this.sheetDisconnectedSpy(sheet, this.sheet);
+    }
+  }
+
+  let el: TargetTest;
+  beforeEach(async () => {
+    el = await fixture(html`
+      <target-test>
+        <div id="panel" data-target="target-test.panel"></div>
+        <button type="button" id="button" data-target="target-test.button"></button>
+        <target-test>
+          <div id="panel2" data-target="target-test.panel"></div>
+          <div id="sheet" data-target="target-test.sheet"></div>
+        </target-test>
+      </target-test>
     `);
+  });
 
-    const panel = el.querySelector('#panel1');
+  it('should be able to reference the target', () => {
+    expect(el.panel).to.eq(el.querySelector('#panel'));
+    expect(el.button).to.eq(el.querySelector('#button'));
+  });
+
+  it('should ignore child element target', () => {
+    expect(el.sheet).to.eq(null);
+
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    expect(el2.sheet).to.eq(el2?.querySelector('#sheet'));
+  });
+
+  it('should call the lifecycle callback function when target is connected to the DOM', () => {
+    const panel = el.querySelector('#panel');
+    const button = el.querySelector('#button');
+
+    expect(el.panelConnectedSpy.calledOnceWith(panel, panel)).to.be.true;
+    expect(el.buttonConnectedSpy.calledOnceWith(button, button)).to.be.true;
+    expect(el.sheetConnectedSpy.notCalled).to.be.true;
+
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const sheet = el2.querySelector('#sheet');
+    expect(el2.sheetConnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
+  });
+
+  it('should call the lifecycle callback function when a target is inserted to the DOM', async () => {
+    const sheet = document.createElement('div');
+    sheet.setAttribute('data-target', `${el.identifier}.sheet`);
+    el.append(sheet);
+
+    await waitUntil(() => el.sheetConnectedSpy.called);
+    expect(el.sheetConnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
+  });
+
+  it('should call the child lifecycle callback function when a target is inserted to the DOM', async () => {
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const button = document.createElement('div');
+    button.setAttribute('data-target', `${el2.identifier}.button`);
+    el2.append(button);
+
+    await waitUntil(() => el2.buttonConnectedSpy.called);
+    expect(el2.buttonConnectedSpy.calledOnceWith(button, button)).to.be.true;
+    expect(el.buttonConnectedSpy.calledOnce).to.be.true; // when first connected
+  });
+
+  it('should call the connected callback after [target]Connected callback', () => {
+    expect(el.connectedSpy.calledAfter(el.panelConnectedSpy)).to.be.true;
+    expect(el.connectedSpy.calledAfter(el.buttonConnectedSpy)).to.be.true;
+  });
+
+  it('should not call the [target]Connected callback if the identifier do not match', () => {
+    const div = document.createElement('div');
+    div.setAttribute('data-target', 'unknown-identifier.sheet');
+    el.append(div);
+
+    expect(el.sheetConnectedSpy.notCalled).to.be.true;
+  });
+
+  it('should call the lifecycle callback function when target is disconnected from the DOM', () => {
+    const panel = el.querySelector('#panel');
+    const button = el.querySelector('#button');
+
     el.remove();
 
     expect(el.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
-    expect(el.panelDisconnectedSpy.calledOn(el)).to.be.true;
+    expect(el.buttonDisconnectedSpy.calledOnceWith(button, button)).to.be.true;
+    expect(el.sheetDisconnectedSpy.notCalled).to.be.true;
+
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const sheet = el2.querySelector('#sheet');
+    expect(el2.sheetDisconnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
   });
 
-  it('can access the target when element is removed from the DOM', async () => {
-    @registerElement('target-element-disconnect-test')
-    class TargetTest extends ImpulseElement {
-      disconnectedSpy = Sinon.spy();
+  it('should call the lifecycle callback function when a target is removed from the DOM', async () => {
+    const panel = el.querySelector('#panel')!;
+    panel.remove();
 
-      @target() panel: HTMLElement;
+    await waitUntil(() => el.panelDisconnectedSpy.called);
+    expect(el.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
+  });
 
-      disconnected() {
-        this.disconnectedSpy.call(this, this.panel);
-      }
-    }
+  it('should call the lifecycle callback function when a target is removed from the DOM for an inserted target', async () => {
+    const sheet = document.createElement('div');
+    sheet.setAttribute('data-target', `${el.identifier}.sheet`);
+    el.append(sheet);
 
-    const el: TargetTest = await fixture(html`
-      <target-element-disconnect-test>
-        <div id="panel1" data-target="target-element-disconnect-test.panel">
-      </target-element-disconnect-test>
-    `);
+    await waitUntil(() => el.sheetConnectedSpy.called);
+    expect(el.sheetConnectedSpy.called).to.be.true;
 
-    const panel = el.querySelector('#panel1');
+    sheet.remove();
+
+    await waitUntil(() => el.sheetDisconnectedSpy.called);
+    expect(el.sheetDisconnectedSpy.calledWith(sheet, sheet)).to.be.true;
+  });
+
+  it('should call the child lifecycle callback function when a target is removed from the DOM', async () => {
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const panel = el.querySelector('#panel2')!;
+    panel.remove();
+
+    await waitUntil(() => el2?.panelDisconnectedSpy.called);
+    expect(el2.panelDisconnectedSpy.calledOnceWith(panel, panel)).to.be.true;
+    expect(el.panelDisconnectedSpy.notCalled).to.be.true;
+  });
+
+  it('should call the disconnected callback after [target]Disconnected callback', () => {
     el.remove();
+    expect(el.disconnectedSpy.calledAfter(el.panelDisconnectedSpy)).to.be.true;
+    expect(el.disconnectedSpy.calledAfter(el.buttonDisconnectedSpy)).to.be.true;
+  });
 
-    expect(el.disconnectedSpy.calledOnceWith(panel)).to.be.true;
-    expect(el.disconnectedSpy.calledOn(el)).to.be.true;
+  it('should not call the [target]Disconnected callback if the identifier do not match', () => {
+    const div = document.createElement('div');
+    div.setAttribute('data-target', 'unknown-identifier.sheet');
+    el.append(div);
+    div.remove();
+
+    expect(el.sheetDisconnectedSpy.notCalled).to.be.true;
   });
 });

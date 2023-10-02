@@ -7,20 +7,24 @@
     <title>Playground</title>
   </head>
   <body>
-    <parent-container>
-      <pop-over fallback="false">
-        <button type="button" data-action="resize@window->pop-over#toggle click->pop-over#toggle">Toggle</button>
-        <div data-target="pop-over.panel">Panel</div>
-      </pop-over>
-    </parent-container>
+    <pop-over>
+      <button type="button" data-action="click->pop-over#handleClick">Click</button>
+      <div data-target="pop-over.panel">
+        <pop-over>
+          <div data-target="pop-over.panel">Inner panel</div>
+        </pop-over>
+      </div>
+    </pop-over>
 
-    <div style="margin-top: 1rem">
-      <dropdown-menu>
-        <div data-target="dropdown-menu.items">Item 1</div>
-        <div data-target="dropdown-menu.items">Item 2</div>
-        <div data-target="dropdown-menu.sheets">Unregistered item</div>
-      </dropdown-menu>
-    </div>
+    <slide-show>
+      <button type="button">Prev</button>
+      <div>
+        <div data-target="slide-show.slides">Slide 1</div>
+        <div data-target="slide-show.slides">Slide 2</div>
+        <div data-target="slide-show.slides">Slide 3</div>
+      </div>
+      <button type="button">Next</button>
+    </slide-show>
     <script type="module" src="/src/index.ts"></script>
   </body>
 </html>

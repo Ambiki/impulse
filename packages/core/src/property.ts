@@ -6,13 +6,13 @@ import Store from './store';
 export default class Property {
   private store: Store;
 
-  constructor(private instance: ImpulseElement) {
+  constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
     this.store = new Store(Object.getPrototypeOf(this.instance), 'property');
   }
 
   start() {
-    for (const [{ key, type }] of this.values.entries()) {
+    for (const [{ key, type }] of this.properties.entries()) {
       this.initializeProperty(key, type);
     }
   }
@@ -35,12 +35,12 @@ export default class Property {
     }
   }
 
-  private get values() {
+  private get properties() {
     return this.store.value as Set<PropertyType>;
   }
 }
 
-function descriptorProperties(element: HTMLElement, attributeName: string, type: PropertyConstructor) {
+function descriptorProperties(element: Element, attributeName: string, type: PropertyConstructor) {
   switch (type) {
     case Number:
       return {

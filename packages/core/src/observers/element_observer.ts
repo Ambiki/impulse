@@ -19,14 +19,14 @@ export default class ElementObserver {
     this.observerOptions = observerOptions;
   }
 
-  start(): void {
+  start() {
     if (!this.started) {
       this.started = true;
       this.observer.observe(this.element, { childList: true, subtree: true, ...this.observerOptions });
     }
   }
 
-  stop(): void {
+  stop() {
     if (this.started) {
       this.observer.takeRecords();
       this.observer.disconnect();
@@ -34,14 +34,15 @@ export default class ElementObserver {
     }
   }
 
-  private processMutations(mutations: MutationRecord[]): void {
-    if (!this.started) return;
-    for (const mutation of mutations) {
-      this.processMutation(mutation);
+  private processMutations(mutations: MutationRecord[]) {
+    if (this.started) {
+      for (const mutation of mutations) {
+        this.processMutation(mutation);
+      }
     }
   }
 
-  private processMutation(mutation: MutationRecord): void {
+  private processMutation(mutation: MutationRecord) {
     if (mutation.type === 'attributes' && mutation.target instanceof Element) {
       this.processAttributeChange(mutation.target, mutation.attributeName);
     } else if (mutation.type === 'childList') {
@@ -50,12 +51,13 @@ export default class ElementObserver {
     }
   }
 
-  private processAttributeChange(element: Element, attributeName: string | null): void {
-    if (!attributeName) return;
-    this.delegate.elementAttributeChanged(element, attributeName);
+  private processAttributeChange(element: Element, attributeName: string | null) {
+    if (attributeName) {
+      this.delegate.elementAttributeChanged(element, attributeName);
+    }
   }
 
-  private processRemovedNodes(nodes: NodeList): void {
+  private processRemovedNodes(nodes: NodeList) {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
       if (element) {
@@ -64,7 +66,7 @@ export default class ElementObserver {
     }
   }
 
-  private processAddedNodes(nodes: NodeList): void {
+  private processAddedNodes(nodes: NodeList) {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
       if (element && this.elementIsActive(element)) {
@@ -85,6 +87,7 @@ export default class ElementObserver {
     if (element.isConnected !== this.element.isConnected) {
       return false;
     }
+
     return this.element.contains(element);
   }
 }
