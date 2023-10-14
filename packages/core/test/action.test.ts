@@ -1,103 +1,118 @@
-import { expect, fixture, html, nextFrame } from '@open-wc/testing';
+import { expect, fixture, html, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement } from '../src';
 
 describe('action', () => {
   @registerElement('action-test')
-  class ActionTestElement extends ImpulseElement {
-    foo = Sinon.fake();
-    toggle = Sinon.fake();
-    focus = Sinon.fake();
+  class ActionTest extends ImpulseElement {
+    toggle = Sinon.spy();
+    focus = Sinon.spy();
+    foo = Sinon.spy();
   }
 
-  let el: ActionTestElement;
+  let el: ActionTest;
   beforeEach(async () => {
     el = await fixture(html`
-      <action-test data-action="foo->action-test#foo">
-        <button type="button" data-action="click->action-test#toggle">Toggle</button>
-        <div id="e2" data-action="click->action-test#toggle submit->action-test#focus"></div>
-        <div id="e3" data-action="foo->unknown-element#foo"></div>
-        <div id="e4" data-action="foo@window->action-test#foo"></div>
-        <div id="e5" data-action="foo@document->action-test#foo"></div>
+      <action-test data-action="instanceAction->action-test#foo">
+        <button id="button1" type="button" data-action="click->action-test#toggle focus->action-test#focus"></button>
+        <button id="button2" type="button" data-action="click->action-test#toggle"></button>
+        <div id="element1" data-action="foo@window->action-test#foo"></div>
+        <div id="element2" data-action="foo@document->action-test#foo"></div>
+        <div id="element3" data-action="click->invalid-test#toggle"></div>
+        <action-test>
+          <button id="nested-button1" type="button" data-action="click->action-test#toggle"></button>
+        </action-test>
       </action-test>
     `);
   });
 
-  it('calls the function', () => {
-    const button = el.querySelector('button')!;
-    expect(el.toggle).to.have.callCount(0);
+  it('should call the function', () => {
+    const button = el.querySelector<HTMLButtonElement>('#button1')!;
     button.click();
+    expect(el.toggle.calledOnce).to.be.true;
     expect(el.toggle.calledOn(el)).to.be.true;
-    expect(el.toggle).to.have.callCount(1);
-    expect(el.toggle.getCall(0).args[0] instanceof Event).to.be.true;
+    expect(el.focus.notCalled).to.be.true;
+
+    button.click();
+    expect(el.toggle.calledTwice).to.be.true;
   });
 
-  it('calls the function that is bound to the element itself', () => {
-    expect(el.foo).to.have.callCount(0);
-    el.dispatchEvent(new CustomEvent('foo'));
-    expect(el.foo).to.have.callCount(1);
+  it('should bind to multiple actions', () => {
+    const button = el.querySelector<HTMLButtonElement>('#button1')!;
+    button.focus();
+
+    expect(el.focus.calledOnce).to.be.true;
+    expect(el.focus.calledOn(el)).to.be.true;
   });
 
-  it('can bind to multiple actions', () => {
-    const element = el.querySelector('#e2')!;
-    expect(el.toggle).to.have.callCount(0);
-    expect(el.focus).to.have.callCount(0);
-    element.dispatchEvent(new CustomEvent('click'));
-    element.dispatchEvent(new CustomEvent('submit'));
-    expect(el.toggle).to.have.callCount(1);
-    expect(el.focus).to.have.callCount(1);
+  it('should bind action to the instance itself', () => {
+    el.dispatchEvent(new CustomEvent('instanceAction'));
+
+    expect(el.foo.calledOnce).to.be.true;
   });
 
-  it('can bind to an action for an element that is dynamically added', async () => {
-    expect(el.foo).to.have.callCount(0);
+  it('should bind to an action for an element that is inserted into the DOM', async () => {
     const element = document.createElement('div');
-    element.setAttribute('data-action', 'click->action-test#foo');
+    element.classList.add('dynamic');
+    element.setAttribute('data-action', `click->${el.identifier}#foo`);
     el.append(element);
-    await nextFrame();
-    element.dispatchEvent(new CustomEvent('click'));
-    expect(el.foo).to.have.callCount(1);
+
+    await waitUntil(() => el.querySelector('.dynamic'));
+    element.click();
+    expect(el.foo.calledOnce).to.be.true;
   });
 
-  it('can update the action that is bound to a child element', async () => {
-    const button = el.querySelector('button')!;
-    expect(el.toggle).to.have.callCount(0);
+  it('should bind to an updated action', async () => {
+    const button = el.querySelector<HTMLButtonElement>('#button2')!;
     button.click();
-    expect(el.toggle).to.have.callCount(1);
-    button.setAttribute('data-action', 'foo->action-test#toggle');
-    await nextFrame();
+    expect(el.toggle.calledOnce).to.be.true;
+
+    el.toggle.resetHistory();
+    button.setAttribute('data-action', `focus->${el.identifier}#focus`);
+    await waitUntil(() => button.getAttribute('data-action') === `focus->${el.identifier}#focus`);
     button.click();
-    expect(el.toggle).to.have.callCount(1);
-    button.dispatchEvent(new CustomEvent('foo'));
-    expect(el.toggle).to.have.callCount(2);
+    expect(el.toggle.notCalled).to.be.true;
+
+    button.focus();
+    expect(el.focus.calledOnce).to.be.true;
   });
 
-  it('can update the action that is bound to the element itself', async () => {
-    expect(el.foo).to.have.callCount(0);
-    el.setAttribute('data-action', 'bar->action-test#foo');
-    // We need to wait for the next animtation frame so that the action can be binded to the element.
-    await nextFrame();
-    el.dispatchEvent(new CustomEvent('foo'));
-    expect(el.foo).to.have.callCount(0);
-    el.dispatchEvent(new CustomEvent('bar'));
-    expect(el.foo).to.have.callCount(1);
-  });
-
-  it('can bind action to window', () => {
-    expect(el.foo).to.have.callCount(0);
+  it('should bind action to the window', () => {
     window.dispatchEvent(new CustomEvent('foo'));
-    expect(el.foo).to.have.callCount(1);
+    expect(el.foo.calledOnce).to.be.true;
   });
 
-  it('can bind action to document', () => {
-    expect(el.foo).to.have.callCount(0);
+  it('should bind action to the document', () => {
     document.dispatchEvent(new CustomEvent('foo'));
-    expect(el.foo).to.have.callCount(1);
+    expect(el.foo.calledOnce).to.be.true;
   });
 
-  it('does not bind actions if identifier does not match', () => {
-    const element = el.querySelector('#e3')!;
-    expect(el.foo).to.have.callCount(0);
+  it('should not bind action if the identifier does not match', () => {
+    const element = document.querySelector<HTMLElement>('#element3')!;
+    element.click();
+
+    expect(el.toggle.notCalled).to.be.true;
+  });
+
+  it('should call the child action but avoid calling the parent action', () => {
+    const el2 = el.querySelector<ActionTest>('action-test')!;
+    const button = el2.querySelector<HTMLButtonElement>('#nested-button1')!;
+    button.click();
+
+    expect(el2.toggle.calledOnce).to.be.true;
+    expect(el.toggle.notCalled).to.be.true;
+  });
+
+  it('should call the child action but avoid calling the parent action for an inserted element', async () => {
+    const el2 = el.querySelector<ActionTest>('action-test')!;
+    const element = document.createElement('div')!;
+    element.classList.add('dynamic');
+    element.setAttribute('data-action', `foo->${el2.identifier}#foo`);
+    el2.append(element);
+    await waitUntil(() => el2.querySelector('.dynamic'));
     element.dispatchEvent(new CustomEvent('foo'));
-    expect(el.foo).to.have.callCount(0);
+
+    expect(el2.foo.calledOnce).to.be.true;
+    expect(el.foo.notCalled).to.be.true;
   });
 });

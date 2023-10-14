@@ -5,10 +5,10 @@ export default class Store {
 
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private proto: any,
+    private ctor: any,
     private name: string
   ) {
-    this.proto = proto;
+    this.ctor = ctor;
     this.name = name;
     this.initialize();
   }
@@ -22,11 +22,11 @@ export default class Store {
   }
 
   private initialize() {
-    if (!Object.prototype.hasOwnProperty.call(this.proto, symbol)) {
-      this.proto[symbol] = new Map();
+    if (!Object.prototype.hasOwnProperty.call(this.ctor, symbol)) {
+      this.ctor[symbol] = new Map();
     }
 
-    this.map = this.proto[symbol];
+    this.map = this.ctor[symbol];
     if (this.map.has(this.name)) return;
 
     this.map.set(this.name, new Set<Record<string, unknown>>());

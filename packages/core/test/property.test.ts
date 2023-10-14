@@ -67,7 +67,7 @@ describe('@property', () => {
     `);
   });
 
-  it('sets the property value from the element', () => {
+  it('should set the property value from the element', () => {
     expect(el).to.have.property('placement', 'bottom');
     expect(el).to.have.attribute('placement', 'bottom');
 
@@ -84,7 +84,7 @@ describe('@property', () => {
     expect(el).to.have.attribute('config').to.deep.equal('{ "foo": "bar" }');
   });
 
-  it('sets the property value by default', () => {
+  it('should set the property value by default', () => {
     expect(el).to.have.property('name', 'foo');
     expect(el).to.have.attribute('name', 'foo');
 
@@ -107,7 +107,7 @@ describe('@property', () => {
     expect(el).to.have.attribute('default-config').to.deep.equal('{"routes":false}');
   });
 
-  it('default property value can be overwritten from the element', () => {
+  it('should be able to overwrite the default property value', () => {
     expect(el).to.have.property('value', 'guava');
     expect(el).to.have.attribute('value', 'guava');
 
@@ -124,7 +124,7 @@ describe('@property', () => {
     expect(el).to.have.attribute('override-config').to.deep.equal('{ "property": false }');
   });
 
-  it('sets the property value to the element', () => {
+  it('should set the property value to the element', () => {
     expect(el).to.have.property('lastName', '');
     expect(el).to.have.attribute('last-name', '');
 
@@ -141,7 +141,7 @@ describe('@property', () => {
     expect(el).to.have.attribute('zero-config').to.deep.equal('{}');
   });
 
-  it('value can be assigned to a property', () => {
+  it('should be able to assign value to a property', () => {
     el.placement = 'start';
     expect(el).to.have.property('placement', 'start');
     expect(el).to.have.attribute('placement', 'start');
@@ -168,7 +168,7 @@ describe('@property', () => {
     expect(el).to.have.attribute('zero-config').to.deep.equal('{"fallback":"yes"}');
   });
 
-  it('calls the property changed callback', () => {
+  it('should call the property [property]Changed callback', () => {
     el.placement = 'top';
     expect(el.placementChanged.calledOnceWith('top', 'bottom')).to.be.true;
     expect(el.placementChanged.calledOn(el)).to.be.true;

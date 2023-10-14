@@ -1,9 +1,9 @@
 import ElementObserver from './element_observer';
 
 type AttributeObserverDelegate = {
-  elementConnected: (target: Element) => void;
-  elementDisconnected: (target: Element) => void;
-  elementAttributeChanged?: (target: Element, name: string) => void;
+  elementConnected: (element: Element) => void;
+  elementDisconnected: (element: Element) => void;
+  elementAttributeChanged?: (element: Element, name: string) => void;
 };
 
 export default class AttributeObserver {
@@ -28,26 +28,32 @@ export default class AttributeObserver {
     this.elementObserver.stop();
   }
 
-  elementConnected(target: Element) {
-    const elements = Array.from(target.querySelectorAll<Element>(`[${this.attributeName}]`));
-    if (target.hasAttribute(this.attributeName)) elements.push(target);
-
-    for (const element of elements) {
-      this.delegate.elementConnected(element);
+  elementConnected(element: Element) {
+    const elements = this.getMatchingElements(element);
+    for (const ele of elements) {
+      this.delegate.elementConnected(ele);
     }
   }
 
-  elementDisconnected(target: Element) {
-    const elements = Array.from(target.querySelectorAll<Element>(`[${this.attributeName}]`));
-    if (target.hasAttribute(this.attributeName)) elements.push(target);
-
-    for (const element of elements) {
-      this.delegate.elementDisconnected(element);
+  elementDisconnected(element: Element) {
+    const elements = this.getMatchingElements(element);
+    for (const ele of elements) {
+      this.delegate.elementDisconnected(ele);
     }
   }
 
   elementAttributeChanged(element: Element, attributeName: string) {
-    if (attributeName !== this.attributeName) return;
-    this.delegate.elementAttributeChanged?.(element, attributeName);
+    if (attributeName === this.attributeName) {
+      this.delegate.elementAttributeChanged?.(element, attributeName);
+    }
+  }
+
+  private getMatchingElements(element: Element) {
+    const elements = Array.from(element.querySelectorAll(`[${this.attributeName}]`));
+    if (element.hasAttribute(this.attributeName)) {
+      elements.unshift(element);
+    }
+
+    return elements;
   }
 }

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Scope target(s) and events to the closest Impulse element
+
 ## [0.1.3] - 2023-07-31
 
 ### Changed

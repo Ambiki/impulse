@@ -4,24 +4,24 @@ import type ImpulseElement from './element';
 import EventListener from './event_listener';
 import { getAttributeValues } from './helpers/dom';
 import AttributeObserver from './observers/attribute_observer';
+import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';
 
 export default class Action {
   private attributeObserver: AttributeObserver;
+  private scope: Scope;
   private eventListenerMap = new SetMap<Element, EventListener>();
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
+    this.scope = new Scope(this.instance);
     this.attributeObserver = new AttributeObserver(this.instance, ATTRIBUTE_NAME, this);
   }
 
   start() {
     this.attributeObserver.start();
-    const elements = Array.from(this.instance.querySelectorAll(`[${ATTRIBUTE_NAME}]`));
-    // Bind event for the element itself.
-    if (this.instance.hasAttribute(ATTRIBUTE_NAME)) elements.push(this.instance);
-    elements.forEach((element) => this.bindActions(element));
+    this.actionableElements.forEach((element) => this.bindActions(element));
   }
 
   stop() {
@@ -47,10 +47,11 @@ export default class Action {
     const descriptors = getAttributeValues(element, ATTRIBUTE_NAME);
     descriptors.forEach((descriptor) => {
       const { eventName, eventTarget, methodName, identifier } = parseActionDescriptor(descriptor);
-      if (!eventName || identifier !== this.identifier || !methodName) return;
-      const eventListener = new EventListener(this.instance, eventTarget || element, eventName, methodName);
-      this.eventListenerMap.add(element, eventListener);
-      eventListener.start();
+      if (eventName && identifier === this.identifier && methodName && this.actionableElements.includes(element)) {
+        const eventListener = new EventListener(this.instance, eventTarget || element, eventName, methodName);
+        this.eventListenerMap.add(element, eventListener);
+        eventListener.start();
+      }
     });
   }
 
@@ -61,6 +62,10 @@ export default class Action {
       eventListener.stop();
       this.eventListenerMap.delete(element, eventListener);
     });
+  }
+
+  private get actionableElements() {
+    return this.scope.findTargets(`[${ATTRIBUTE_NAME}]`);
   }
 
   private get identifier() {
