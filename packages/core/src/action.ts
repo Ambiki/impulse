@@ -46,9 +46,17 @@ export default class Action {
   private bindActions(element: Element) {
     const descriptors = getAttributeValues(element, ATTRIBUTE_NAME);
     descriptors.forEach((descriptor) => {
-      const { eventName, eventTarget, methodName, identifier } = parseActionDescriptor(descriptor);
+      const { eventName, eventModifiers, eventListenerOptions, eventTarget, methodName, identifier } =
+        parseActionDescriptor(descriptor);
       if (eventName && identifier === this.identifier && methodName && this.actionableElements.includes(element)) {
-        const eventListener = new EventListener(this.instance, eventTarget || element, eventName, methodName);
+        const eventListener = new EventListener(
+          this.instance,
+          eventTarget || element,
+          eventName,
+          eventModifiers,
+          eventListenerOptions,
+          methodName
+        );
         this.eventListenerMap.add(element, eventListener);
         eventListener.start();
       }
