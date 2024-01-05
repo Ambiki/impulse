@@ -1,0 +1,25 @@
+name: Publish
+
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: ".tool-versions"
+          registry-url: 'https://registry.npmjs.org'
+      - name: Run test
+        run: |
+          yarn install --frozen-lockfile
+          yarn test
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+        working-directory: ./packages/core
