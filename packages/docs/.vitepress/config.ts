@@ -2,12 +2,14 @@ import { defineConfig } from 'vitepress';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
+  base: '/impulse/',
   title: 'Impulse',
   description: 'A JavaScript framework that leverages the Web Components API.',
   lastUpdated: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [{ text: 'Home', link: '/' }],
+    outline: 'deep',
     sidebar: [
       {
         text: 'Introduction',
@@ -33,6 +35,6 @@ export default defineConfig({
     footer: {
       message: 'Released under the MIT License.',
     },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/impulsejs/impulse' }],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/Ambiki/impulse' }],
   },
 });

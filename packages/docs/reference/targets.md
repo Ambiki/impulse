@@ -6,7 +6,7 @@ Targets let you reference element(s) by name.
 
 The `data-target` attribute is a space-separated list of target names that can be referenced in the element.
 
-```html
+```html{2,3}
 <greet-user>
   <div data-target="greet-user.result"></div>
   <div data-target="greet-user.errorMessage"></div>
@@ -17,7 +17,7 @@ The `data-target` attribute is a space-separated list of target names that can b
 
 An element can have multiple target references.
 
-```html
+```html{3,4}
 <user-settings>
   <greet-user>
     <div data-target="greet-user.result user-settings.result"></div>
@@ -28,21 +28,21 @@ An element can have multiple target references.
 
 ## Single target
 
-A single target can be referenced via the `@target()` decorator. It is a syntactic sugar for `this.querySelector('*')`.
+A single target can be referenced via the `@target()` decorator. It is a syntactic sugar for `this.querySelector('...')`.
 
-```html
+```html{2}
 <greet-user>
   <div data-target="greet-user.result"></div>
 </greet-user>
 ```
 
-```ts
+```ts{6}
 // elements/greet_user_element.ts
 import { ImpulseElement, registerElement, target } from 'impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
-  @target() result;
+  @target() result: HTMLElement;
 
   // ...
 }
@@ -50,23 +50,23 @@ export default class GreetUserElement extends ImpulseElement {
 
 ## Multiple targets
 
-Multiple targets can be referenced via the `@targets()` decorator. It is a syntactic sugar for `Array.from(this.querySelectorAll('*'))`.
+Multiple targets can be referenced via the `@targets()` decorator. It is a syntactic sugar for `Array.from(this.querySelectorAll('...'))`.
 
 
-```html
+```html{2,3}
 <greet-user>
   <div data-target="greet-user.results"></div>
   <div data-target="greet-user.results"></div>
 </greet-user>
 ```
 
-```ts
+```ts{6}
 // elements/greet_user_element.ts
 import { ImpulseElement, registerElement, targets } from 'impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
-  @targets() results;
+  @targets() results: HTMLElement[];
 
   // ...
 }
@@ -74,25 +74,25 @@ export default class GreetUserElement extends ImpulseElement {
 
 ## Connected and disconnected callbacks
 
-Using the `@target()` or `@targets()` decorator lets you respond whenever a target element is added or removed from
-the DOM.
+Using the `@target()` or `@targets()` decorator lets you respond whenever a target element is connected or disconnected
+from the DOM.
 
-Define a `[name]Connected` or `[name]Disconnected` function, where `[name]` is the name of the target you want to
+Define a `[target]Connected` or `[target]Disconnected` function, where `[target]` is the name of the target you want to
 observe. The function receives the element as the first argument.
 
-```ts
+```ts{5,7,11}
 import { ImpulseElement, registerElement, target } from 'impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
-  @target() result;
+  @target() result: HTMLElement;
 
-  resultConnected(element) {
-    // element appeared on the DOM.
+  resultConnected(result: HTMLElement) {
+    // result connected to the DOM.
   }
 
-  resultDisconnected(element) {
-    // element removed from the DOM.
+  resultDisconnected(result: HTMLElement) {
+    // result disconnected from the DOM.
   }
 }
 ```
@@ -103,7 +103,7 @@ Always use camelCase to reference the target in your HTML.
 
 ```html
 <div data-target="greet-user.doThis"></div>
-<div data-target="greet-user.avoid-this"></div>
+<div data-target="greet-user.avoid_this"></div>
 ```
 
 ```ts

@@ -11,13 +11,5 @@ hero:
       link: /introduction/getting-started
     - theme: alt
       text: View on GitHub
-      link: https://github.com/impulsejs/impulse
-
-features:
-  - title: Feature A
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature B
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
-  - title: Feature C
-    details: Lorem ipsum dolor sit amet, consectetur adipiscing elit
+      link: https://github.com/Ambiki/impulse
 ---

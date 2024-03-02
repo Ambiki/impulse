@@ -6,13 +6,13 @@ Properties allow you to read and write HTML attributes.
 <lazy-load src="/users"></lazy-load>
 ```
 
-```ts
+```ts{6,9}
 // elements/lazy_load_element.ts
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
-  @property() src;
+  @property() src: string;
 
   connected() {
     console.log(this.src); // /users
@@ -27,15 +27,15 @@ When property changes, callbacks are triggered so that you can take appropriate 
 Define a `[property]Changed` function, where `[property]` is the name of the `@property()` decorator. The function
 receives `newValue` as the first argument and `oldValue` as the second argument.
 
-```ts
+```ts{7}
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
-  @property() src;
+  @property() src: string;
 
-  srcChanged(newValue, oldValue) {
-    this.refetch(newValue);
+  srcChanged(newValue: string, oldValue: string) {
+    // ...
   }
 }
 ```
@@ -49,13 +49,13 @@ A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, wi
 </pop-over>
 ```
 
-```ts
+```ts{6,9}
 // elements/pop_over_element.ts
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('pop-over')
 export default class PopOverElement extends ImpulseElement {
-  @property({ type: Array }) placements;
+  @property({ type: Array }) placements: string[];
 
   connected() {
     console.log(this.placements); // ['top', 'right']
@@ -65,9 +65,9 @@ export default class PopOverElement extends ImpulseElement {
 
 ## Default property values
 
-Property values that have not been specified on the element can be set as defaults specified in the element definition.
+You can assign a default value to the property and it will be reflected in the element.
 
-```ts
+```ts{5,8}
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('lazy-load')
@@ -80,8 +80,6 @@ export default class LazyLoadElement extends ImpulseElement {
 }
 ```
 
-This will set the HTML attribute `src` with a value of `/users` on the element.
-
 ## Naming conventions
 
 Always use kebab-case in your HTML, and use camelCase in your `.ts` file.
@@ -90,11 +88,11 @@ Always use kebab-case in your HTML, and use camelCase in your `.ts` file.
 <lazy-load content-type="..."></lazy-load>
 ```
 
-```ts
+```ts{5}
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
-  @property() contentType;
+  @property() contentType: string;
 }
 ```
