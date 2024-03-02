@@ -10,6 +10,7 @@
     "clean": "yarn workspace @ambiki/impulse clean",
     "dev": "concurrently \"yarn build:core:watch\" \"yarn playground\" \"yarn docs\"",
     "docs": "yarn workspace @ambiki/docs dev",
+    "docs:build": "yarn workspace @ambiki/docs build",
     "playground": "yarn workspace @ambiki/playground dev",
     "lint": "eslint 'packages/**/*.ts'",
     "prettier": "prettier --write --log-level warn .",

@@ -13,7 +13,8 @@ with Impulse's `@target()`, `@targets()`, and `@property()` decorators.
 {
   "compilerOptions": {
     "strict": true,
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "useDefineForClassFields": false
   }
 }
 ```
