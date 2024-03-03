@@ -111,6 +111,6 @@ import { ImpulseElement, registerElement, target } from 'impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
-  @target() doThis;
+  @target() doThis: HTMLElement;
 }
 ```

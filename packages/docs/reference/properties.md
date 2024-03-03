@@ -45,20 +45,21 @@ export default class LazyLoadElement extends ImpulseElement {
 A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, with `String` being the default.
 
 ```html
-<pop-over placements="['top', 'right']">
-</pop-over>
+<pop-over placements="['top', 'right']" open></pop-over>
 ```
 
-```ts{6,9}
+```ts{6-7,10-11}
 // elements/pop_over_element.ts
 import { ImpulseElement, registerElement, property } from 'impulse';
 
 @registerElement('pop-over')
 export default class PopOverElement extends ImpulseElement {
   @property({ type: Array }) placements: string[];
+  @property({ type: Boolean }) open: boolean = false;
 
   connected() {
     console.log(this.placements); // ['top', 'right']
+    console.log(this.open); // true
   }
 }
 ```
