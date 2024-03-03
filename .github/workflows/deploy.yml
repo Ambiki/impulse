@@ -36,7 +36,7 @@ jobs:
       - name: Build
         run: |
           yarn build
-          touch docs/.vitepress/dist/.nojekyll
+          touch .vitepress/dist/.nojekyll
         working-directory: ./packages/docs
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
