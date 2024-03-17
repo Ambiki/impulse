@@ -60,8 +60,9 @@ export default class ImpulseElement extends HTMLElement {
     this.action.stop();
     this.target.stop();
     this.targets.stop();
-    this.property.stop();
+    // We want to invoke the `disconnected` callback after stopping the `target(s)` but before stopping the `property`
     this.disconnected();
+    this.property.stop();
     this._started = false;
   }
 
