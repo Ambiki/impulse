@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add event modifiers (`stop`, `prevent`, `self`) and event options (`capture`, `once`, `passive`) to the action
 
+### Fixed
+
+- Property value is undefined when the element is disconnected
+
 ## [0.2.0] - 2023-10-15
 
 ### Changed
