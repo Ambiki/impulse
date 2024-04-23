@@ -38,7 +38,7 @@ describe('action modifiers', () => {
     button.click();
 
     expect(el.toggleSpy.called).to.be.false;
-    expect(el.stopSpy.calledOnce).be.true;
+    expect(el.stopSpy.calledOnce).to.be.true;
   });
 
   it('self modifier', () => {

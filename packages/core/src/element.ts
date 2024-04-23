@@ -1,5 +1,6 @@
 import Action from './action';
 import type { PropertyConstructor, PropertyType } from './decorators/property';
+import { domReady } from './helpers/dom';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
 import Store from './store';
@@ -57,11 +58,10 @@ export default class ImpulseElement extends HTMLElement {
 
   disconnectedCallback() {
     // Order is important
+    this.disconnected();
     this.action.stop();
     this.target.stop();
     this.targets.stop();
-    // We want to invoke the `disconnected` callback after stopping the `target(s)` but before stopping the `property`
-    this.disconnected();
     this.property.stop();
     this._started = false;
   }
@@ -118,14 +118,4 @@ function attributeValueTransformer(_newValue: string | null, _oldValue: string |
     default:
       return { newValue: _newValue, oldValue: _oldValue };
   }
-}
-
-function domReady() {
-  return new Promise<void>((resolve) => {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => resolve());
-    } else {
-      resolve();
-    }
-  });
 }

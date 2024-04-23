@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `lazyImport` function which imports the elements/targets lazily
+
+### Changed
+
+- Invoke `disconnected` callback before [target]Disconnected callbacks
+
 ## [0.3.0] - 2024-03-17
 
 ### Added
