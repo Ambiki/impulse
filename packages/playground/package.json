@@ -10,6 +10,6 @@
   },
   "devDependencies": {
     "@ambiki/impulse": "0.2.0",
-    "vite": "^4.5.2"
+    "vite": "^4.5.3"
   }
 }
