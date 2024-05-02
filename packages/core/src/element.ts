@@ -52,7 +52,12 @@ export default class ImpulseElement extends HTMLElement {
       );
     }
 
+    // Validate if value changed after transformation.
+    // Common case would be:
+    // -> 8_000 to 8000
     const { newValue, oldValue } = attributeValueTransformer(_newValue, _oldValue, property.type);
+    if (newValue === oldValue) return;
+
     fn.call(this, newValue, oldValue);
   }
 
@@ -109,8 +114,10 @@ function attributeValueTransformer(_newValue: string | null, _oldValue: string |
       const transform = (value: string | null) => value !== null && value !== 'false';
       return { newValue: transform(_newValue), oldValue: transform(_oldValue) };
     }
-    case Number:
-      return { newValue: Number(_newValue), oldValue: Number(_oldValue) };
+    case Number: {
+      const transform = (value: string | null) => value?.replace(/_/g, '');
+      return { newValue: Number(transform(_newValue)), oldValue: Number(transform(_oldValue)) };
+    }
     case Array:
       return { newValue: parseJSON(_newValue, []), oldValue: parseJSON(_oldValue, []) };
     case Object:

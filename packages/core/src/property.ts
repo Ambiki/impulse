@@ -44,7 +44,7 @@ function descriptorProperties(element: Element, attributeName: string, type: Pro
   switch (type) {
     case Number:
       return {
-        get: () => Number(element.getAttribute(attributeName) || 0),
+        get: () => Number(element.getAttribute(attributeName)?.replace(/_/g, '') || 0),
         set: (value: number) => element.setAttribute(attributeName, (value || 0).toString()),
       };
     case Boolean:
