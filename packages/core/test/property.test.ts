@@ -17,6 +17,7 @@ describe('@property', () => {
     friendsChanged = Sinon.fake();
     configChanged = Sinon.fake();
     zeroConfigChanged = Sinon.fake();
+    numericValueChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
@@ -24,6 +25,7 @@ describe('@property', () => {
     @property({ type: Number }) delay: number;
     @property({ type: Array }) fruits: string[];
     @property({ type: Object }) config: Record<string, string>;
+    @property({ type: Number }) numericValue: number;
 
     // Default value
     @property() name = 'foo';
@@ -61,6 +63,7 @@ describe('@property', () => {
         value="guava"
         started="false"
         record-count="22"
+        numeric-value="8_000"
         names='["Md", "Abeid"]'
         override-config='{ "property": false }'
       ></property-test>
@@ -82,6 +85,9 @@ describe('@property', () => {
 
     expect(el).to.have.property('config').to.deep.equal({ foo: 'bar' });
     expect(el).to.have.attribute('config').to.deep.equal('{ "foo": "bar" }');
+
+    expect(el).to.have.property('numericValue', 8000);
+    expect(el).to.have.attribute('numeric-value', '8_000');
   });
 
   it('should set the property value by default', () => {
@@ -221,5 +227,10 @@ describe('@property', () => {
     el.zeroConfig = { name: 'Abeid' };
     expect(el.zeroConfigChanged.getCall(0).args[0]).to.deep.equal({ name: 'Abeid' });
     expect(el.zeroConfigChanged.getCall(0).args[1]).to.deep.equal({});
+
+    el.numericValue = 8000;
+    expect(el.numericValueChanged.called).to.be.false;
+    el.numericValue = 9000;
+    expect(el.numericValueChanged.calledOnceWith(9000, 8000)).to.be.true;
   });
 });
