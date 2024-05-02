@@ -24,6 +24,7 @@ export default defineConfig({
           { text: 'Actions', link: '/reference/actions' },
           { text: 'Properties', link: '/reference/properties' },
           { text: 'Targets', link: '/reference/targets' },
+          { text: 'Lazy import', link: '/reference/lazy-import' },
         ],
       },
       {
