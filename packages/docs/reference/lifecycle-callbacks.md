@@ -55,6 +55,18 @@ connected() {
 }
 ```
 
+### `disconnected()`
+
+This function is called when the element itself is disconnected from the DOM. Within this function, you can clean up
+any event listeners and tasks that were attached in the `connected()` function so that it is free to be garbage
+collected.
+
+```ts
+disconnected() {
+  this.removeEventListener('click', this.handleClick);
+}
+```
+
 ### `[target]Disconnected()`
 
 This function is called when the declared `target` / `targets` is disconnected from the DOM. Within this function, you
@@ -71,17 +83,5 @@ panelDisconnected(panel: HTMLElement) {
 
 buttonsDisconnected(button: HTMLButtonElement) {
   console.log('button disconnected from the DOM: ', button);
-}
-```
-
-### `disconnected()`
-
-This function is called when the element itself is disconnected from the DOM. Within this function, you can clean up
-any event listeners and tasks that were attached in the `connected()` function so that it is free to be garbage
-collected.
-
-```ts
-disconnected() {
-  this.removeEventListener('click', this.handleClick);
 }
 ```

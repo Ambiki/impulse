@@ -163,9 +163,9 @@ describe('@targets', () => {
     expect(el.panelsDisconnectedSpy.notCalled).to.be.true;
   });
 
-  it('should call the disconnected callback after [target]Disconnected callback', () => {
+  it('should call the disconnected callback before [target]Disconnected callback', () => {
     el.remove();
-    expect(el.disconnectedSpy.calledAfter(el.panelsDisconnectedSpy)).to.be.true;
+    expect(el.panelsDisconnectedSpy.calledAfter(el.disconnectedSpy)).to.be.true;
   });
 
   it('should not call the [target]Disconnected callback if the identifier do not match', () => {
