@@ -1,4 +1,5 @@
 import { expect, fixture, html, waitUntil } from '@open-wc/testing';
+import { sendKeys } from '@web/test-runner-commands';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement } from '../src';
 
@@ -6,7 +7,7 @@ describe('action', () => {
   @registerElement('action-test')
   class ActionTest extends ImpulseElement {
     toggle = Sinon.spy();
-    focus = Sinon.spy();
+    keydown = Sinon.spy();
     foo = Sinon.spy();
   }
 
@@ -14,7 +15,11 @@ describe('action', () => {
   beforeEach(async () => {
     el = await fixture(html`
       <action-test data-action="instanceAction->action-test#foo">
-        <button id="button1" type="button" data-action="click->action-test#toggle focus->action-test#focus"></button>
+        <button
+          id="button1"
+          type="button"
+          data-action="click->action-test#toggle keydown->action-test#keydown"
+        ></button>
         <button id="button2" type="button" data-action="click->action-test#toggle"></button>
         <div id="element1" data-action="foo@window->action-test#foo"></div>
         <div id="element2" data-action="foo@document->action-test#foo"></div>
@@ -31,18 +36,19 @@ describe('action', () => {
     button.click();
     expect(el.toggle.calledOnce).to.be.true;
     expect(el.toggle.calledOn(el)).to.be.true;
-    expect(el.focus.notCalled).to.be.true;
+    expect(el.keydown.notCalled).to.be.true;
 
     button.click();
     expect(el.toggle.calledTwice).to.be.true;
   });
 
-  it('should bind to multiple actions', () => {
+  it('should bind to multiple actions', async () => {
     const button = el.querySelector<HTMLButtonElement>('#button1')!;
     button.focus();
+    await sendKeys({ press: 'Enter' });
 
-    expect(el.focus.calledOnce).to.be.true;
-    expect(el.focus.calledOn(el)).to.be.true;
+    expect(el.keydown.calledOnce).to.be.true;
+    expect(el.keydown.calledOn(el)).to.be.true;
   });
 
   it('should bind action to the instance itself', () => {
@@ -68,13 +74,14 @@ describe('action', () => {
     expect(el.toggle.calledOnce).to.be.true;
 
     el.toggle.resetHistory();
-    button.setAttribute('data-action', `focus->${el.identifier}#focus`);
-    await waitUntil(() => button.getAttribute('data-action') === `focus->${el.identifier}#focus`);
+    button.setAttribute('data-action', `keydown->${el.identifier}#keydown`);
+    await waitUntil(() => button.getAttribute('data-action') === `keydown->${el.identifier}#keydown`);
     button.click();
     expect(el.toggle.notCalled).to.be.true;
 
     button.focus();
-    expect(el.focus.calledOnce).to.be.true;
+    await sendKeys({ press: 'Enter' });
+    expect(el.keydown.calledOnce).to.be.true;
   });
 
   it('should bind action to the window', () => {
