@@ -146,11 +146,6 @@
     "@algolia/logger-common" "4.19.1"
     "@algolia/requester-common" "4.19.1"
 
-"@ambiki/impulse@0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@ambiki/impulse/-/impulse-0.2.0.tgz#c9fe2cbf9268a2097279de830628fc60dc23a617"
-  integrity sha512-RXeITv70eJWj3O52JIht2Bl2pwu3qdrI3Rcmg9FL8YBNkdiCaR0gnkGOLmDo5gd5k9x+LRbNj9wlk6QSGuybFQ==
-
 "@babel/code-frame@^7.12.11":
   version "7.22.5"
   resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.22.5.tgz#234d98e1551960604f1246e6475891a570ad5658"

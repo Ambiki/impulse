@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support number values with underscores
+- Add `lazyImport` function which imports the elements/targets lazily
 
 ### Changed
 

@@ -9,12 +9,20 @@ export default class SetMap<K, V> {
     findOrCreate(this.map, key).delete(value);
     // Delete map item
     if (this.get(key)?.size === 0) {
-      this.map.delete(key);
+      this.deleteKey(key);
     }
+  }
+
+  deleteKey(key: K) {
+    this.map.delete(key);
   }
 
   clear() {
     this.map.clear();
+  }
+
+  get keys() {
+    return Array.from(this.map.keys());
   }
 
   get values(): V[] {
