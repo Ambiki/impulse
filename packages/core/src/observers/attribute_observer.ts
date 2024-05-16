@@ -1,8 +1,8 @@
 import ElementObserver from './element_observer';
 
 type AttributeObserverDelegate = {
-  elementConnected: (element: Element) => void;
-  elementDisconnected: (element: Element) => void;
+  elementConnected?: (element: Element) => void;
+  elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, name: string) => void;
 };
 
@@ -31,14 +31,14 @@ export default class AttributeObserver {
   elementConnected(element: Element) {
     const elements = this.getMatchingElements(element);
     for (const ele of elements) {
-      this.delegate.elementConnected(ele);
+      this.delegate.elementConnected?.(ele);
     }
   }
 
   elementDisconnected(element: Element) {
     const elements = this.getMatchingElements(element);
     for (const ele of elements) {
-      this.delegate.elementDisconnected(ele);
+      this.delegate.elementDisconnected?.(ele);
     }
   }
 

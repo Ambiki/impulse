@@ -1,7 +1,7 @@
 type ElementObserverDelegate = {
-  elementConnected: (element: Element) => void;
-  elementDisconnected: (element: Element) => void;
-  elementAttributeChanged: (element: Element, name: string) => void;
+  elementConnected?: (element: Element) => void;
+  elementDisconnected?: (element: Element) => void;
+  elementAttributeChanged?: (element: Element, name: string) => void;
 };
 
 export default class ElementObserver {
@@ -53,7 +53,7 @@ export default class ElementObserver {
 
   private processAttributeChange(element: Element, attributeName: string | null) {
     if (attributeName) {
-      this.delegate.elementAttributeChanged(element, attributeName);
+      this.delegate.elementAttributeChanged?.(element, attributeName);
     }
   }
 
@@ -61,7 +61,7 @@ export default class ElementObserver {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
       if (element) {
-        this.delegate.elementDisconnected(element);
+        this.delegate.elementDisconnected?.(element);
       }
     }
   }
@@ -70,7 +70,7 @@ export default class ElementObserver {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
       if (element && this.elementIsActive(element)) {
-        this.delegate.elementConnected(element);
+        this.delegate.elementConnected?.(element);
       }
     }
   }

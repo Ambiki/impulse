@@ -14,10 +14,6 @@ class ElementObserverDelegate {
     );
   }
 
-  elementDisconnected() {}
-
-  elementAttributeChanged() {}
-
   private importElementsFrom(element: Element | Document) {
     for (const selector of lazyElements.keys) {
       const target = element.querySelector(selector);
