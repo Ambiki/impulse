@@ -7,15 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-05-17
+
 ### Added
 
-- Export `AttributeObserver` and `ElementObserver`
-- Support number values with underscores
-- Add `lazyImport` function which imports the elements/targets lazily
+- Export `AttributeObserver` and `ElementObserver` ([#26](https://github.com/Ambiki/impulse/pull/26))
+- Support number values with underscores ([#25](https://github.com/Ambiki/impulse/pull/25))
+- Add `lazyImport` function which imports the elements/targets lazily ([#22](https://github.com/Ambiki/impulse/pull/22))
 
 ### Changed
 
-- Invoke `disconnected` callback before [target]Disconnected callbacks
+- Invoke `disconnected` callback before [target]Disconnected callbacks ([#23](https://github.com/Ambiki/impulse/pull/23))
 
 ## [0.3.0] - 2024-03-17
 
@@ -57,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v0.3.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Ambiki/impulse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Ambiki/impulse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Ambiki/impulse/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/Ambiki/impulse/compare/v0.1.2...v0.1.3
