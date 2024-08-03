@@ -8,11 +8,12 @@ export default class SlideShowElement extends ImpulseElement {
   @targets() slides: HTMLElement[];
 
   connected() {
-    // console.log(this.activeIndex);
+    console.log('connected', this.slides);
   }
 
   slidesConnected(element: HTMLElement) {
-    console.log({ element });
+    console.log('slidesConnected', element);
+    console.log('slidesConnectedThis', this);
   }
 
   // slidesDisconnected(element: HTMLElement) {

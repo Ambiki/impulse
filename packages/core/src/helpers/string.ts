@@ -57,6 +57,17 @@ export function decamelize(value: string): string {
 }
 
 /**
+ * Returns the capitalized form of a string.
+ *
+ * @example
+ * capitalize('innerHTML');
+ * //=> InnerHTML
+ */
+export function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/**
  * Returns the output of JSON.parse or fallbacks to a specified default value.
  *
  * @example

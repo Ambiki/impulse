@@ -68,15 +68,15 @@ describe('@targets', () => {
     const panels = Array.from(el.querySelectorAll('.panel'));
 
     expect(el.panelsConnectedSpy.calledTwice).to.be.true;
-    expect(el.panelsConnectedSpy.getCall(0).args).to.deep.equal([panels[0], panels]);
-    expect(el.panelsConnectedSpy.getCall(1).args).to.deep.equal([panels[1], panels]);
+    expect(el.panelsConnectedSpy.getCall(0).args).to.deep.equal([panels[0], [panels[0]]]); // There is only one panel right now.
+    expect(el.panelsConnectedSpy.getCall(1).args).to.deep.equal([panels[1], panels]); // There are two panels now.
 
     const el2 = el.querySelector<TargetsTest>('targets-test')!;
     const panels2 = Array.from(el2.querySelectorAll('.child-panel'));
 
     expect(el2.panelsConnectedSpy.calledTwice).to.be.true;
-    expect(el2.panelsConnectedSpy.getCall(0).args).to.deep.equal([panels2[0], panels2]);
-    expect(el2.panelsConnectedSpy.getCall(1).args).to.deep.equal([panels2[1], panels2]);
+    expect(el2.panelsConnectedSpy.getCall(0).args).to.deep.equal([panels2[0], [panels2[0]]]); // There is only one panel right now.
+    expect(el2.panelsConnectedSpy.getCall(1).args).to.deep.equal([panels2[1], panels2]); // There are two panels now.
   });
 
   it('should call the lifecycle callback function when a target is inserted to the DOM', async () => {

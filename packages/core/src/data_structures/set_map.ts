@@ -21,6 +21,11 @@ export default class SetMap<K, V> {
     this.map.clear();
   }
 
+  getValuesForKey(key: K): V[] {
+    const values = this.map.get(key);
+    return values ? Array.from(values) : [];
+  }
+
   get keys() {
     return Array.from(this.map.keys());
   }

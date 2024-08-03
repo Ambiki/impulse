@@ -13,10 +13,14 @@ export default class PopOverElement extends ImpulseElement {
   }
 
   panelConnected(panel: HTMLElement) {
-    console.log({ panel, element: this });
+    console.log('panelConnected', panel);
   }
 
   panelDisconnected(panel: HTMLElement) {
-    console.log({ panel, element: this });
+    console.log('panelDisconnected', panel);
+  }
+
+  handleClick() {
+    console.log('handleClick', this);
   }
 }

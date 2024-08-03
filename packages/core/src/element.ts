@@ -5,11 +5,9 @@ import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
 import Store from './store';
 import Target from './target';
-import Targets from './targets';
 
 export default class ImpulseElement extends HTMLElement {
   private property = new Property(this);
-  private targets = new Targets(this);
   private target = new Target(this);
   private action = new Action(this);
   private _started = false;
@@ -22,7 +20,6 @@ export default class ImpulseElement extends HTMLElement {
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     await this._resolveUndefinedElements();
-    this.targets.start();
     this.target.start();
     this.action.start();
     this._started = true;
@@ -66,7 +63,6 @@ export default class ImpulseElement extends HTMLElement {
     this.disconnected();
     this.action.stop();
     this.target.stop();
-    this.targets.stop();
     this.property.stop();
     this._started = false;
   }
