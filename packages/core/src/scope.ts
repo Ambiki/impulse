@@ -6,21 +6,19 @@ export default class Scope {
   }
 
   findTarget(selector: string): Element | null {
-    return this.instance.matches(selector)
-      ? this.instance
-      : this.getElements(selector).find(this.scopedTarget.bind(this)) || null;
+    return this.instance.matches(selector) ? this.instance : this.getElements(selector).find(this.scopedTarget) || null;
   }
 
   findTargets(selector: string): Element[] {
     return [
       ...(this.instance.matches(selector) ? [this.instance] : []),
-      ...this.getElements(selector).filter(this.scopedTarget.bind(this)),
+      ...this.getElements(selector).filter(this.scopedTarget),
     ];
   }
 
-  scopedTarget(element: Element) {
+  scopedTarget = (element: Element) => {
     return element.closest(this.identifier) === this.instance;
-  }
+  };
 
   private getElements(selector: string): Element[] {
     return Array.from(this.instance.querySelectorAll(selector));

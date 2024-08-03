@@ -33,6 +33,5 @@ export default function lazyImport(selector: string, callback: () => void) {
 
   const delegate = new ElementObserverDelegate();
   const observer = new ElementObserver(document, delegate);
-  delegate.elementConnected(document);
   observer.start();
 }
