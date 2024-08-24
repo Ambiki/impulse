@@ -2,78 +2,70 @@ import { parseActionDescriptor } from './action_descriptor';
 import SetMap from './data_structures/set_map';
 import type ImpulseElement from './element';
 import EventListener from './event_listener';
-import { getAttributeValues } from './helpers/dom';
-import AttributeObserver from './observers/attribute_observer';
+import TokenListObserver, { Token } from './observers/token_list_observer';
 import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';
 
 export default class Action {
-  private attributeObserver: AttributeObserver;
+  private tokenListObserver?: TokenListObserver;
   private scope: Scope;
   private eventListenerMap = new SetMap<Element, EventListener>();
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
     this.scope = new Scope(this.instance);
-    this.attributeObserver = new AttributeObserver(this.instance, ATTRIBUTE_NAME, this);
   }
 
   start() {
-    this.attributeObserver.start();
-    this.actionableElements.forEach((element) => this.bindActions(element));
+    if (!this.tokenListObserver) {
+      this.tokenListObserver = new TokenListObserver(this.instance, ATTRIBUTE_NAME, this);
+      this.tokenListObserver.start();
+      this.initializeActions();
+    }
   }
 
   stop() {
-    this.eventListenerMap.values.forEach((eventListener) => eventListener.stop());
-    this.eventListenerMap.clear();
-    this.attributeObserver.stop();
+    if (this.tokenListObserver) {
+      this.destroyActions();
+      this.tokenListObserver.stop();
+      this.tokenListObserver = undefined;
+    }
   }
 
-  elementConnected(element: Element) {
-    this.bindActions(element);
+  tokenMatched({ content, element }: Token) {
+    const { identifier, eventTarget, ...options } = parseActionDescriptor(content);
+    if (options.eventName && identifier === this.identifier && options.methodName && this.scope.scopedTarget(element)) {
+      const eventListener = new EventListener(this.instance, { ...options, eventTarget: eventTarget || element });
+      this.eventListenerMap.add(element, eventListener);
+      eventListener.start();
+    }
   }
 
-  elementDisconnected(element: Element) {
-    this.unbindActions(element);
-  }
-
-  elementAttributeChanged(element: Element) {
-    this.unbindActions(element);
-    this.bindActions(element);
-  }
-
-  private bindActions(element: Element) {
-    const descriptors = getAttributeValues(element, ATTRIBUTE_NAME);
-    descriptors.forEach((descriptor) => {
-      const { eventName, eventModifiers, eventListenerOptions, eventTarget, methodName, identifier } =
-        parseActionDescriptor(descriptor);
-      if (eventName && identifier === this.identifier && methodName && this.actionableElements.includes(element)) {
-        const eventListener = new EventListener(
-          this.instance,
-          eventTarget || element,
-          eventName,
-          eventModifiers,
-          eventListenerOptions,
-          methodName
-        );
-        this.eventListenerMap.add(element, eventListener);
-        eventListener.start();
-      }
-    });
-  }
-
-  private unbindActions(element: Element) {
+  tokenUnmatched({ element }: Token) {
     const eventListeners = this.eventListenerMap.get(element);
     if (!eventListeners) return;
-    eventListeners.forEach((eventListener) => {
+
+    for (const eventListener of eventListeners) {
       eventListener.stop();
       this.eventListenerMap.delete(element, eventListener);
-    });
+    }
   }
 
-  private get actionableElements() {
-    return this.scope.findTargets(`[${ATTRIBUTE_NAME}]`);
+  tokenChanged(token: Token) {
+    this.tokenUnmatched(token);
+    this.tokenMatched(token);
+  }
+
+  private initializeActions() {
+    const targets = this.scope.findTargets(`[${ATTRIBUTE_NAME}]`);
+    targets.forEach((target) => this.tokenListObserver?.elementConnected(target));
+  }
+
+  private destroyActions() {
+    for (const target of this.eventListenerMap.keys) {
+      this.tokenListObserver?.elementDisconnected(target);
+    }
   }
 
   private get identifier() {
