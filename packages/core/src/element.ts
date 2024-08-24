@@ -1,6 +1,5 @@
 import Action from './action';
 import type { PropertyConstructor, PropertyType } from './decorators/property';
-import { domReady } from './helpers/dom';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
 import Store from './store';
@@ -13,7 +12,6 @@ export default class ImpulseElement extends HTMLElement {
   private _started = false;
 
   async connectedCallback() {
-    await domReady();
     customElements.upgrade(this);
     // Order is important
     this.property.start();
@@ -97,10 +95,10 @@ export default class ImpulseElement extends HTMLElement {
     return this.tagName.toLowerCase();
   }
 
-  private async _resolveUndefinedElements() {
+  private _resolveUndefinedElements() {
     const undefinedElements = Array.from(this.querySelectorAll(':not(:defined)'));
     const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
-    await Promise.all(promises);
+    return Promise.all(promises);
   }
 }
 
