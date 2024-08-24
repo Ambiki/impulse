@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0-beta.1] - 2024-08-24
+
+### Added
+
+- Export `TokenListObserver` ([#34](https://github.com/Ambiki/impulse/pull/34))
+
+### Changed
+
+- Do not wait for DOM to be ready before initializing Impulse ([#32](https://github.com/Ambiki/impulse/pull/32))
+
 ## [0.4.0] - 2024-05-17
 
 ### Added
@@ -59,7 +69,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v0.4.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...HEAD
+[0.5.0-beta.1]: https://github.com/Ambiki/impulse/compare/v0.4.0...v0.5.0-beta.1
 [0.4.0]: https://github.com/Ambiki/impulse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Ambiki/impulse/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Ambiki/impulse/compare/v0.1.3...v0.2.0
