@@ -3,6 +3,7 @@ import AttributeObserver from './attribute_observer';
 type TokenListObserverDelegate = {
   tokenMatched?: (token: Token) => void;
   tokenUnmatched?: (token: Token) => void;
+  tokenChanged?: (token: Token) => void;
 };
 
 export type Token = {
@@ -43,12 +44,21 @@ export default class TokenListObserver {
     tokens.forEach((token) => this.tokenUnmatched(token));
   }
 
+  elementAttributeChanged(element: Element) {
+    const tokens = this.readTokensForElement(element);
+    tokens.forEach((token) => this.tokenChanged(token));
+  }
+
   private tokenMatched(token: Token) {
     this.delegate.tokenMatched?.(token);
   }
 
   private tokenUnmatched(token: Token) {
     this.delegate.tokenUnmatched?.(token);
+  }
+
+  private tokenChanged(token: Token) {
+    this.delegate.tokenChanged?.(token);
   }
 
   private readTokensForElement(element: Element): Token[] {

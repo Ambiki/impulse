@@ -1,21 +1,29 @@
 import { modifierGuards } from './action_descriptor';
 import type ImpulseElement from './element';
 
+type Options = {
+  eventListenerOptions: EventListenerOptions;
+  eventModifiers: string[];
+  eventName: string;
+  eventTarget: EventTarget;
+  methodName: string;
+};
+
 export default class EventListener implements EventListenerObject {
-  constructor(
-    private readonly instance: ImpulseElement,
-    private readonly eventTarget: EventTarget,
-    private eventName: string,
-    private eventModifiers: string[],
-    private eventListenerOptions: EventListenerOptions,
-    private methodName: string
-  ) {
+  private readonly instance: ImpulseElement;
+  private eventListenerOptions: EventListenerOptions;
+  private eventModifiers: string[];
+  private eventName: string;
+  private eventTarget: EventTarget;
+  private methodName: string;
+
+  constructor(instance: ImpulseElement, options: Options) {
     this.instance = instance;
-    this.eventTarget = eventTarget;
-    this.eventName = eventName;
-    this.eventModifiers = eventModifiers;
-    this.eventListenerOptions = eventListenerOptions;
-    this.methodName = methodName;
+    this.eventTarget = options.eventTarget;
+    this.eventName = options.eventName;
+    this.eventModifiers = options.eventModifiers;
+    this.eventListenerOptions = options.eventListenerOptions;
+    this.methodName = options.methodName;
   }
 
   start() {
@@ -28,13 +36,13 @@ export default class EventListener implements EventListenerObject {
 
   handleEvent(event: Event) {
     const fn = (this.instance as unknown as Record<string, unknown>)[this.methodName];
-    if (typeof fn === 'function') {
-      for (const modifier of this.eventModifiers) {
-        const guard = modifierGuards[modifier];
-        if (guard?.(event)) return;
-      }
+    if (typeof fn !== 'function') return;
 
-      fn.call(this.instance, event);
+    for (const modifier of this.eventModifiers) {
+      const guard = modifierGuards[modifier];
+      if (guard?.(event)) return;
     }
+
+    fn.call(this.instance, event);
   }
 }
