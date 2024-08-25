@@ -23,7 +23,6 @@ export default class Target {
     if (!this.tokenListObserver) {
       this.tokenListObserver = new TokenListObserver(this.instance, 'data-target', this);
       this.tokenListObserver.start();
-      this.initializeTargets();
     }
   }
 
@@ -66,16 +65,6 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.invokeCallback(key, element, 'disconnected');
     // Update property after invoking callback.
     this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : null);
-  }
-
-  private initializeTargets() {
-    for (const key of this.keys) {
-      const targets = this.scope.findTargets(`[data-target~="${this.identifier}.${key}"]`);
-      // If no targets were found, define the property as null or an empty array.
-      if (!targets.length) {
-        this.defineProperty(key, this.isKeyMultiple(key) ? [] : null);
-      }
-    }
   }
 
   private destroyTargets() {
