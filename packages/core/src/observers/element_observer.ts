@@ -2,10 +2,13 @@ type ElementObserverDelegate = {
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, name: string) => void;
+  getMatchingElements?: (element: Element) => Element[];
+  matchesElement?: (element: Element) => boolean;
 };
 
 export default class ElementObserver {
   private observer: MutationObserver;
+  private elements: Set<Element> = new Set();
   private started = false;
 
   constructor(
@@ -23,6 +26,8 @@ export default class ElementObserver {
     if (!this.started) {
       this.started = true;
       this.observer.observe(this.element, { childList: true, subtree: true, ...this.observerOptions });
+      // Initialize elements that are already in the DOM.
+      this.initializeElements();
     }
   }
 
@@ -34,26 +39,35 @@ export default class ElementObserver {
     }
   }
 
+  private initializeElements() {
+    for (const element of this.getMatchingElements()) {
+      this.addElement(element);
+    }
+  }
+
   private processMutations(mutations: MutationRecord[]) {
     if (this.started) {
       for (const mutation of mutations) {
-        this.processMutation(mutation);
+        if (mutation.type === 'attributes' && mutation.target instanceof Element) {
+          this.processAttributeChange(mutation.target, mutation.attributeName);
+        } else if (mutation.type === 'childList') {
+          this.processRemovedNodes(mutation.removedNodes);
+          this.processAddedNodes(mutation.addedNodes);
+        }
       }
     }
   }
 
-  private processMutation(mutation: MutationRecord) {
-    if (mutation.type === 'attributes' && mutation.target instanceof Element) {
-      this.processAttributeChange(mutation.target, mutation.attributeName);
-    } else if (mutation.type === 'childList') {
-      this.processRemovedNodes(mutation.removedNodes);
-      this.processAddedNodes(mutation.addedNodes);
-    }
-  }
-
   private processAttributeChange(element: Element, attributeName: string | null) {
-    if (attributeName) {
-      this.delegate.elementAttributeChanged?.(element, attributeName);
+    if (this.elements.has(element)) {
+      // If the delegate does not implement elementAttributeChanged, remove the element.
+      if (this.delegate.elementAttributeChanged && this.matchesElement(element)) {
+        this.delegate.elementAttributeChanged(element, attributeName || '');
+      } else {
+        this.removeElement(element);
+      }
+    } else if (this.matchesElement(element)) {
+      this.addElement(element);
     }
   }
 
@@ -61,7 +75,9 @@ export default class ElementObserver {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
       if (element) {
-        this.delegate.elementDisconnected?.(element);
+        for (const ele of this.getMatchingElements(element)) {
+          this.removeElement(ele);
+        }
       }
     }
   }
@@ -69,9 +85,33 @@ export default class ElementObserver {
   private processAddedNodes(nodes: NodeList) {
     for (const node of Array.from(nodes)) {
       const element = this.elementFromNode(node);
-      if (element && this.elementIsActive(element)) {
-        this.delegate.elementConnected?.(element);
+      if (element) {
+        for (const ele of this.getMatchingElements(element)) {
+          this.addElement(ele);
+        }
       }
+    }
+  }
+
+  private getMatchingElements(element: Element = this.element): Element[] {
+    return this.delegate.getMatchingElements?.(element) || [];
+  }
+
+  private matchesElement(element: Element): boolean {
+    return this.delegate.matchesElement?.(element) ?? true;
+  }
+
+  private addElement(element: Element) {
+    if (!this.elements.has(element) && this.elementIsActive(element)) {
+      this.elements.add(element);
+      this.delegate.elementConnected?.(element);
+    }
+  }
+
+  private removeElement(element: Element) {
+    if (this.elements.has(element)) {
+      this.elements.delete(element);
+      this.delegate.elementDisconnected?.(element);
     }
   }
 
