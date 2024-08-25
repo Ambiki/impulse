@@ -21,7 +21,6 @@ export default class Action implements TokenListObserverDelegate {
     if (!this.tokenListObserver) {
       this.tokenListObserver = new TokenListObserver(this.instance, ATTRIBUTE_NAME, this);
       this.tokenListObserver.start();
-      this.initializeActions();
     }
   }
 
@@ -50,11 +49,6 @@ export default class Action implements TokenListObserverDelegate {
       eventListener.stop();
       this.eventListenerMap.delete(element, eventListener);
     }
-  }
-
-  private initializeActions() {
-    const targets = this.scope.findTargets(`[${ATTRIBUTE_NAME}]`);
-    targets.forEach((target) => this.tokenListObserver?.elementConnected(target));
   }
 
   private destroyActions() {
