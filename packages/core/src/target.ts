@@ -54,7 +54,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       );
     }
 
-    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : element);
+    this.defineProperty(key, this.isKeyMultiple(key) ? targets : element);
     this.invokeCallback(key, element, 'connected');
   }
 
@@ -75,8 +75,6 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       if (!targets.length) {
         this.defineProperty(key, this.isKeyMultiple(key) ? [] : null);
       }
-
-      targets.forEach((target) => this.tokenListObserver?.elementConnected(target));
     }
   }
 
