@@ -9,7 +9,7 @@ export default class ElementObserver {
   private started = false;
 
   constructor(
-    private readonly element: Element | Document,
+    private readonly element: Element,
     private delegate: ElementObserverDelegate,
     private readonly observerOptions?: MutationObserverInit
   ) {

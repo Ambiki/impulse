@@ -10,7 +10,7 @@ export default class AttributeObserver {
   private elementObserver: ElementObserver;
 
   constructor(
-    private readonly instance: Element | Document,
+    private readonly instance: Element,
     private readonly attributeName: string,
     private delegate: AttributeObserverDelegate
   ) {
