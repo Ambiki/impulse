@@ -1,12 +1,12 @@
-import ElementObserver from './element_observer';
+import ElementObserver, { ElementObserverDelegate } from './element_observer';
 
-type AttributeObserverDelegate = {
+export type AttributeObserverDelegate = {
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, name: string) => void;
 };
 
-export default class AttributeObserver {
+export default class AttributeObserver implements ElementObserverDelegate {
   private elementObserver: ElementObserver;
 
   constructor(

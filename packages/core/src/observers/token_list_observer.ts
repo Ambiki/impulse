@@ -1,9 +1,9 @@
-import AttributeObserver from './attribute_observer';
+import SetMap from '../data_structures/set_map';
+import AttributeObserver, { AttributeObserverDelegate } from './attribute_observer';
 
-type TokenListObserverDelegate = {
+export type TokenListObserverDelegate = {
   tokenMatched?: (token: Token) => void;
   tokenUnmatched?: (token: Token) => void;
-  tokenChanged?: (token: Token) => void;
 };
 
 export type Token = {
@@ -12,8 +12,9 @@ export type Token = {
   element: Element;
 };
 
-export default class TokenListObserver {
-  private attributeObserver: AttributeObserver;
+export default class TokenListObserver implements AttributeObserverDelegate {
+  private elementTokens: SetMap<Element, Token>;
+  private attributeObserver?: AttributeObserver;
 
   constructor(
     private readonly element: Element,
@@ -23,15 +24,21 @@ export default class TokenListObserver {
     this.element = element;
     this.attributeName = attributeName;
     this.delegate = delegate;
-    this.attributeObserver = new AttributeObserver(this.element, this.attributeName, this);
+    this.elementTokens = new SetMap();
   }
 
   start() {
-    this.attributeObserver.start();
+    if (!this.attributeObserver) {
+      this.attributeObserver = new AttributeObserver(this.element, this.attributeName, this);
+      this.attributeObserver.start();
+    }
   }
 
   stop() {
-    this.attributeObserver.stop();
+    if (this.attributeObserver) {
+      this.attributeObserver.stop();
+      this.attributeObserver = undefined;
+    }
   }
 
   elementConnected(element: Element) {
@@ -45,20 +52,21 @@ export default class TokenListObserver {
   }
 
   elementAttributeChanged(element: Element) {
-    const tokens = this.readTokensForElement(element);
-    tokens.forEach((token) => this.tokenChanged(token));
+    const oldTokens = this.elementTokens.getValuesForKey(element);
+    const newTokens = this.readTokensForElement(element);
+    const [added, removed] = compareTokens(oldTokens, newTokens);
+    removed.forEach((token) => this.tokenUnmatched(token));
+    added.forEach((token) => this.tokenMatched(token));
   }
 
   private tokenMatched(token: Token) {
+    this.elementTokens.add(token.element, token);
     this.delegate.tokenMatched?.(token);
   }
 
   private tokenUnmatched(token: Token) {
+    this.elementTokens.delete(token.element, token);
     this.delegate.tokenUnmatched?.(token);
-  }
-
-  private tokenChanged(token: Token) {
-    this.delegate.tokenChanged?.(token);
   }
 
   private readTokensForElement(element: Element): Token[] {
@@ -73,4 +81,14 @@ function parseTokenString(tokenString: string, element: Element, attributeName: 
     .split(/\s+/)
     .filter((content) => content.length)
     .map((content) => ({ element, attributeName, content }));
+}
+
+function compareTokens(newTokens: Token[], oldTokens: Token[]) {
+  // Convert arrays to sets for O(1) lookup time
+  const newTokensSet = new Set(newTokens.map(({ content }) => content));
+  const oldTokensSet = new Set(oldTokens.map(({ content }) => content));
+
+  const added = oldTokens.filter((token) => !newTokensSet.has(token.content));
+  const removed = newTokens.filter((token) => !oldTokensSet.has(token.content));
+  return [added, removed];
 }

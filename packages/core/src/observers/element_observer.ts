@@ -1,4 +1,4 @@
-type ElementObserverDelegate = {
+export type ElementObserverDelegate = {
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, name: string) => void;

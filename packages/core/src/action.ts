@@ -2,12 +2,12 @@ import { parseActionDescriptor } from './action_descriptor';
 import SetMap from './data_structures/set_map';
 import type ImpulseElement from './element';
 import EventListener from './event_listener';
-import TokenListObserver, { Token } from './observers/token_list_observer';
+import TokenListObserver, { Token, TokenListObserverDelegate } from './observers/token_list_observer';
 import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';
 
-export default class Action {
+export default class Action implements TokenListObserverDelegate {
   private tokenListObserver?: TokenListObserver;
   private scope: Scope;
   private eventListenerMap = new SetMap<Element, EventListener>();
@@ -50,11 +50,6 @@ export default class Action {
       eventListener.stop();
       this.eventListenerMap.delete(element, eventListener);
     }
-  }
-
-  tokenChanged(token: Token) {
-    this.tokenUnmatched(token);
-    this.tokenMatched(token);
   }
 
   private initializeActions() {
