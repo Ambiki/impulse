@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0-beta.2] - 2024-08-26
+
 ### Added
 
-- Fire callbacks when `data-[action|target]` attributes are modified
+- Fire callbacks when `data-[action|target]` attributes are modified ([#41](https://github.com/Ambiki/impulse/pull/41))
 
 ### Fixed
 
-- Optmize event listeners so that only the added/removed actions are processed
+- Optmize event listeners so that only the added/removed actions are processed ([#41](https://github.com/Ambiki/impulse/pull/41))
 
 ### Fixed
 
@@ -81,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.2...HEAD
+[0.5.0-beta.2]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v0.5.0-beta.2
 [0.5.0-beta.1]: https://github.com/Ambiki/impulse/compare/v0.4.0...v0.5.0-beta.1
 [0.4.0]: https://github.com/Ambiki/impulse/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Ambiki/impulse/compare/v0.2.0...v0.3.0
