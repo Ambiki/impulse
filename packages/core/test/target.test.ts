@@ -1,4 +1,4 @@
-import { expect, fixture, html, waitUntil } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement, target } from '../src';
 
@@ -56,6 +56,7 @@ describe('@target', () => {
     el = await fixture(html`
       <target-test>
         <div id="panel" data-target="target-test.panel"></div>
+        <div id="just-div"></div>
         <button type="button" id="button" data-target="target-test.button"></button>
         <target-test>
           <div id="panel2" data-target="target-test.panel"></div>
@@ -108,6 +109,29 @@ describe('@target', () => {
     await waitUntil(() => el2.buttonConnectedSpy.called);
     expect(el2.buttonConnectedSpy.calledOnceWith(button, button)).to.be.true;
     expect(el.buttonConnectedSpy.calledOnce).to.be.true; // when first connected
+  });
+
+  it('should call the [target]Connected callback if target identifier is added', async () => {
+    const div = document.getElementById('just-div');
+    div?.setAttribute('data-target', `${el.identifier}.sheet`);
+    await waitUntil(() => el.sheetConnectedSpy.called);
+    expect(el.sheetConnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('should call the [target]Disconnected callback if target identifier is removed', async () => {
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const div = document.getElementById('panel2');
+    div?.setAttribute('data-target', '');
+    await waitUntil(() => el2.panelDisconnectedSpy.called);
+    expect(el2.panelDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('should call the [target]Disconnected callback if data-target is removed', async () => {
+    const el2 = el.querySelector<TargetTest>('target-test')!;
+    const div = document.getElementById('panel2');
+    div?.removeAttribute('data-target');
+    await nextFrame();
+    expect(el2.panelDisconnectedSpy.calledOnce).to.be.true;
   });
 
   it('should call the connected callback after [target]Connected callback', () => {

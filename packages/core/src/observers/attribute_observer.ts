@@ -1,12 +1,12 @@
-import ElementObserver from './element_observer';
+import { ElementObserver, ElementObserverDelegate } from './element_observer';
 
-type AttributeObserverDelegate = {
+export type AttributeObserverDelegate = {
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, name: string) => void;
 };
 
-export default class AttributeObserver {
+export class AttributeObserver implements ElementObserverDelegate {
   private elementObserver: ElementObserver;
 
   constructor(
@@ -29,17 +29,11 @@ export default class AttributeObserver {
   }
 
   elementConnected(element: Element) {
-    const elements = this.getMatchingElements(element);
-    for (const ele of elements) {
-      this.delegate.elementConnected?.(ele);
-    }
+    this.delegate.elementConnected?.(element);
   }
 
   elementDisconnected(element: Element) {
-    const elements = this.getMatchingElements(element);
-    for (const ele of elements) {
-      this.delegate.elementDisconnected?.(ele);
-    }
+    this.delegate.elementDisconnected?.(element);
   }
 
   elementAttributeChanged(element: Element, attributeName: string) {
@@ -48,12 +42,22 @@ export default class AttributeObserver {
     }
   }
 
-  private getMatchingElements(element: Element) {
+  /**
+   * Returns the elements that match the selector. Called by the ElementObserver.
+   */
+  getMatchingElements(element: Element) {
     const elements = Array.from(element.querySelectorAll(`[${this.attributeName}]`));
     if (element.hasAttribute(this.attributeName)) {
       elements.unshift(element);
     }
 
     return elements;
+  }
+
+  /**
+   * Returns true if the element has the attribute. Called by the ElementObserver.
+   */
+  matchesElement(element: Element) {
+    return element.hasAttribute(this.attributeName);
   }
 }

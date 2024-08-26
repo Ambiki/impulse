@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Fire callbacks when `data-[action|target]` attributes are modified
+
+### Fixed
+
+- Optmize event listeners so that only the added/removed actions are processed
+
 ### Fixed
 
 - Fixed `ElementObserver` types
