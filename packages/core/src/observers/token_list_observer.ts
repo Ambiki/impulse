@@ -1,5 +1,5 @@
 import SetMap from '../data_structures/set_map';
-import AttributeObserver, { AttributeObserverDelegate } from './attribute_observer';
+import { AttributeObserver, AttributeObserverDelegate } from './attribute_observer';
 
 export type TokenListObserverDelegate = {
   tokenMatched?: (token: Token) => void;
@@ -12,7 +12,7 @@ export type Token = {
   element: Element;
 };
 
-export default class TokenListObserver implements AttributeObserverDelegate {
+export class TokenListObserver implements AttributeObserverDelegate {
   private elementTokens: SetMap<Element, Token>;
   private attributeObserver?: AttributeObserver;
 

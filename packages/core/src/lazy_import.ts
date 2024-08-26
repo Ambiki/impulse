@@ -1,6 +1,6 @@
 import SetMap from './data_structures/set_map';
 import { domReady } from './helpers/dom';
-import ElementObserver from './observers/element_observer';
+import { ElementObserver } from './observers/element_observer';
 
 const lazyElements = new SetMap<string, () => void>();
 

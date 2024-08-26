@@ -2,7 +2,7 @@ import SetMap from './data_structures/set_map';
 import type { TargetType } from './decorators/target';
 import type ImpulseElement from './element';
 import { capitalize } from './helpers/string';
-import TokenListObserver, { Token } from './observers/token_list_observer';
+import { Token, TokenListObserver } from './observers/token_list_observer';
 import Scope from './scope';
 import Store from './store';
 

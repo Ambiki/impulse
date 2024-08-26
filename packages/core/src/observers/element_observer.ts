@@ -6,7 +6,7 @@ export type ElementObserverDelegate = {
   matchesElement?: (element: Element) => boolean;
 };
 
-export default class ElementObserver {
+export class ElementObserver {
   private observer: MutationObserver;
   private elements: Set<Element> = new Set();
   private started = false;
