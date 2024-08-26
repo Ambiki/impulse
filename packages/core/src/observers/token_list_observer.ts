@@ -47,7 +47,9 @@ export class TokenListObserver implements AttributeObserverDelegate {
   }
 
   elementDisconnected(element: Element) {
-    const tokens = this.readTokensForElement(element);
+    // Instead of removing the value, if we remove the attribute itself, the `readTokensForElement` will not return
+    // any tokens. Hence, we need to get the tokens from the state.
+    const tokens = this.elementTokens.getValuesForKey(element);
     tokens.forEach((token) => this.tokenUnmatched(token));
   }
 

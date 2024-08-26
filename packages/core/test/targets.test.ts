@@ -1,4 +1,4 @@
-import { expect, fixture, html, waitUntil } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement, targets } from '../src';
 
@@ -166,6 +166,31 @@ describe('@targets', () => {
   it('should call the disconnected callback before [target]Disconnected callback', () => {
     el.remove();
     expect(el.panelsDisconnectedSpy.calledAfter(el.disconnectedSpy)).to.be.true;
+  });
+
+  it('should call the [target]Connected callback if target identifier is added', async () => {
+    const div = document.getElementById('panel1')!;
+    div.setAttribute('data-target', `${el.identifier}.panels ${el.identifier}.sheets`);
+    await nextFrame();
+    expect(el.sheetsConnectedSpy.calledOnce).to.be.true;
+    expect(el.panelsDisconnectedSpy.called).to.be.false;
+  });
+
+  it('should call the [target]Disconnected callback if target identifier is removed', async () => {
+    const div = document.getElementById('panel1')!;
+    div.setAttribute('data-target', '');
+    await nextFrame();
+    expect(el.panelsDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('should call the [target]Disconnected callback if data-target is removed', async () => {
+    const div = document.getElementById('panel1')!;
+    div.setAttribute('data-target', `${el.identifier}.panels ${el.identifier}.sheets`);
+    await nextFrame();
+    div.removeAttribute('data-target');
+    await nextFrame();
+    expect(el.panelsDisconnectedSpy.calledOnce).to.be.true;
+    expect(el.sheetsDisconnectedSpy.calledOnce).to.be.true;
   });
 
   it('should not call the [target]Disconnected callback if the identifier do not match', () => {
