@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Set muliple targets as `[]` and single target as `null` if they cannot be found
+
 ## [0.5.0-beta.2] - 2024-08-26
 
 ### Added
@@ -15,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Optmize event listeners so that only the added/removed actions are processed ([#41](https://github.com/Ambiki/impulse/pull/41))
+- Optimize event listeners so that only the added/removed actions are processed ([#41](https://github.com/Ambiki/impulse/pull/41))
 
 ### Fixed
 

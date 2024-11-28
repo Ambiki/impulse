@@ -20,6 +20,13 @@ export default class Target implements TokenListObserverDelegate {
   }
 
   start() {
+    // Initialize targets with an empty array if it references multiple targets, or with null if it references a single
+    // target. Later, if we find matching targets, we set them accordingly. If we don't, we can still iterate over
+    // targets because it is an array.
+    for (const key of this.keys) {
+      this.defineProperty(key, this.isKeyMultiple(key) ? [] : null);
+    }
+
     if (!this.tokenListObserver) {
       this.tokenListObserver = new TokenListObserver(this.instance, 'data-target', this);
       this.tokenListObserver.start();
