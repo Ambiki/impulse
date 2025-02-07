@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2025-02-07
+
 ### Fixed
 
-- Wait for `document.readyState` to be `interactive` before initializing Impulse
+- Wait for `document.readyState` to be `interactive` before initializing Impulse ([#49](https://github.com/Ambiki/impulse/pull/49))
 
 ## [1.0.0] - 2024-11-28
 
@@ -90,7 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v1.0.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Ambiki/impulse/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v1.0.0
 [0.5.0-beta.2]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v0.5.0-beta.2
 [0.5.0-beta.1]: https://github.com/Ambiki/impulse/compare/v0.4.0...v0.5.0-beta.1
