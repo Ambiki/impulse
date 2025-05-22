@@ -2,7 +2,7 @@ import { parseActionDescriptor } from './action_descriptor';
 import SetMap from './data_structures/set_map';
 import type ImpulseElement from './element';
 import EventListener from './event_listener';
-import { Token, TokenListObserver, TokenListObserverDelegate } from './observers/token_list_observer';
+import { TokenListObserver, type Token, type TokenListObserverDelegate } from './observers/token_list_observer';
 import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';

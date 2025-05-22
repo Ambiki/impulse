@@ -27,5 +27,6 @@ module.exports = {
   ],
   rules: {
     'prettier/prettier': ['error'],
+    '@typescript-eslint/consistent-type-imports': 'warn',
   },
 };

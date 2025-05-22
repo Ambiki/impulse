@@ -1,5 +1,5 @@
 import SetMap from '../data_structures/set_map';
-import { AttributeObserver, AttributeObserverDelegate } from './attribute_observer';
+import { AttributeObserver, type AttributeObserverDelegate } from './attribute_observer';
 
 export type TokenListObserverDelegate = {
   tokenMatched?: (token: Token) => void;
