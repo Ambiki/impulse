@@ -1,4 +1,4 @@
-import { ElementObserver, ElementObserverDelegate } from './element_observer';
+import { ElementObserver, type ElementObserverDelegate } from './element_observer';
 
 export type AttributeObserverDelegate = {
   elementConnected?: (element: Element) => void;
