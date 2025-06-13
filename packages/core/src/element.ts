@@ -78,7 +78,7 @@ export default class ImpulseElement extends HTMLElement {
   /**
    * Emits a custom event from the element.
    */
-  emit<T extends Record<string, unknown>>(
+  emit<T extends Record<string, any>>(
     name: string,
     {
       target = this,

@@ -62,13 +62,11 @@ function descriptorProperties(element: Element, attributeName: string, type: Pro
     case Array:
       return {
         get: () => JSON.parse(element.getAttribute(attributeName) || '[]'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         set: (value: any[]) => element.setAttribute(attributeName, JSON.stringify(value) || '[]'),
       };
     case Object:
       return {
         get: () => JSON.parse(element.getAttribute(attributeName) || '{}'),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         set: (value: Record<any, any>) => element.setAttribute(attributeName, JSON.stringify(value) || '{}'),
       };
     default:

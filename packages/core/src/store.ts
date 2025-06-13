@@ -4,7 +4,6 @@ export default class Store {
   private map: Map<string, Set<Record<string, unknown>>> = new Map();
 
   constructor(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private ctor: any,
     private name: string
   ) {

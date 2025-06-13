@@ -1,5 +1,4 @@
 export default function registerElement(name: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (ctor: any) => {
     try {
       window.customElements.define(name, ctor);
