@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@ambiki/impulse": "1.0.1",
+    "@ambiki/impulse": "1.0.2",
     "vite": "^4.5.14"
   }
 }

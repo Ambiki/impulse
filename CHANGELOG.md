@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2025-06-15
+
 ### Fixed
 
-- Prevent early invocation of `connected` and `disconnected` functions
+- Prevent early invocation of `connected` and `disconnected` functions ([#56](https://github.com/Ambiki/impulse/pull/56))
 
 ## [1.0.1] - 2025-02-07
 
