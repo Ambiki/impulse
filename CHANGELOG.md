@@ -98,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v1.0.1...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/Ambiki/impulse/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Ambiki/impulse/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v1.0.0
 [0.5.0-beta.2]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v0.5.0-beta.2
