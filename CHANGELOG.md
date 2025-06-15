@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Prevent early invocation of `connected` and `disconnected` functions
+
 ## [1.0.1] - 2025-02-07
 
 ### Fixed

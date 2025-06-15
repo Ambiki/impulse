@@ -12,20 +12,10 @@ export default class ImpulseElement extends HTMLElement {
   private action = new Action(this);
   private _started = false;
 
-  async connectedCallback() {
-    await domReady();
-    customElements.upgrade(this);
-    // Order is important
-    this.property.start();
-    // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
-    // to the assigned value.
-    await this._resolveUndefinedElements();
-    this.target.start();
-    this.action.start();
-    this._started = true;
-
-    this.setAttribute('data-impulse-element', '');
-    this.connected();
+  connectedCallback() {
+    if (!this._started) {
+      this._asyncConnect();
+    }
   }
 
   static get observedAttributes(): string[] {
@@ -59,12 +49,14 @@ export default class ImpulseElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    // Order is important
-    this.disconnected();
-    this.action.stop();
-    this.target.stop();
-    this.property.stop();
-    this._started = false;
+    if (this._started) {
+      // Order is important
+      this.disconnected();
+      this.action.stop();
+      this.target.stop();
+      this.property.stop();
+      this._started = false;
+    }
   }
 
   connected() {
@@ -95,6 +87,22 @@ export default class ImpulseElement extends HTMLElement {
 
   get identifier() {
     return this.tagName.toLowerCase();
+  }
+
+  private async _asyncConnect() {
+    await domReady();
+    customElements.upgrade(this);
+    // Order is important
+    this.property.start();
+    // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
+    // to the assigned value.
+    await this._resolveUndefinedElements();
+    this.target.start();
+    this.action.start();
+    this._started = true;
+
+    this.setAttribute('data-impulse-element', '');
+    this.connected();
   }
 
   private _resolveUndefinedElements() {
