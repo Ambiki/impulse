@@ -6,11 +6,11 @@ import { TokenListObserver, type Token, type TokenListObserverDelegate } from '.
 import Scope from './scope';
 import Store from './store';
 
-export default class Target implements TokenListObserverDelegate {
+export default class Target<T extends Element> implements TokenListObserverDelegate<T> {
   private store: Store;
   private scope: Scope;
-  private targetsByKey: SetMap<string, Element>;
-  private tokenListObserver?: TokenListObserver;
+  private targetsByKey: SetMap<string, T>;
+  private tokenListObserver?: TokenListObserver<T>;
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
@@ -41,7 +41,7 @@ export default class Target implements TokenListObserverDelegate {
     }
   }
 
-  tokenMatched({ content, element }: Token) {
+  tokenMatched({ content, element }: Token<T>) {
     const [identifier, key] = content.split('.');
     if (!this.isValidIdKeyPair(identifier, key) || this.targetsByKey.has(key, element)) return;
     // Check if the target is within the scope of the instance.
@@ -64,7 +64,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.invokeCallback(key, element, 'connected');
   }
 
-  tokenUnmatched({ content, element }: Token) {
+  tokenUnmatched({ content, element }: Token<T>) {
     const [identifier, key] = content.split('.');
     if (!this.isValidIdKeyPair(identifier, key) || !this.targetsByKey.has(key, element)) return;
 
@@ -81,7 +81,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     }
   }
 
-  private defineProperty(key: string, result: Element | Element[] | null) {
+  private defineProperty(key: string, result: T | T[] | null) {
     Object.defineProperty(this.instance, key, { configurable: true, get: () => result });
   }
 
@@ -93,7 +93,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     return true;
   }
 
-  private invokeCallback(key: string, target: Element, suffix: string) {
+  private invokeCallback(key: string, target: T, suffix: string) {
     const fn = (this.instance as unknown as Record<string, unknown>)[`${key}${capitalize(suffix)}`];
     if (typeof fn === 'function') {
       fn.call(this.instance, target);

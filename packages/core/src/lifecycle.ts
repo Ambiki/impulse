@@ -34,15 +34,31 @@ export interface OnConnectedOptions extends Omit<MutationObserverInit, 'childLis
  * onConnected('.widget', (element) => {
  *   initializeWidget(element);
  * }, { attributes: false });
+ *
+ * // Stop manually
+ * const stop = onConnected('div', (element) => {
+ *   console.log('Connected');
+ * });
+ * stop();
  * ```
  */
-export function onConnected(
+export function onConnected<K extends keyof HTMLElementTagNameMap>(
+  selector: K,
+  callback: (element: HTMLElementTagNameMap[K]) => void | (() => void),
+  options?: OnConnectedOptions
+): () => void;
+export function onConnected<T extends Element = Element>(
   selector: string,
-  callback: (element: Element) => void | (() => void),
+  callback: (element: T) => void | (() => void),
+  options?: OnConnectedOptions
+): () => void;
+export function onConnected<T extends Element = Element>(
+  selector: string,
+  callback: (element: T) => void | (() => void),
   options: OnConnectedOptions = {}
 ) {
   let cleanup: void | (() => void);
-  const delegate: ElementObserverDelegate = {
+  const delegate: ElementObserverDelegate<T> = {
     elementConnected: (element) => {
       cleanup = callback(element);
     },
@@ -51,10 +67,17 @@ export function onConnected(
         cleanup();
       }
     },
-    getMatchingElements: (element) => getMatchingElementsFrom(element, selector),
+    getMatchingElements: (element) => getMatchingElementsFrom<T>(element, selector),
   };
-  const observer = new ElementObserver(document.documentElement, delegate, { attributes: true, ...options });
+  const observer = new ElementObserver(document.documentElement, delegate, {
+    attributes: true,
+    ...options,
+  });
   observer.start();
+
+  return () => {
+    observer.stop();
+  };
 }
 
 interface OnDisconnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
@@ -81,17 +104,40 @@ interface OnDisconnectedOptions extends Omit<MutationObserverInit, 'childList' |
  * onDisconnected('.widget', (element) => {
  *   cleanupWidget(element);
  * }, { attributes: false });
+ *
+ * // Stop manually
+ * const stop = onDisconnected('button', (element) => {
+ *   console.log('Connected');
+ * });
+ * stop();
  * ```
  */
-export function onDisconnected(
+export function onDisconnected<K extends keyof HTMLElementTagNameMap>(
+  selector: K,
+  callback: (element: HTMLElementTagNameMap[K]) => void,
+  options?: OnDisconnectedOptions
+): () => void;
+export function onDisconnected<T extends Element = Element>(
   selector: string,
-  callback: (element: Element) => void,
+  callback: (element: T) => void,
+  options?: OnDisconnectedOptions
+): () => void;
+export function onDisconnected<T extends Element = Element>(
+  selector: string,
+  callback: (element: T) => void,
   options: OnDisconnectedOptions = {}
 ) {
-  const delegate: ElementObserverDelegate = {
+  const delegate: ElementObserverDelegate<T> = {
     elementDisconnected: callback,
-    getMatchingElements: (element) => getMatchingElementsFrom(element, selector),
+    getMatchingElements: (element) => getMatchingElementsFrom<T>(element, selector),
   };
-  const observer = new ElementObserver(document.documentElement, delegate, { attributes: true, ...options });
+  const observer = new ElementObserver(document.documentElement, delegate, {
+    attributes: true,
+    ...options,
+  });
   observer.start();
+
+  return () => {
+    observer.stop();
+  };
 }
