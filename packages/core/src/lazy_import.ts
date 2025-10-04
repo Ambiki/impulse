@@ -1,5 +1,5 @@
 import SetMap from './data_structures/set_map';
-import { domReady } from './helpers/dom';
+import { domReady, getMatchingElementsFrom } from './helpers/dom';
 import { ElementObserver } from './observers/element_observer';
 
 const lazyElements = new SetMap<string, () => void>();
@@ -30,11 +30,7 @@ export default function lazyImport(selector: string, callback: () => void) {
       }
     },
     getMatchingElements(element) {
-      const elements = Array.from(element.querySelectorAll(selector));
-      if (element.matches(selector)) {
-        elements.unshift(element);
-      }
-      return elements;
+      return getMatchingElementsFrom(element, selector);
     },
   });
 

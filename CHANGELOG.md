@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `onConnected` and `onDisconnected` lifecycle functions
+
 ## [1.0.2] - 2025-06-15
 
 ### Fixed

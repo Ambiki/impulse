@@ -10,3 +10,24 @@ export function domReady() {
     }
   });
 }
+
+/**
+ * Returns all descendant elements matching the selector, including the root element if it matches.
+ *
+ * @param element - The root element to search from
+ * @param selector - CSS selector to match against
+ * @returns Array of matching elements, with the root element first if it matches the selector
+ *
+ * @example
+ * ```ts
+ * const container = document.querySelector('.container');
+ * const buttons = getMatchingElementsFrom(container, 'button');
+ * ```
+ */
+export function getMatchingElementsFrom(element: Element, selector: string) {
+  const elements = Array.from(element.querySelectorAll(selector));
+  if (element.matches(selector)) {
+    elements.unshift(element);
+  }
+  return elements;
+}
