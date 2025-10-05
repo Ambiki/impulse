@@ -14,6 +14,7 @@ export interface OnConnectedOptions extends Omit<MutationObserverInit, 'childLis
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return
  *                   a cleanup function that will be called when the element is disconnected.
  * @param options - Optional configuration
+ * @returns A cleanup function that stops observing
  *
  * @example
  * ```ts
@@ -92,6 +93,7 @@ interface OnDisconnectedOptions extends Omit<MutationObserverInit, 'childList' |
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is disconnected
  * @param options - Optional configuration
+ * @returns A cleanup function that stops observing
  *
  * @example
  * ```ts
