@@ -10,6 +10,9 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [{ text: 'Home', link: '/' }],
     outline: 'deep',
+    search: {
+      provider: 'local',
+    },
     sidebar: [
       {
         text: 'Introduction',
