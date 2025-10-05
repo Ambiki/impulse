@@ -7,10 +7,10 @@ import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';
 
-export default class Action implements TokenListObserverDelegate {
-  private tokenListObserver?: TokenListObserver;
+export default class Action<T extends Element = Element> implements TokenListObserverDelegate<T> {
+  private tokenListObserver?: TokenListObserver<T>;
   private scope: Scope;
-  private eventListenerMap = new SetMap<Element, EventListener>();
+  private eventListenerMap = new SetMap<T, EventListener>();
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
@@ -32,7 +32,7 @@ export default class Action implements TokenListObserverDelegate {
     }
   }
 
-  tokenMatched({ content, element }: Token) {
+  tokenMatched({ content, element }: Token<T>) {
     const { identifier, eventTarget, ...options } = parseActionDescriptor(content);
     if (options.eventName && identifier === this.identifier && options.methodName && this.scope.scopedTarget(element)) {
       const eventListener = new EventListener(this.instance, { ...options, eventTarget: eventTarget || element });
@@ -41,7 +41,7 @@ export default class Action implements TokenListObserverDelegate {
     }
   }
 
-  tokenUnmatched({ element }: Token) {
+  tokenUnmatched({ element }: Token<T>) {
     const eventListeners = this.eventListenerMap.get(element);
     if (!eventListeners) return;
 

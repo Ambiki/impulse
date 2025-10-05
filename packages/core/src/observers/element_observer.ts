@@ -1,19 +1,19 @@
-export type ElementObserverDelegate = {
-  elementConnected?: (element: Element) => void;
-  elementDisconnected?: (element: Element) => void;
-  elementAttributeChanged?: (element: Element, name: string) => void;
-  getMatchingElements?: (element: Element) => Element[];
-  matchesElement?: (element: Element) => boolean;
+export type ElementObserverDelegate<T> = {
+  elementConnected?: (element: T) => void;
+  elementDisconnected?: (element: T) => void;
+  elementAttributeChanged?: (element: T, name: string) => void;
+  getMatchingElements?: (element: T) => T[];
+  matchesElement?: (element: T) => boolean;
 };
 
-export class ElementObserver {
+export class ElementObserver<T extends Element = Element> {
   private observer: MutationObserver;
-  private elements: Set<Element> = new Set();
+  private elements: Set<T> = new Set();
   private started = false;
 
   constructor(
     private readonly element: Element,
-    private delegate: ElementObserverDelegate,
+    private delegate: ElementObserverDelegate<T>,
     private readonly observerOptions?: MutationObserverInit
   ) {
     this.element = element;
@@ -49,7 +49,7 @@ export class ElementObserver {
     if (this.started) {
       for (const mutation of mutations) {
         if (mutation.type === 'attributes' && mutation.target instanceof Element) {
-          this.processAttributeChange(mutation.target, mutation.attributeName);
+          this.processAttributeChange(mutation.target as T, mutation.attributeName);
         } else if (mutation.type === 'childList') {
           this.processRemovedNodes(mutation.removedNodes);
           this.processAddedNodes(mutation.addedNodes);
@@ -58,7 +58,7 @@ export class ElementObserver {
     }
   }
 
-  private processAttributeChange(element: Element, attributeName: string | null) {
+  private processAttributeChange(element: T, attributeName: string | null) {
     if (this.elements.has(element)) {
       // If the delegate does not implement elementAttributeChanged, remove the element.
       if (this.delegate.elementAttributeChanged && this.matchesElement(element)) {
@@ -93,37 +93,37 @@ export class ElementObserver {
     }
   }
 
-  private getMatchingElements(element: Element = this.element): Element[] {
-    return this.delegate.getMatchingElements?.(element) || [];
+  private getMatchingElements(element = this.element): T[] {
+    return this.delegate.getMatchingElements?.(element as T) || [];
   }
 
-  private matchesElement(element: Element): boolean {
+  private matchesElement(element: T): boolean {
     return this.delegate.matchesElement?.(element) ?? true;
   }
 
-  private addElement(element: Element) {
+  private addElement(element: T) {
     if (!this.elements.has(element) && this.elementIsActive(element)) {
       this.elements.add(element);
       this.delegate.elementConnected?.(element);
     }
   }
 
-  private removeElement(element: Element) {
+  private removeElement(element: T) {
     if (this.elements.has(element)) {
       this.elements.delete(element);
       this.delegate.elementDisconnected?.(element);
     }
   }
 
-  private elementFromNode(node: Node): Element | undefined {
+  private elementFromNode(node: Node): T | undefined {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      return node as Element;
+      return node as T;
     }
 
     return undefined;
   }
 
-  private elementIsActive(element: Element): boolean {
+  private elementIsActive(element: T): boolean {
     if (element.isConnected !== this.element.isConnected) {
       return false;
     }

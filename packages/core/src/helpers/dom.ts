@@ -24,8 +24,8 @@ export function domReady() {
  * const buttons = getMatchingElementsFrom(container, 'button');
  * ```
  */
-export function getMatchingElementsFrom(element: Element, selector: string) {
-  const elements = Array.from(element.querySelectorAll(selector));
+export function getMatchingElementsFrom<T extends Element>(element: T, selector: string): T[] {
+  const elements = Array.from(element.querySelectorAll<T>(selector));
   if (element.matches(selector)) {
     elements.unshift(element);
   }

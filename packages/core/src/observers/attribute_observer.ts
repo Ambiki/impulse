@@ -1,18 +1,18 @@
 import { ElementObserver, type ElementObserverDelegate } from './element_observer';
 
-export type AttributeObserverDelegate = {
-  elementConnected?: (element: Element) => void;
-  elementDisconnected?: (element: Element) => void;
-  elementAttributeChanged?: (element: Element, name: string) => void;
+export type AttributeObserverDelegate<T> = {
+  elementConnected?: (element: T) => void;
+  elementDisconnected?: (element: T) => void;
+  elementAttributeChanged?: (element: T, name: string) => void;
 };
 
-export class AttributeObserver implements ElementObserverDelegate {
-  private elementObserver: ElementObserver;
+export class AttributeObserver<T extends Element = Element> implements ElementObserverDelegate<T> {
+  private elementObserver: ElementObserver<T>;
 
   constructor(
     private readonly instance: Element,
     private readonly attributeName: string,
-    private delegate: AttributeObserverDelegate
+    private delegate: AttributeObserverDelegate<T>
   ) {
     this.instance = instance;
     this.attributeName = attributeName;
@@ -28,15 +28,15 @@ export class AttributeObserver implements ElementObserverDelegate {
     this.elementObserver.stop();
   }
 
-  elementConnected(element: Element) {
+  elementConnected(element: T) {
     this.delegate.elementConnected?.(element);
   }
 
-  elementDisconnected(element: Element) {
+  elementDisconnected(element: T) {
     this.delegate.elementDisconnected?.(element);
   }
 
-  elementAttributeChanged(element: Element, attributeName: string) {
+  elementAttributeChanged(element: T, attributeName: string) {
     if (attributeName === this.attributeName) {
       this.delegate.elementAttributeChanged?.(element, attributeName);
     }
@@ -45,8 +45,8 @@ export class AttributeObserver implements ElementObserverDelegate {
   /**
    * Returns the elements that match the selector. Called by the ElementObserver.
    */
-  getMatchingElements(element: Element) {
-    const elements = Array.from(element.querySelectorAll(`[${this.attributeName}]`));
+  getMatchingElements(element: T) {
+    const elements = Array.from(element.querySelectorAll<T>(`[${this.attributeName}]`));
     if (element.hasAttribute(this.attributeName)) {
       elements.unshift(element);
     }
@@ -57,7 +57,7 @@ export class AttributeObserver implements ElementObserverDelegate {
   /**
    * Returns true if the element has the attribute. Called by the ElementObserver.
    */
-  matchesElement(element: Element) {
+  matchesElement(element: T) {
     return element.hasAttribute(this.attributeName);
   }
 }

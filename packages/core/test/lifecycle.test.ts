@@ -75,6 +75,20 @@ describe('onConnected', () => {
     await nextFrame();
     expect(disconnected.calledOnceWith(root)).to.be.true;
   });
+
+  it('does not invoke when stopped', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = onConnected('#selector', callback);
+
+    stop();
+
+    const element = document.createElement('div');
+    element.setAttribute('id', 'selector');
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
 });
 
 describe('onDisconnected', () => {
@@ -119,5 +133,17 @@ describe('onDisconnected', () => {
     root.removeAttribute('class');
     await nextFrame();
     expect(callback.calledOnceWith(root)).to.be.false;
+  });
+
+  it('does not invoke when stopped', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    const stop = onDisconnected('.selector', callback);
+
+    stop();
+
+    root.remove();
+    await nextFrame();
+    expect(callback.called).to.be.false;
   });
 });
