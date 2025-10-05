@@ -38,7 +38,7 @@ A single target can be referenced via the `@target()` decorator. It is a syntact
 
 ```ts{6}
 // elements/greet_user_element.ts
-import { ImpulseElement, registerElement, target } from 'impulse';
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
@@ -52,7 +52,6 @@ export default class GreetUserElement extends ImpulseElement {
 
 Multiple targets can be referenced via the `@targets()` decorator. It is a syntactic sugar for `Array.from(this.querySelectorAll('...'))`.
 
-
 ```html{2,3}
 <greet-user>
   <div data-target="greet-user.results"></div>
@@ -62,7 +61,7 @@ Multiple targets can be referenced via the `@targets()` decorator. It is a synta
 
 ```ts{6}
 // elements/greet_user_element.ts
-import { ImpulseElement, registerElement, targets } from 'impulse';
+import { ImpulseElement, registerElement, targets } from '@ambiki/impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
@@ -81,7 +80,7 @@ Define a `[target]Connected` or `[target]Disconnected` function, where `[target]
 observe. The function receives the element as the first argument.
 
 ```ts{5,7,11}
-import { ImpulseElement, registerElement, target } from 'impulse';
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
@@ -107,7 +106,7 @@ Always use camelCase to reference the target in your HTML.
 ```
 
 ```ts
-import { ImpulseElement, registerElement, target } from 'impulse';
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {

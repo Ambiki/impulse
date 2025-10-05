@@ -1,5 +1,6 @@
 import Action from './action';
 import type { PropertyConstructor, PropertyType } from './decorators/property';
+import { emit } from './events';
 import { domReady } from './helpers/dom';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
@@ -75,14 +76,11 @@ export default class ImpulseElement extends HTMLElement {
     {
       target = this,
       prefix = this.identifier,
-      detail = {} as T,
       ...rest
     }: CustomEventInit<T> & { target?: Element | Window | Document; prefix?: boolean | string } = {}
   ): CustomEvent<T> {
     const eventName = prefix ? `${prefix}:${name}` : name;
-    const event = new CustomEvent(eventName, { bubbles: true, composed: true, detail, ...rest });
-    target.dispatchEvent(event);
-    return event;
+    return emit(target, eventName, rest);
   }
 
   get identifier() {
