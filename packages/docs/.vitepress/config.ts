@@ -10,6 +10,9 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     nav: [{ text: 'Home', link: '/' }],
     outline: 'deep',
+    search: {
+      provider: 'local',
+    },
     sidebar: [
       {
         text: 'Introduction',
@@ -33,9 +36,15 @@ export default defineConfig({
         items: [{ text: 'Clipboard element', link: '/examples/clipboard-element' }],
       },
     ],
+    editLink: {
+      pattern: 'https://github.com/Ambiki/impulse/tree/main/packages/docs/:path',
+    },
     footer: {
       message: 'Released under the MIT License.',
     },
     socialLinks: [{ icon: 'github', link: 'https://github.com/Ambiki/impulse' }],
+  },
+  sitemap: {
+    hostname: 'https://ambiki.github.io/impulse/',
   },
 });

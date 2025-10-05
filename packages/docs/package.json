@@ -2,6 +2,7 @@
   "name": "@ambiki/docs",
   "private": true,
   "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
@@ -9,6 +10,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "vitepress": "^1.0.0-beta.5"
+    "vitepress": "^1.6.4"
   }
 }
