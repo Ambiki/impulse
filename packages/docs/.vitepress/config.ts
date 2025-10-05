@@ -36,6 +36,9 @@ export default defineConfig({
         items: [{ text: 'Clipboard element', link: '/examples/clipboard-element' }],
       },
     ],
+    editLink: {
+      pattern: 'https://github.com/Ambiki/impulse/tree/main/packages/docs/:path',
+    },
     footer: {
       message: 'Released under the MIT License.',
     },
