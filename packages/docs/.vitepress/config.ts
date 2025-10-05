@@ -44,4 +44,7 @@ export default defineConfig({
     },
     socialLinks: [{ icon: 'github', link: 'https://github.com/Ambiki/impulse' }],
   },
+  sitemap: {
+    hostname: 'https://ambiki.github.io/impulse/',
+  },
 });
