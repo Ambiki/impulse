@@ -31,6 +31,16 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Utilities',
+        collapsed: false,
+        items: [
+          { text: 'connected', link: '/utilities/connected' },
+          { text: 'disconnected', link: '/utilities/disconnected' },
+          { text: 'on', link: '/utilities/on' },
+          { text: 'emit', link: '/utilities/emit' },
+        ],
+      },
+      {
         text: 'Examples',
         collapsed: false,
         items: [{ text: 'Clipboard element', link: '/examples/clipboard-element' }],
