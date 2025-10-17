@@ -53,7 +53,7 @@ Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 
 We want to call the `copy` function when the button is clicked. You can do this by binding `button.addEventListener('click', this.copy)`
 in the `connected` [lifecycle callback](/reference/lifecycle-callbacks.md), but Impulse has a better way of doing it.
-You can set set the `data-action="click->clip-board#copy"` (also known as [action descriptors](/reference/actions.md#descriptors))
+You can set the `data-action="click->clip-board#copy"` (also known as [action descriptors](/reference/actions.md#descriptors))
 on the button and Impulse will automatically listen for click events and remove the listener when the element is
 disconnected from the DOM.
 
@@ -97,7 +97,7 @@ export default class ClipBoardElement extends ImpulseElement {
 ```
 
 In the above code, we retrieved the value by first querying (`querySelector`) the input element and then accessing the
-value attribute of the input element. There's nothing wrong in doing that, but Impulse has a robust way of querying
+value attribute of the input element. There's nothing wrong with doing that, but Impulse has a robust way of querying
 targets using the [`@target()`](/reference/targets.md#single-target) decorator.
 
 ```ts{6,9-10}

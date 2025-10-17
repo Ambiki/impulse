@@ -9,7 +9,7 @@ These functions are invoked in order as defined below.
 
 ### `constructor()`
 
-This function is called when the element is created. Within this function, you can perform a one-time initialization
+This function is called when the element is created. Within this function, you can perform one-time initialization
 tasks, such as declaring properties.
 
 ::: warning

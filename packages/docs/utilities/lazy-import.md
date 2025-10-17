@@ -1,7 +1,7 @@
-# Lazy import
+# lazyImport
 
-Lazy import helps improve the initial loading performance of an application by including them only when the element is
-present in the DOM.
+Lazy import helps improve the initial loading performance of an application by loading modules only when elements
+matching a selector are present in the DOM.
 
 For example, you might want to load a dialog element only when the dialog is used on the page, or you might want to
 load CAPTCHA only on registration pages.

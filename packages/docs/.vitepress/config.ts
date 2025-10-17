@@ -27,7 +27,17 @@ export default defineConfig({
           { text: 'Actions', link: '/reference/actions' },
           { text: 'Properties', link: '/reference/properties' },
           { text: 'Targets', link: '/reference/targets' },
-          { text: 'Lazy import', link: '/reference/lazy-import' },
+        ],
+      },
+      {
+        text: 'Utilities',
+        collapsed: false,
+        items: [
+          { text: 'connected', link: '/utilities/connected' },
+          { text: 'disconnected', link: '/utilities/disconnected' },
+          { text: 'on', link: '/utilities/on' },
+          { text: 'emit', link: '/utilities/emit' },
+          { text: 'lazyImport', link: '/utilities/lazy-import' },
         ],
       },
       {
