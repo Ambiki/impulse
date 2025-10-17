@@ -1,7 +1,7 @@
 import { getMatchingElementsFrom } from './helpers/dom';
 import { ElementObserver, type ElementObserverDelegate } from './observers/element_observer';
 
-export interface OnConnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
+export interface ConnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
 
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are added to the DOM.
@@ -19,12 +19,12 @@ export interface OnConnectedOptions extends Omit<MutationObserverInit, 'childLis
  * @example
  * ```ts
  * // Watch for all buttons being added to the DOM
- * onConnected('button', (element) => {
+ * connected('button', (element) => {
  *   console.log('Button mounted: ', element);
  * });
  *
  * // With cleanup function
- * onConnected('.dynamic-content', (element) => {
+ * connected('.dynamic-content', (element) => {
  *   console.log('Element connected: ', element);
  *   return () => {
  *     console.log('Element disconnected: ', element);
@@ -32,31 +32,31 @@ export interface OnConnectedOptions extends Omit<MutationObserverInit, 'childLis
  * });
  *
  * // Does not invoke if `widget` is dynamically added to an element
- * onConnected('.widget', (element) => {
+ * connected('.widget', (element) => {
  *   initializeWidget(element);
  * }, { attributes: false });
  *
  * // Stop manually
- * const stop = onConnected('div', (element) => {
+ * const stop = connected('div', (element) => {
  *   console.log('Connected');
  * });
  * stop();
  * ```
  */
-export function onConnected<K extends keyof HTMLElementTagNameMap>(
+export function connected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
   callback: (element: HTMLElementTagNameMap[K]) => void | (() => void),
-  options?: OnConnectedOptions
+  options?: ConnectedOptions
 ): () => void;
-export function onConnected<T extends Element = Element>(
+export function connected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void | (() => void),
-  options?: OnConnectedOptions
+  options?: ConnectedOptions
 ): () => void;
-export function onConnected<T extends Element = Element>(
+export function connected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void | (() => void),
-  options: OnConnectedOptions = {}
+  options: ConnectedOptions = {}
 ) {
   let cleanup: void | (() => void);
   const delegate: ElementObserverDelegate<T> = {
@@ -81,7 +81,7 @@ export function onConnected<T extends Element = Element>(
   };
 }
 
-interface OnDisconnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
+interface DisconnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
 
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are removed from the DOM.
@@ -98,36 +98,36 @@ interface OnDisconnectedOptions extends Omit<MutationObserverInit, 'childList' |
  * @example
  * ```ts
  * // Watch for buttons being removed from the DOM
- * onDisconnected('button', (element) => {
+ * disconnected('button', (element) => {
  *   console.log('Button removed: ', element);
  * });
  *
  * // Does not invoke if `widget` class is removed (only when element itself is removed)
- * onDisconnected('.widget', (element) => {
+ * disconnected('.widget', (element) => {
  *   cleanupWidget(element);
  * }, { attributes: false });
  *
  * // Stop manually
- * const stop = onDisconnected('button', (element) => {
+ * const stop = disconnected('button', (element) => {
  *   console.log('Connected');
  * });
  * stop();
  * ```
  */
-export function onDisconnected<K extends keyof HTMLElementTagNameMap>(
+export function disconnected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
   callback: (element: HTMLElementTagNameMap[K]) => void,
-  options?: OnDisconnectedOptions
+  options?: DisconnectedOptions
 ): () => void;
-export function onDisconnected<T extends Element = Element>(
+export function disconnected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void,
-  options?: OnDisconnectedOptions
+  options?: DisconnectedOptions
 ): () => void;
-export function onDisconnected<T extends Element = Element>(
+export function disconnected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void,
-  options: OnDisconnectedOptions = {}
+  options: DisconnectedOptions = {}
 ) {
   const delegate: ElementObserverDelegate<T> = {
     elementDisconnected: callback,

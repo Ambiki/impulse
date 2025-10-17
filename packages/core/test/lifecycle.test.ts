@@ -1,13 +1,12 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { onConnected } from '../src';
-import { onDisconnected } from '../dist';
+import { connected, disconnected } from '../src';
 
-describe('onConnected', () => {
+describe('connected', () => {
   it('invokes when element is already present', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onConnected('.selector', callback);
+    connected('.selector', callback);
 
     await nextFrame();
     expect(callback.calledOnceWith(root)).to.be.true;
@@ -16,7 +15,7 @@ describe('onConnected', () => {
   it('invokes when element is added', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
-    onConnected('#selector', callback);
+    connected('#selector', callback);
 
     const element = document.createElement('div');
     element.setAttribute('id', 'selector');
@@ -28,7 +27,7 @@ describe('onConnected', () => {
   it('invokes when the selector is added', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
-    onConnected('.selector', callback);
+    connected('.selector', callback);
 
     root.setAttribute('class', 'selector');
     await nextFrame();
@@ -38,7 +37,7 @@ describe('onConnected', () => {
   it('does not invoke when the selector is added', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
-    onConnected('.selector', callback, { attributes: false });
+    connected('.selector', callback, { attributes: false });
 
     root.setAttribute('class', 'selector');
     await nextFrame();
@@ -48,7 +47,7 @@ describe('onConnected', () => {
   it('does not invoke if element does not match the selector', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
-    onConnected('#selector', callback);
+    connected('#selector', callback);
 
     const element = document.createElement('div');
     element.setAttribute('id', 'input');
@@ -58,28 +57,28 @@ describe('onConnected', () => {
   });
 
   it('invokes the return function when element is removed', async () => {
-    const connected = Sinon.spy();
-    const disconnected = Sinon.spy();
+    const connectedCallback = Sinon.spy();
+    const disconnectedCallback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onConnected('.selector', (element) => {
-      connected(element);
+    connected('.selector', (element) => {
+      connectedCallback(element);
       return () => {
-        disconnected(element);
+        disconnectedCallback(element);
       };
     });
 
     await nextFrame();
-    expect(connected.calledOnceWith(root)).to.be.true;
+    expect(connectedCallback.calledOnceWith(root)).to.be.true;
 
     root.remove();
     await nextFrame();
-    expect(disconnected.calledOnceWith(root)).to.be.true;
+    expect(disconnectedCallback.calledOnceWith(root)).to.be.true;
   });
 
   it('does not invoke when stopped', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
-    const stop = onConnected('#selector', callback);
+    const stop = connected('#selector', callback);
 
     stop();
 
@@ -91,11 +90,11 @@ describe('onConnected', () => {
   });
 });
 
-describe('onDisconnected', () => {
+describe('disconnected', () => {
   it('invokes when element is removed', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onDisconnected('.selector', callback);
+    disconnected('.selector', callback);
 
     await nextFrame();
     expect(callback.called).to.be.false;
@@ -108,7 +107,7 @@ describe('onDisconnected', () => {
   it('invokes when the selector value is removed', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onDisconnected('.selector', callback);
+    disconnected('.selector', callback);
 
     root.setAttribute('class', '');
     await nextFrame();
@@ -118,7 +117,7 @@ describe('onDisconnected', () => {
   it('invokes when the selector itself is removed', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onDisconnected('.selector', callback);
+    disconnected('.selector', callback);
 
     root.removeAttribute('class');
     await nextFrame();
@@ -128,7 +127,7 @@ describe('onDisconnected', () => {
   it('does not invoke if the selector is removed', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    onDisconnected('.selector', callback, { attributes: false });
+    disconnected('.selector', callback, { attributes: false });
 
     root.removeAttribute('class');
     await nextFrame();
@@ -138,7 +137,7 @@ describe('onDisconnected', () => {
   it('does not invoke when stopped', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
-    const stop = onDisconnected('.selector', callback);
+    const stop = disconnected('.selector', callback);
 
     stop();
 
