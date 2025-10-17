@@ -1,4 +1,4 @@
-# Lazy import
+# lazyImport
 
 Lazy import helps improve the initial loading performance of an application by including them only when the element is
 present in the DOM.
