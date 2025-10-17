@@ -1,4 +1,4 @@
-import { onConnected } from './lifecycle';
+import { connected } from './lifecycle';
 
 /**
  * Sets up an event listener that automatically attaches to elements matching the selector.
@@ -74,7 +74,7 @@ export function on(
   callback: (event: Event, element: Element) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void {
-  return onConnected(selector, (element) => {
+  return connected(selector, (element) => {
     const handler = (event: Event) => callback(event, element);
     element.addEventListener(eventName, handler, options);
     return () => {
