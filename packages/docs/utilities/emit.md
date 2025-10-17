@@ -8,7 +8,7 @@ This function creates and dispatches [CustomEvents](https://developer.mozilla.or
 typed detail data. Events are created with `bubbles: true` and `composed: true` by default, allowing them to propagate
 through the DOM and cross shadow DOM boundaries.
 
-```ts
+```ts{5}
 import { emit } from '@ambiki/impulse';
 
 // Dispatch a simple custom event
@@ -20,7 +20,7 @@ emit(button, 'custom-click', { detail: { count: 1 } });
 
 You can include custom data in the event's detail property:
 
-```ts
+```ts{3-6}
 const button = document.querySelector('button');
 emit(button, 'custom-click', {
   detail: {
@@ -34,7 +34,7 @@ emit(button, 'custom-click', {
 
 You can customize the event behavior by passing additional [options](https://developer.mozilla.org/en-US/docs/Web/API/Event/Event#options):
 
-```ts
+```ts{4,10,16}
 // Dispatch without bubbling
 emit(element, 'local-event', {
   detail: { message: 'Hello' },

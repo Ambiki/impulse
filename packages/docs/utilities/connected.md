@@ -21,7 +21,7 @@ connected('button', (element) => {
 
 The callback can optionally return a cleanup function that will be called when the element is disconnected from the DOM. This is useful for removing event listeners or clearing timers.
 
-```ts
+```ts{4-6}
 connected('.dynamic-content', (element) => {
   console.log('Element connected: ', element);
 
@@ -35,7 +35,7 @@ connected('.dynamic-content', (element) => {
 
 The `connected` function returns a cleanup function that stops observing when called.
 
-```ts
+```ts{1,6}
 const stop = connected('div', (element) => {
   console.log('Connected');
 });

@@ -21,7 +21,7 @@ disconnected('button', (element) => {
 
 The `disconnected` function returns a cleanup function that stops observing when called.
 
-```ts
+```ts{1,6}
 const stop = disconnected('div', (element) => {
   console.log('Disconnected');
 });

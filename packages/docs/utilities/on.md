@@ -19,7 +19,7 @@ on('click', 'button', (event, element) => {
 
 You can pass standard event listener [options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options) to customize the behavior:
 
-```ts
+```ts{4,9,14}
 // Fire the event listener only once
 on('click', '.once-button', (event, element) => {
   console.log('Clicked once');
@@ -40,7 +40,7 @@ on('touchstart', '.slider', (event, element) => {
 
 The `on` function returns a cleanup function that removes all event listeners and stops observing when called.
 
-```ts
+```ts{1,6}
 const stop = on('click', 'button', (event, element) => {
   console.log('Clicked');
 });
