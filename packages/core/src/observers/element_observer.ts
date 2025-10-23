@@ -33,7 +33,7 @@ export class ElementObserver<T extends Element = Element> {
 
   stop() {
     if (this.started) {
-      this.observer.takeRecords();
+      this.processMutations(this.observer.takeRecords());
       this.observer.disconnect();
       this.started = false;
     }

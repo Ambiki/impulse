@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `on` and `emit` event functions
 - Add `connected` and `disconnected` lifecycle functions
 
+### Fixed
+
+- Process pending mutations
+
 ## [1.0.2] - 2025-06-15
 
 ### Fixed

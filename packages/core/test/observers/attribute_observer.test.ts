@@ -75,4 +75,25 @@ describe('AttributeObserver', () => {
     await nextFrame();
     expect(delegate.elementDisconnected.called).to.eq(false);
   });
+
+  it('processes pending mutations before stopping', async () => {
+    // Add a child element with the attribute
+    const span = el.querySelector('span');
+    span?.setAttribute('data-test', 'bar');
+    await nextFrame();
+
+    // Reset spies after the element is connected
+    delegate.elementDisconnected.resetHistory();
+
+    // Remove the span synchronously
+    span?.remove();
+
+    // Immediately call stop() before the MutationObserver callback runs
+    // This should still process the pending mutation and call elementDisconnected
+    observer.stop();
+
+    // The elementDisconnected should have been called even though we stopped immediately
+    expect(delegate.elementDisconnected.calledOnce).to.eq(true);
+    expect(delegate.elementDisconnected.calledWith(span)).to.eq(true);
+  });
 });
