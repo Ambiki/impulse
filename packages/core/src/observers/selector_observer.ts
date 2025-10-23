@@ -2,7 +2,7 @@ import { getMatchingElementsFrom } from '../helpers/dom';
 import { ElementObserver } from './element_observer';
 import { type ElementObserverDelegate } from './element_observer';
 
-export type SelectorObserverDelegate<T> = {
+export type SelectorObserverDelegate<T = Element> = {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
 };

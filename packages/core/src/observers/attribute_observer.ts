@@ -1,6 +1,6 @@
 import { ElementObserver, type ElementObserverDelegate } from './element_observer';
 
-export type AttributeObserverDelegate<T> = {
+export type AttributeObserverDelegate<T = Element> = {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
   elementAttributeChanged?: (element: T, name: string) => void;
