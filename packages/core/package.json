@@ -32,7 +32,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "keywords": [
     "web-components"
@@ -41,7 +42,7 @@
     "build": "rollup --config rollup.config.js",
     "build:watch": "rollup --config rollup.config.js --watch",
     "clean": "rm -fr dist",
-    "prepublishOnly": "yarn clean && yarn build",
+    "prepublishOnly": "cp ../../README.md . && yarn clean && yarn build",
     "test": "web-test-runner",
     "test:watch": "web-test-runner --watch"
   },
