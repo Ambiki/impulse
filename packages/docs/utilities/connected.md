@@ -8,12 +8,19 @@ This function sets up a [MutationObserver](https://developer.mozilla.org/en-US/d
 document that watches for elements matching the provided CSS selector. The callback is invoked immediately for any
 matching elements already in the DOM, and then for any elements added later.
 
-```ts
-import { connected } from '@ambiki/impulse';
+This is particularly useful for initializing third party libraries where it requires a manual initialization step to be
+installed on a given element.
 
-// Watch for all buttons being added to the DOM
-connected('button', (element) => {
-  console.log('Button connected: ', element);
+This example initializes the bootstrap's [tooltip](https://getbootstrap.com/docs/4.6/components/tooltips/#tooltipoptions)
+library on any element that matches the selector on the page.
+
+```ts
+connected('[data-toggle="tooltip"]', (element) => {
+  $(element).tooltip();
+  // Destroy the tooltip instance when the element is removed from the page.
+  return () => {
+    $(element).tooltip('dispose');
+  };
 });
 ```
 
