@@ -92,6 +92,27 @@ describe('connected', () => {
     await nextFrame();
     expect(disconnectedCallback.called).to.be.false;
   });
+
+  it('invokes multiple cleanup functions', async () => {
+    const disconnectedCallback = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="element"></div>
+        <div class="element"></div>
+      </div>
+    `);
+
+    connected('.element', () => {
+      return () => disconnectedCallback();
+    });
+
+    const elements = root.querySelectorAll<HTMLElement>('.element');
+    elements[0].remove();
+    elements[1].remove();
+    await nextFrame();
+
+    expect(disconnectedCallback.calledTwice).to.be.true;
+  });
 });
 
 describe('disconnected', () => {

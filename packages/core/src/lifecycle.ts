@@ -47,15 +47,19 @@ export function connected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void | (() => void)
 ) {
-  let cleanup: void | (() => void);
+  const cleanups = new WeakMap<T, void | (() => void)>();
   const delegate: SelectorObserverDelegate<T> = {
     elementConnected: (element) => {
-      cleanup = callback(element);
+      const cleanup = callback(element);
+      if (cleanup) {
+        cleanups.set(element, cleanup);
+      }
     },
-    elementDisconnected: () => {
+    elementDisconnected: (element) => {
+      const cleanup = cleanups.get(element);
       if (cleanup) {
         cleanup();
-        cleanup = undefined;
+        cleanups.delete(element);
       }
     },
   };
