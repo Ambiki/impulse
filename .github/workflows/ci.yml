@@ -18,6 +18,8 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn lint
+      - name: Run typecheck
+        run: yarn typecheck
 
   test:
     needs:

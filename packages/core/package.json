@@ -43,7 +43,8 @@
     "clean": "rm -fr dist",
     "prepublishOnly": "yarn clean && yarn build",
     "test": "web-test-runner",
-    "test:watch": "web-test-runner --watch"
+    "test:watch": "web-test-runner --watch",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@open-wc/testing": "^3.2.0",
