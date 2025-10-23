@@ -1,6 +1,6 @@
 import SetMap from './data_structures/set_map';
-import { domReady, getMatchingElementsFrom } from './helpers/dom';
-import { ElementObserver } from './observers/element_observer';
+import { domReady } from './helpers/dom';
+import { SelectorObserver } from './observers/selector_observer';
 
 const lazyElements = new SetMap<string, () => void>();
 
@@ -20,7 +20,7 @@ const lazyElements = new SetMap<string, () => void>();
 export default function lazyImport(selector: string, callback: () => void) {
   lazyElements.add(selector, callback);
 
-  const observer = new ElementObserver(document.documentElement, {
+  new SelectorObserver(document.documentElement, selector, {
     elementConnected() {
       for (const selector of lazyElements.keys) {
         for (const callback of lazyElements.get(selector) || []) {
@@ -29,10 +29,5 @@ export default function lazyImport(selector: string, callback: () => void) {
         }
       }
     },
-    getMatchingElements(element) {
-      return getMatchingElementsFrom(element, selector);
-    },
-  });
-
-  observer.start();
+  }).start();
 }
