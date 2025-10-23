@@ -56,7 +56,7 @@ export class TokenListObserver<T extends Element = Element> implements Attribute
   elementAttributeChanged(element: T) {
     const oldTokens = this.elementTokens.getValuesForKey(element);
     const newTokens = this.readTokensForElement(element);
-    const [added, removed] = compareTokens(oldTokens, newTokens);
+    const [added, removed] = compareTokens(newTokens, oldTokens);
     removed.forEach((token) => this.tokenUnmatched(token));
     added.forEach((token) => this.tokenMatched(token));
   }
@@ -90,7 +90,7 @@ function compareTokens<T>(newTokens: Token<T>[], oldTokens: Token<T>[]) {
   const newTokensSet = new Set(newTokens.map(({ content }) => content));
   const oldTokensSet = new Set(oldTokens.map(({ content }) => content));
 
-  const added = oldTokens.filter((token) => !newTokensSet.has(token.content));
-  const removed = newTokens.filter((token) => !oldTokensSet.has(token.content));
+  const added = newTokens.filter((token) => !oldTokensSet.has(token.content));
+  const removed = oldTokens.filter((token) => !newTokensSet.has(token.content));
   return [added, removed];
 }
