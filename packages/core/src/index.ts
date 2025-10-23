@@ -7,4 +7,5 @@ export * from './lifecycle';
 export * from './events';
 export * from './observers/attribute_observer';
 export * from './observers/element_observer';
+export * from './observers/selector_observer';
 export * from './observers/token_list_observer';
