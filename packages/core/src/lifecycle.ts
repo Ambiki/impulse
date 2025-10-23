@@ -1,7 +1,5 @@
-import { getMatchingElementsFrom } from './helpers/dom';
-import { ElementObserver, type ElementObserverDelegate } from './observers/element_observer';
-
-export interface ConnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
+import type { SelectorObserverDelegate } from './observers/selector_observer';
+import { SelectorObserver } from './observers/selector_observer';
 
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are added to the DOM.
@@ -13,7 +11,6 @@ export interface ConnectedOptions extends Omit<MutationObserverInit, 'childList'
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return
  *                   a cleanup function that will be called when the element is disconnected.
- * @param options - Optional configuration
  * @returns A cleanup function that stops observing
  *
  * @example
@@ -31,11 +28,6 @@ export interface ConnectedOptions extends Omit<MutationObserverInit, 'childList'
  *   };
  * });
  *
- * // Does not invoke if `widget` is dynamically added to an element
- * connected('.widget', (element) => {
- *   initializeWidget(element);
- * }, { attributes: false });
- *
  * // Stop manually
  * const stop = connected('div', (element) => {
  *   console.log('Connected');
@@ -45,43 +37,35 @@ export interface ConnectedOptions extends Omit<MutationObserverInit, 'childList'
  */
 export function connected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
-  callback: (element: HTMLElementTagNameMap[K]) => void | (() => void),
-  options?: ConnectedOptions
+  callback: (element: HTMLElementTagNameMap[K]) => void | (() => void)
 ): () => void;
 export function connected<T extends Element = Element>(
   selector: string,
-  callback: (element: T) => void | (() => void),
-  options?: ConnectedOptions
+  callback: (element: T) => void | (() => void)
 ): () => void;
 export function connected<T extends Element = Element>(
   selector: string,
-  callback: (element: T) => void | (() => void),
-  options: ConnectedOptions = {}
+  callback: (element: T) => void | (() => void)
 ) {
   let cleanup: void | (() => void);
-  const delegate: ElementObserverDelegate<T> = {
+  const delegate: SelectorObserverDelegate<T> = {
     elementConnected: (element) => {
       cleanup = callback(element);
     },
     elementDisconnected: () => {
       if (cleanup) {
         cleanup();
+        cleanup = undefined;
       }
     },
-    getMatchingElements: (element) => getMatchingElementsFrom<T>(element, selector),
   };
-  const observer = new ElementObserver(document.documentElement, delegate, {
-    attributes: true,
-    ...options,
-  });
+  const observer = new SelectorObserver(document.documentElement, selector, delegate);
   observer.start();
 
   return () => {
     observer.stop();
   };
 }
-
-interface DisconnectedOptions extends Omit<MutationObserverInit, 'childList' | 'subtree'> {}
 
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are removed from the DOM.
@@ -92,7 +76,6 @@ interface DisconnectedOptions extends Omit<MutationObserverInit, 'childList' | '
  *
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is disconnected
- * @param options - Optional configuration
  * @returns A cleanup function that stops observing
  *
  * @example
@@ -101,11 +84,6 @@ interface DisconnectedOptions extends Omit<MutationObserverInit, 'childList' | '
  * disconnected('button', (element) => {
  *   console.log('Button removed: ', element);
  * });
- *
- * // Does not invoke if `widget` class is removed (only when element itself is removed)
- * disconnected('.widget', (element) => {
- *   cleanupWidget(element);
- * }, { attributes: false });
  *
  * // Stop manually
  * const stop = disconnected('button', (element) => {
@@ -116,27 +94,14 @@ interface DisconnectedOptions extends Omit<MutationObserverInit, 'childList' | '
  */
 export function disconnected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
-  callback: (element: HTMLElementTagNameMap[K]) => void,
-  options?: DisconnectedOptions
+  callback: (element: HTMLElementTagNameMap[K]) => void
 ): () => void;
-export function disconnected<T extends Element = Element>(
-  selector: string,
-  callback: (element: T) => void,
-  options?: DisconnectedOptions
-): () => void;
-export function disconnected<T extends Element = Element>(
-  selector: string,
-  callback: (element: T) => void,
-  options: DisconnectedOptions = {}
-) {
-  const delegate: ElementObserverDelegate<T> = {
+export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void): () => void;
+export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void) {
+  const delegate: SelectorObserverDelegate<T> = {
     elementDisconnected: callback,
-    getMatchingElements: (element) => getMatchingElementsFrom<T>(element, selector),
   };
-  const observer = new ElementObserver(document.documentElement, delegate, {
-    attributes: true,
-    ...options,
-  });
+  const observer = new SelectorObserver(document.documentElement, selector, delegate);
   observer.start();
 
   return () => {

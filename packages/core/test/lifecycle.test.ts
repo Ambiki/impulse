@@ -34,16 +34,6 @@ describe('connected', () => {
     expect(callback.calledOnceWith(root)).to.be.true;
   });
 
-  it('does not invoke when the selector is added', async () => {
-    const callback = Sinon.spy();
-    const root = await fixture(html`<div></div>`);
-    connected('.selector', callback, { attributes: false });
-
-    root.setAttribute('class', 'selector');
-    await nextFrame();
-    expect(callback.called).to.be.false;
-  });
-
   it('does not invoke if element does not match the selector', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
@@ -88,6 +78,20 @@ describe('connected', () => {
     await nextFrame();
     expect(callback.called).to.be.false;
   });
+
+  it('does not invoke the disconnected function when an unrelated attribute is removed', async () => {
+    const disconnectedCallback = Sinon.spy();
+    const root = await fixture(html`<div data-toggle="tooltip" title="Title"></div>`);
+    connected('[data-toggle="tooltip"]', () => {
+      return () => {
+        disconnectedCallback();
+      };
+    });
+
+    root.removeAttribute('title');
+    await nextFrame();
+    expect(disconnectedCallback.called).to.be.false;
+  });
 });
 
 describe('disconnected', () => {
@@ -124,16 +128,6 @@ describe('disconnected', () => {
     expect(callback.calledOnceWith(root)).to.be.true;
   });
 
-  it('does not invoke if the selector is removed', async () => {
-    const callback = Sinon.spy();
-    const root = await fixture(html`<div class="selector"></div>`);
-    disconnected('.selector', callback, { attributes: false });
-
-    root.removeAttribute('class');
-    await nextFrame();
-    expect(callback.calledOnceWith(root)).to.be.false;
-  });
-
   it('does not invoke when stopped', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div class="selector"></div>`);
@@ -142,6 +136,16 @@ describe('disconnected', () => {
     stop();
 
     root.remove();
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+
+  it('does not invoke when an unrelated attribute is removed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div data-toggle="tooltip" title="Title"></div>`);
+    disconnected('[data-toggle="tooltip"]', callback);
+
+    root.removeAttribute('title');
     await nextFrame();
     expect(callback.called).to.be.false;
   });
