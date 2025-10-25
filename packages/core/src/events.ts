@@ -10,75 +10,53 @@ import { connected } from './lifecycle';
  *
  * @param eventName - The name of the event to listen for (e.g., 'click', 'focus', 'custom-event')
  * @param selector - CSS selector to match elements against
- * @param callback - Function to invoke when the event occurs. Receives the event and matching element.
+ * @param callback - Function to invoke when the event occurs. Receives the event.
  * @param options - Optional event listener options (capture, once, passive, etc.)
  * @returns A cleanup function that removes all event listeners and stops observing
  *
  * @example
  * ```ts
  * // Listen for clicks on all buttons with inferred types
- * on('click', 'button', (event, element) => {
- *   console.log('Button clicked:', element);
+ * on('click', 'button', (event) => {
+ *   console.log('Button clicked:', event.currentTarget);
  * });
  *
  * // Use event listener options
- * on('click', '.once-button', (event, element) => {
+ * on('click', '.once-button', (event) => {
  *   console.log('Clicked once');
  * }, { once: true });
  *
  * // Manual cleanup
- * const stop = on('click', 'button', (event, element) => {
+ * const stop = on('click', 'button', (event) => {
  *   console.log('Clicked');
  * });
  * stop();
  * ```
  */
 // Tag name selector with inferred event type: on('click', 'button', ...)
-export function on<K extends keyof HTMLElementTagNameMap, E extends keyof HTMLElementEventMap>(
+export function on<E extends keyof HTMLElementEventMap>(
   eventName: E,
-  selector: K,
-  callback: (event: HTMLElementEventMap[E], element: HTMLElementTagNameMap[K]) => void,
+  selector: string,
+  callback: (event: HTMLElementEventMap[E]) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void;
 // Tag name selector with custom event type: on<CustomEvent, 'form'>('ajax', 'form', ...)
-export function on<Ev extends Event, K extends keyof HTMLElementTagNameMap>(
-  eventName: string,
-  selector: K,
-  callback: (event: Ev, element: HTMLElementTagNameMap[K]) => void,
-  options?: boolean | AddEventListenerOptions
-): () => void;
-// Element type with native event: on<HTMLButtonElement>('click', '.btn', ...) - event inferred from eventName
-export function on<T extends HTMLElement>(
-  eventName: keyof HTMLElementEventMap,
-  selector: string,
-  callback: (event: Event, element: T) => void,
-  options?: boolean | AddEventListenerOptions
-): () => void;
-// Custom selector with native event and element type: on<'click', HTMLButtonElement>('click', '.btn', ...)
-export function on<E extends keyof HTMLElementEventMap, T extends Element = Element>(
-  eventName: E,
-  selector: string,
-  callback: (event: HTMLElementEventMap[E], element: T) => void,
-  options?: boolean | AddEventListenerOptions
-): () => void;
-// Custom selector with custom event type: on<CustomEvent>('ajax', '.form', ...)
-export function on<Ev extends Event, T extends Element = Element>(
+export function on<Ev extends Event>(
   eventName: string,
   selector: string,
-  callback: (event: Ev, element: T) => void,
+  callback: (event: Ev) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void;
 export function on(
   eventName: string,
   selector: string,
-  callback: (event: Event, element: Element) => void,
+  callback: (event: Event) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void {
   return connected(selector, (element) => {
-    const handler = (event: Event) => callback(event, element);
-    element.addEventListener(eventName, handler, options);
+    element.addEventListener(eventName, callback, options);
     return () => {
-      element.removeEventListener(eventName, handler, options);
+      element.removeEventListener(eventName, callback, options);
     };
   });
 }

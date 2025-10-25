@@ -11,7 +11,6 @@ describe('on', () => {
     root.click();
     expect(callback.calledOnce).to.be.true;
     expect(callback.firstCall.args[0]).to.be.instanceOf(Event);
-    expect(callback.firstCall.args[1]).to.eq(root);
   });
 
   it('cleans up the event listener manually', async () => {
@@ -50,6 +49,15 @@ describe('on', () => {
     root.click();
     root.click();
     expect(callback.callCount).to.eq(1);
+  });
+
+  it('supports custom events', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture<HTMLButtonElement>(html`<button id="selector"></button>`);
+    on<CustomEvent<{ foo: string }>>('ajax:success', '#selector', callback);
+
+    emit<{ foo: string }>(root, 'ajax:success', { detail: { foo: 'bar' } });
+    expect(callback.calledOnce).to.be.true;
   });
 });
 
