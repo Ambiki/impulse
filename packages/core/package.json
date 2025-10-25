@@ -1,6 +1,6 @@
 {
   "name": "@ambiki/impulse",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "A JavaScript framework that leverages the Web Components API.",
   "author": "Ambitious Idea Labs <info@ambiki.com> (https://ambiki.com/)",
   "contributors": [
