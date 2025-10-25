@@ -15,6 +15,8 @@ This example initializes the bootstrap's [tooltip](https://getbootstrap.com/docs
 library on any element that matches the selector on the page.
 
 ```ts
+import { connected } from '@ambiki/impulse';
+
 connected('[data-toggle="tooltip"]', (element) => {
   $(element).tooltip();
   // Destroy the tooltip instance when the element is removed from the page.
