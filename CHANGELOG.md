@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-10-25
+
 ### Added
 
-- Add `on` and `emit` event functions
-- Add `connected` and `disconnected` lifecycle functions
+- Add `on` and `emit` event functions ([#62](https://github.com/Ambiki/impulse/pull/62))
+- Add `connected` and `disconnected` lifecycle functions ([#60](https://github.com/Ambiki/impulse/pull/60))
 
 ### Fixed
 
-- Process pending mutations
+- Process pending mutations ([#71](https://github.com/Ambiki/impulse/pull/71))
 
 ## [1.0.2] - 2025-06-15
 
@@ -107,7 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v1.0.2...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Ambiki/impulse/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/Ambiki/impulse/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Ambiki/impulse/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Ambiki/impulse/compare/v0.5.0-beta.1...v1.0.0
