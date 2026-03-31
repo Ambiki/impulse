@@ -12,7 +12,7 @@ export type PropertyConstructor =
   | ArrayConstructor
   | ObjectConstructor;
 
-export default function property({ type = String }: { type?: PropertyConstructor } = {}) {
+export function property({ type = String }: { type?: PropertyConstructor } = {}) {
   return (ctor: any, key: string) => {
     const store = new Store(ctor, 'property');
     store.add({ key, type });

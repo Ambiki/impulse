@@ -1,4 +1,4 @@
-export default function registerElement(name: string) {
+export function registerElement(name: string) {
   return (ctor: any) => {
     try {
       window.customElements.define(name, ctor);
