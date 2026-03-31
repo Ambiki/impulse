@@ -17,7 +17,7 @@ const lazyElements = new SetMap<string, () => void>();
  * lazyImport('my-element', () => import('./my_element'));
  * lazyImport('[data-cc-form]', () => import('./billing/credit_card_form'));
  */
-export default function lazyImport(selector: string, callback: () => void) {
+export function lazyImport(selector: string, callback: () => void) {
   lazyElements.add(selector, callback);
 
   new SelectorObserver(document.documentElement, selector, {

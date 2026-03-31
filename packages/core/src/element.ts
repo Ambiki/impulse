@@ -7,7 +7,7 @@ import Property from './property';
 import Store from './store';
 import Target from './target';
 
-export default class ImpulseElement extends HTMLElement {
+export class ImpulseElement extends HTMLElement {
   private property = new Property(this);
   private target = new Target(this);
   private action = new Action(this);
