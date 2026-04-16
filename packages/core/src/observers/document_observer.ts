@@ -3,12 +3,14 @@ import SelectorSet from '../data_structures/selector_set';
 export interface Watcher<T extends Element = Element> {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
+  elementAttributeChanged?: (element: T, attributeName: string) => void;
 }
 
 interface RegisteredWatcher {
   selector: string;
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
+  elementAttributeChanged?: (element: Element, attributeName: string) => void;
   elements: Set<Element>;
 }
 
@@ -28,6 +30,9 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     selector,
     elementConnected: watcher.elementConnected as ((element: Element) => void) | undefined,
     elementDisconnected: watcher.elementDisconnected as ((element: Element) => void) | undefined,
+    elementAttributeChanged: watcher.elementAttributeChanged as
+      | ((element: Element, attributeName: string) => void) |
+      undefined,
     elements: new Set(),
   };
 
@@ -69,7 +74,7 @@ function processMutations(mutations: MutationRecord[]) {
       mutation.removedNodes.forEach(walkRemoved);
       mutation.addedNodes.forEach(walkAdded);
     } else if (mutation.type === 'attributes' && mutation.target instanceof Element) {
-      processAttributeChange(mutation.target);
+      processAttributeChange(mutation.target, mutation.attributeName);
     }
   }
 }
@@ -107,7 +112,7 @@ function visitDisconnect(element: Element) {
   }
 }
 
-function processAttributeChange(element: Element) {
+function processAttributeChange(element: Element, attributeName: string | null) {
   const previouslyMatching = watchersByElement.get(element);
   const candidates = new Set<RegisteredWatcher>();
   for (const { value: watcher } of watcherIndex.matches(element)) candidates.add(watcher);
@@ -126,6 +131,8 @@ function processAttributeChange(element: Element) {
     } else if (!matchesNow && wasMatching) {
       removeMatch(element, watcher);
       watcher.elementDisconnected?.(element);
+    } else if (matchesNow && wasMatching) {
+      watcher.elementAttributeChanged?.(element, attributeName ?? '');
     }
   }
 }

@@ -1,15 +1,15 @@
 import type { ImpulseElement } from './element';
-import type { Token, TokenListObserverDelegate } from './observers/token_list_observer';
+import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import { parseActionDescriptor } from './action_descriptor';
 import SetMap from './data_structures/set_map';
 import EventListener from './event_listener';
-import { TokenListObserver } from './observers/token_list_observer';
+import { watchTokenList } from './observers/token_list_watcher';
 import Scope from './scope';
 
 const ATTRIBUTE_NAME = 'data-action';
 
-export default class Action<T extends Element = Element> implements TokenListObserverDelegate<T> {
-  private tokenListObserver?: TokenListObserver<T>;
+export default class Action<T extends Element = Element> implements TokenListWatcherDelegate<T> {
+  private stopWatching?: () => void;
   private scope: Scope;
   private eventListenerMap = new SetMap<T, EventListener>();
 
@@ -19,17 +19,15 @@ export default class Action<T extends Element = Element> implements TokenListObs
   }
 
   start() {
-    if (!this.tokenListObserver) {
-      this.tokenListObserver = new TokenListObserver(this.instance, ATTRIBUTE_NAME, this);
-      this.tokenListObserver.start();
+    if (!this.stopWatching) {
+      this.stopWatching = watchTokenList<T>(this.instance, ATTRIBUTE_NAME, this);
     }
   }
 
   stop() {
-    if (this.tokenListObserver) {
-      this.destroyActions();
-      this.tokenListObserver.stop();
-      this.tokenListObserver = undefined;
+    if (this.stopWatching) {
+      this.stopWatching();
+      this.stopWatching = undefined;
     }
   }
 
@@ -49,12 +47,6 @@ export default class Action<T extends Element = Element> implements TokenListObs
     for (const eventListener of eventListeners) {
       eventListener.stop();
       this.eventListenerMap.delete(element, eventListener);
-    }
-  }
-
-  private destroyActions() {
-    for (const target of this.eventListenerMap.keys) {
-      this.tokenListObserver?.elementDisconnected(target);
     }
   }
 

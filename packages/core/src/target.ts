@@ -1,17 +1,17 @@
 import type { TargetType } from './decorators/target';
 import type { ImpulseElement } from './element';
-import type { Token, TokenListObserverDelegate } from './observers/token_list_observer';
+import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
-import { TokenListObserver } from './observers/token_list_observer';
+import { watchTokenList } from './observers/token_list_watcher';
 import Scope from './scope';
 import Store from './store';
 
-export default class Target<T extends Element> implements TokenListObserverDelegate<T> {
+export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
   private store: Store<TargetType>;
   private scope: Scope;
   private targetsByKey: SetMap<string, T>;
-  private tokenListObserver?: TokenListObserver<T>;
+  private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
@@ -28,17 +28,15 @@ export default class Target<T extends Element> implements TokenListObserverDeleg
       this.defineProperty(key, this.isKeyMultiple(key) ? [] : null);
     }
 
-    if (!this.tokenListObserver) {
-      this.tokenListObserver = new TokenListObserver(this.instance, 'data-target', this);
-      this.tokenListObserver.start();
+    if (!this.stopWatching) {
+      this.stopWatching = watchTokenList<T>(this.instance, 'data-target', this);
     }
   }
 
   stop() {
-    if (this.tokenListObserver) {
-      this.destroyTargets();
-      this.tokenListObserver.stop();
-      this.tokenListObserver = undefined;
+    if (this.stopWatching) {
+      this.stopWatching();
+      this.stopWatching = undefined;
     }
   }
 
@@ -75,13 +73,6 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.invokeCallback(key, element, 'disconnected');
     // Update property after invoking callback.
     this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : null);
-  }
-
-  private destroyTargets() {
-    for (const name of this.targetsByKey.keys) {
-      const targets = this.targetsByKey.getValuesForKey(name);
-      targets.forEach((target) => this.tokenListObserver?.elementDisconnected(target));
-    }
   }
 
   private defineProperty(key: string, result: T | T[] | null) {
