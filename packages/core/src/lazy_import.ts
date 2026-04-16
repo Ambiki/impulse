@@ -10,7 +10,7 @@ const lazyElements = new SetMap<string, () => void>();
  *
  * Although HTML classes as selectors are supported, it is recommended to use data attributes such as `data-js-load-billing`.
  *
- * The callback is invoked at most once per selector — the first time a matching element is seen, the registered
+ * The callback is invoked at most once per selector - the first time a matching element is seen, the registered
  * callbacks fire and the watcher is torn down. For callbacks that should run on every connection (e.g. per-page
  * initialization under Turbo/Hotwire navigation), use {@link connected} instead.
  *
