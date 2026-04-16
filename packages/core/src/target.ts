@@ -56,7 +56,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
 Please use the @targets() decorator instead if you want to define multiple targets for the same key.
 Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
-        `,
+        `.trim(),
       );
     }
 
