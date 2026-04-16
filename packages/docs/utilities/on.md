@@ -1,17 +1,19 @@
 # on
 
-The `on` function sets up event listeners that automatically attach to elements matching a selector.
+The `on` function registers a delegated event listener that fires whenever an event reaches an element matching the
+selector - including elements added to the DOM after `on` was called.
 
 ## Usage
 
-This function observes the DOM and automatically adds event listeners to elements matching the provided CSS selector.
-Event listeners are added to existing elements immediately and to new elements as they're added to the DOM. When
-elements are removed or no longer match the selector, their event listeners are automatically cleaned up.
+A single document-level listener is shared across every `on(eventName, ...)` call with the same capture phase, so
+registering many handlers does not multiply the number of native listeners. When the event fires, ancestors of
+`event.target` are walked and `callback` is invoked once per matching ancestor with `event.currentTarget` set to the
+matched element.
 
 ```ts
 import { on } from '@ambiki/impulse';
 
-// Listen for clicks on all buttons
+// Listen for clicks on every button - including ones inserted later
 on('click', 'button', (event) => {
   console.log('Button clicked: ', event.currentTarget);
 });
@@ -19,35 +21,48 @@ on('click', 'button', (event) => {
 
 ## Event listener options
 
-You can pass standard event listener [options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options)
-to customize the behavior:
+You can pass standard event listener [options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options):
 
-```ts{4,9,14}
-// Fire the event listener only once
+```ts{4,9}
+// Fire the event listener only once across the entire document
 on('click', '.once-button', (event) => {
   console.log('Clicked once');
 }, { once: true });
 
 // Use capture phase
-on('focus', 'input', (event) => {
-  console.log('Input focused');
+on('click', '.capture-host', (event) => {
+  console.log('Captured');
 }, { capture: true });
-
-// Mark as passive for better scroll performance
-on('touchstart', '.slider', (event) => {
-  handleTouch(event);
-}, { passive: true });
 ```
+
+## Non-bubbling events
+
+Because dispatch flows through a single document listener, events that do not bubble (`focus`, `blur`, `mouseenter`,
+`mouseleave`, `load`, `error`, `scroll`) will not reach the listener unless you opt into the capture phase. Prefer the
+bubbling counterparts (`focusin`, `focusout`, `mouseover`, `mouseout`) when possible:
+
+```ts
+// Both work, but the second avoids the capture-phase opt-in
+on('focus', 'input', handler, { capture: true });
+on('focusin', 'input', handler);
+```
+
+## Propagation
+
+Calling `event.stopPropagation()` inside a handler halts further delegated dispatch on the same event - handlers
+registered against ancestor selectors will not fire. `event.stopImmediatePropagation()` additionally blocks any
+remaining handlers registered against the same element.
 
 ## Stopping observation
 
-The `on` function returns a cleanup function that removes all event listeners and stops observing when called.
+The `on` function returns a cleanup function that detaches the handler. The shared document listener is removed once
+the last handler for that event name (and capture phase) is detached.
 
 ```ts{1,6}
 const stop = on('click', 'button', (event) => {
   console.log('Clicked');
 });
 
-// Later, remove all listeners and stop observing
+// Later, remove the handler
 stop();
 ```

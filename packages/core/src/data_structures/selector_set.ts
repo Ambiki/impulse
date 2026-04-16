@@ -15,7 +15,7 @@ export interface Match<T> {
  * that could plausibly match the affected element. Selectors whose leftmost token is not one of those forms (e.g.
  * `[data-x]`, `:is(...)`, `*`) fall into a catch-all bucket and are checked against every element.
  *
- * Callers must run the final `element.matches(selector)` check on the returned candidates — the index narrows the
+ * Callers must run the final `element.matches(selector)` check on the returned candidates - the index narrows the
  * search space; it does not validate the full selector.
  */
 export default class SelectorSet<T> {

@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `connected`, `disconnected`, `lazyImport`, `on`, and the `@target` / `@action` decorators now share a single document-level `MutationObserver` instead of each call/instance spinning up its own observer chain. This avoids O(N) observer overhead per call site / per `ImpulseElement` instance
 - `lazyImport` no longer leaks a `MutationObserver` per call: the watcher is now torn down after the first match fires
+- `on` now uses event delegation: a single document-level event listener is shared across every `on(eventName, ...)` call with the same capture phase, dispatching to handlers via the central `SelectorSet` index. Previously each call attached one listener per matching element. `event.currentTarget` is patched to point at the matched ancestor so existing handler code continues to work; `event.stopPropagation()` halts further delegated dispatch on the same event
 
 ### Removed (BREAKING)
 
 - Public exports of `SelectorObserver`, `ElementObserver`, `AttributeObserver`, and `TokenListObserver`. Use `connected` / `disconnected` instead. The underlying classes have been removed entirely; `@target` and `@action` now share the central observer via an internal `watchTokenList` helper
+- Non-bubbling events (`focus`, `blur`, `mouseenter`, `mouseleave`, `load`, `error`, `scroll`) passed to `on(...)` now require `{ capture: true }` so the shared document-level listener observes them. Use `focusin` / `focusout` / `mouseover` / `mouseout` for a bubbling alternative
 
 ### Fixed
 
