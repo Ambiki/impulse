@@ -4,11 +4,11 @@ import { dasherize } from './helpers/string';
 import Store from './store';
 
 export default class Property {
-  private store: Store;
+  private store: Store<PropertyType>;
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
-    this.store = new Store(Object.getPrototypeOf(this.instance), 'property');
+    this.store = new Store<PropertyType>(Object.getPrototypeOf(this.instance), 'property');
   }
 
   start() {
@@ -35,8 +35,8 @@ export default class Property {
     }
   }
 
-  private get properties() {
-    return this.store.value as Set<PropertyType>;
+  private get properties(): Set<PropertyType> {
+    return this.store.value ?? new Set();
   }
 }
 

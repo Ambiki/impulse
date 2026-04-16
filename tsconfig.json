@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["ES2017", "dom", "dom.iterable"],
+    "lib": ["ES2017", "ES2022.Object", "dom", "dom.iterable"],
     "useDefineForClassFields": false,
     "experimentalDecorators": true,
     "baseUrl": ".",

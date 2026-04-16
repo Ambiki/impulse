@@ -7,14 +7,14 @@ export interface TargetType {
 
 export function target() {
   return (ctor: any, key: string) => {
-    const store = new Store(ctor, 'target');
+    const store = new Store<TargetType>(ctor, 'target');
     store.add({ key, multiple: false });
   };
 }
 
 export function targets() {
   return (ctor: any, key: string) => {
-    const store = new Store(ctor, 'target');
+    const store = new Store<TargetType>(ctor, 'target');
     store.add({ key, multiple: true });
   };
 }
