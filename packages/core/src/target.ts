@@ -14,7 +14,6 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
-    this.instance = instance;
     this.store = new Store<TargetType>(Object.getPrototypeOf(this.instance), 'target');
     this.scope = new Scope(this.instance);
     this.targetsByKey = new SetMap();
