@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Export `SetMap`
+- Export `SelectorSet` data structure for indexing CSS selectors by their leftmost token
+
+### Changed
+
+- `connected`, `disconnected`, `lazyImport`, `on`, and the `@target` / `@action` decorators now share a single document-level `MutationObserver` instead of each call/instance spinning up its own observer chain. This avoids O(N) observer overhead per call site / per `ImpulseElement` instance
+- `lazyImport` no longer leaks a `MutationObserver` per call: the watcher is now torn down after the first match fires
+
+### Removed (BREAKING)
+
+- Public exports of `SelectorObserver`, `ElementObserver`, `AttributeObserver`, and `TokenListObserver`. Use `connected` / `disconnected` instead. The underlying classes have been removed entirely; `@target` and `@action` now share the central observer via an internal `watchTokenList` helper
 
 ### Fixed
 
