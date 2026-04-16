@@ -2,6 +2,7 @@ import { expect, waitUntil } from '@open-wc/testing';
 import { ImpulseElement, property, registerElement, target } from '../src';
 
 let counter = 0;
+const CONNECTION_TIMEOUT_MS = 200;
 
 describe('ImpulseElement connection order', () => {
   it('waits for descendant custom elements to be defined before invoking targetConnected', async () => {
@@ -39,7 +40,7 @@ describe('ImpulseElement connection order', () => {
 
     try {
       const parent = wrapper.firstElementChild as Parent;
-      await waitUntil(() => parent.capturedMessage !== '<unset>', 'childConnected should fire', { timeout: 200 });
+      await waitUntil(() => parent.capturedMessage !== '<unset>', 'childConnected should fire', { timeout: CONNECTION_TIMEOUT_MS });
       expect(parent.capturedMessage).to.eq('from-attribute');
     } finally {
       wrapper.remove();
