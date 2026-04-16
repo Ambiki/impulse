@@ -7,7 +7,6 @@ export default class Property {
   private store: Store<PropertyType>;
 
   constructor(private readonly instance: ImpulseElement) {
-    this.instance = instance;
     this.store = new Store<PropertyType>(Object.getPrototypeOf(this.instance), 'property');
   }
 
