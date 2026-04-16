@@ -166,6 +166,14 @@ function maybeReleaseBucket(eventName: string, capture: boolean) {
 
 function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: boolean) {
   if (stoppedEvents.has(event)) return;
+  // Firefox throws on `event.eventPhase` access for some re-dispatched CustomEvents; bail
+  // rather than letting the error escape into the host event loop.
+  try {
+    void event.eventPhase;
+  }
+  catch {
+    return;
+  }
   const target = event.target;
   if (!(target instanceof Node)) return;
 
