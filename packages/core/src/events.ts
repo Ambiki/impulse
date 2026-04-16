@@ -71,6 +71,7 @@ export function on(
  * @param target - The element, window, or document to dispatch the event from
  * @param eventName - The name of the custom event
  * @param options - CustomEvent options including detail data and event configuration
+ * @param options.detail - Typed detail payload attached to the event
  * @returns The CustomEvent that was dispatched
  *
  * @example
