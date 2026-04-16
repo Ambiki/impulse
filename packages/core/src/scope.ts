@@ -1,9 +1,7 @@
 import type { ImpulseElement } from './element';
 
 export default class Scope {
-  constructor(private readonly instance: ImpulseElement) {
-    this.instance = instance;
-  }
+  constructor(private readonly instance: ImpulseElement) {}
 
   findTarget(selector: string): Element | null {
     return this.instance.matches(selector) ? this.instance : this.getElements(selector).find(this.scopedTarget) || null;
