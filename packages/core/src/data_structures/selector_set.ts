@@ -1,4 +1,4 @@
-type Bucket<T> = Map<string, Set<Entry<T>>>;
+import SetMap from './set_map';
 
 interface Entry<T> {
   selector: string;
@@ -19,22 +19,17 @@ export interface Match<T> {
  * search space; it does not validate the full selector.
  */
 export default class SelectorSet<T> {
-  private idIndex: Bucket<T> = new Map();
-  private classIndex: Bucket<T> = new Map();
-  private tagIndex: Bucket<T> = new Map();
-  private fallback: Set<Entry<T>> = new Set();
+  private idIndex = new SetMap<string, Entry<T>>();
+  private classIndex = new SetMap<string, Entry<T>>();
+  private tagIndex = new SetMap<string, Entry<T>>();
+  private fallback = new Set<Entry<T>>();
   private count = 0;
 
   add(selector: string, value: T): void {
     const entry: Entry<T> = { selector, value };
     const bucket = this.bucketFor(selector);
     if (bucket) {
-      let set = bucket.map.get(bucket.key);
-      if (!set) {
-        set = new Set();
-        bucket.map.set(bucket.key, set);
-      }
-      set.add(entry);
+      bucket.map.add(bucket.key, entry);
     } else {
       this.fallback.add(entry);
     }
@@ -43,16 +38,17 @@ export default class SelectorSet<T> {
 
   delete(selector: string, value: T): void {
     const bucket = this.bucketFor(selector);
-    const set = bucket ? bucket.map.get(bucket.key) : this.fallback;
-    if (!set) return;
+    const entries = bucket ? bucket.map.get(bucket.key) : this.fallback;
+    if (!entries) return;
 
-    for (const entry of set) {
+    for (const entry of entries) {
       if (entry.selector === selector && entry.value === value) {
-        set.delete(entry);
-        this.count -= 1;
-        if (bucket && set.size === 0) {
-          bucket.map.delete(bucket.key);
+        if (bucket) {
+          bucket.map.delete(bucket.key, entry);
+        } else {
+          this.fallback.delete(entry);
         }
+        this.count -= 1;
         return;
       }
     }
@@ -83,7 +79,7 @@ export default class SelectorSet<T> {
     return this.count;
   }
 
-  private bucketFor(selector: string): { map: Bucket<T>; key: string } | null {
+  private bucketFor(selector: string): { map: SetMap<string, Entry<T>>; key: string } | null {
     const token = leftmostToken(selector);
     if (!token) return null;
     if (token.kind === 'id') return { map: this.idIndex, key: token.value };
