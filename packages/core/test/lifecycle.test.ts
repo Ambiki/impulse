@@ -115,6 +115,28 @@ describe('connected', () => {
   });
 });
 
+describe('shared observer', () => {
+  it('does not create a new MutationObserver per connected() call', async () => {
+    const observeSpy = Sinon.spy(MutationObserver.prototype, 'observe');
+    try {
+      const stops = [
+        connected('.shared-a', () => {}),
+        connected('.shared-b', () => {}),
+        connected('.shared-c', () => {}),
+        connected('.shared-d', () => {}),
+        connected('.shared-e', () => {}),
+      ];
+      try {
+        expect(observeSpy.callCount).to.be.at.most(1);
+      } finally {
+        stops.forEach((stop) => stop());
+      }
+    } finally {
+      observeSpy.restore();
+    }
+  });
+});
+
 describe('disconnected', () => {
   it('invokes when element is removed', async () => {
     const callback = Sinon.spy();

@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { TokenListObserver } from '../../src';
+import { TokenListObserver } from '../../src/observers/token_list_observer';
 
 describe('TokenListObserver', () => {
   let el: HTMLElement;

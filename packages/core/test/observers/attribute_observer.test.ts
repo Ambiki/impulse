@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { AttributeObserver } from '../../src';
+import { AttributeObserver } from '../../src/observers/attribute_observer';
 
 describe('AttributeObserver', () => {
   let el: HTMLElement;

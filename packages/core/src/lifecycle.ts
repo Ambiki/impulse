@@ -1,5 +1,5 @@
-import type { SelectorObserverDelegate } from './observers/selector_observer';
-import { SelectorObserver } from './observers/selector_observer';
+import type { Watcher } from './observers/document_observer';
+import { watchSelector } from './observers/document_observer';
 
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are added to the DOM.
@@ -48,7 +48,7 @@ export function connected<T extends Element = Element>(
   callback: (element: T) => void | (() => void),
 ) {
   const cleanups = new WeakMap<T, void | (() => void)>();
-  const delegate: SelectorObserverDelegate<T> = {
+  const watcher: Watcher<T> = {
     elementConnected: (element) => {
       const cleanup = callback(element);
       if (cleanup) {
@@ -63,12 +63,7 @@ export function connected<T extends Element = Element>(
       }
     },
   };
-  const observer = new SelectorObserver(document.documentElement, selector, delegate);
-  observer.start();
-
-  return () => {
-    observer.stop();
-  };
+  return watchSelector<T>(selector, watcher);
 }
 
 /**
@@ -102,13 +97,5 @@ export function disconnected<K extends keyof HTMLElementTagNameMap>(
 ): () => void;
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void): () => void;
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void) {
-  const delegate: SelectorObserverDelegate<T> = {
-    elementDisconnected: callback,
-  };
-  const observer = new SelectorObserver(document.documentElement, selector, delegate);
-  observer.start();
-
-  return () => {
-    observer.stop();
-  };
+  return watchSelector<T>(selector, { elementDisconnected: callback });
 }
