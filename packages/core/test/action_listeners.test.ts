@@ -1,6 +1,6 @@
 import { expect, fixture, html } from '@open-wc/testing';
-import { ImpulseElement, registerElement } from '../src';
 import Sinon from 'sinon';
+import { ImpulseElement, registerElement } from '../src';
 
 describe('action listeners', () => {
   @registerElement('action-listener-test')

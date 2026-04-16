@@ -1,8 +1,9 @@
-import SetMap from './data_structures/set_map';
 import type { TargetType } from './decorators/target';
-import { type ImpulseElement } from './element';
+import type { ImpulseElement } from './element';
+import type { Token, TokenListObserverDelegate } from './observers/token_list_observer';
+import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
-import { TokenListObserver, type Token, type TokenListObserverDelegate } from './observers/token_list_observer';
+import { TokenListObserver } from './observers/token_list_observer';
 import Scope from './scope';
 import Store from './store';
 
@@ -58,7 +59,7 @@ export default class Target<T extends Element> implements TokenListObserverDeleg
 Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
 Please use the @targets() decorator instead if you want to define multiple targets for the same key.
 Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
-        `
+        `,
       );
     }
 

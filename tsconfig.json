@@ -1,23 +1,23 @@
 {
   "compilerOptions": {
-    "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
-    "declaration": true,
-    "declarationMap": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "forceConsistentCasingInFileNames": true,
+    "target": "ES2017",
     "lib": ["ES2017", "dom", "dom.iterable"],
+    "useDefineForClassFields": false,
+    "experimentalDecorators": true,
+    "baseUrl": ".",
     "module": "ESNext",
     "moduleResolution": "node",
-    "noEmit": true,
-    "noFallthroughCasesInSwitch": true,
-    "skipLibCheck": true,
-    "sourceMap": false,
     "strict": true,
     "strictPropertyInitialization": false,
-    "target": "ES2017",
-    "useDefineForClassFields": false
+    "noFallthroughCasesInSwitch": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noEmit": true,
+    "sourceMap": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
   },
   "include": ["packages/core", "packages/playground", "packages/docs"]
 }

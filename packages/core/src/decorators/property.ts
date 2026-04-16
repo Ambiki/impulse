@@ -1,16 +1,16 @@
 import Store from '../store';
 
-export type PropertyType = {
+export interface PropertyType {
   key: string;
   type: PropertyConstructor;
-};
+}
 
 export type PropertyConstructor =
-  | StringConstructor
-  | BooleanConstructor
-  | NumberConstructor
-  | ArrayConstructor
-  | ObjectConstructor;
+  | StringConstructor |
+  BooleanConstructor |
+  NumberConstructor |
+  ArrayConstructor |
+  ObjectConstructor;
 
 export function property({ type = String }: { type?: PropertyConstructor } = {}) {
   return (ctor: any, key: string) => {

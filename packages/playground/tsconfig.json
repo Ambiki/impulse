@@ -1,10 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
     "moduleResolution": "bundler",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true
   },
   "include": ["src"]
 }

@@ -1,4 +1,4 @@
-const STRING_CAMELIZE_REGEXP_1 = /(-|_|\.|\s)+(.)?/g;
+const STRING_CAMELIZE_REGEXP_1 = /([\-_.\s])+(.)?/g;
 const STRING_CAMELIZE_REGEXP_2 = /(^|\/)([A-Z])/g;
 const STRING_DASHERIZE_REGEXP = /[ _]/g;
 const STRING_DECAMELIZE_REGEXP = /([a-z\d])([A-Z])/g;

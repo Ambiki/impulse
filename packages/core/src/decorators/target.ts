@@ -1,9 +1,9 @@
 import Store from '../store';
 
-export type TargetType = {
+export interface TargetType {
   key: string;
   multiple: boolean;
-};
+}
 
 export function target() {
   return (ctor: any, key: string) => {

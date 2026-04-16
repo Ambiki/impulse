@@ -5,7 +5,7 @@ export default class Store {
 
   constructor(
     private ctor: any,
-    private name: string
+    private name: string,
   ) {
     this.ctor = ctor;
     this.name = name;
@@ -21,7 +21,7 @@ export default class Store {
   }
 
   private initialize() {
-    if (!Object.prototype.hasOwnProperty.call(this.ctor, symbol)) {
+    if (!Object.hasOwn(this.ctor, symbol)) {
       this.ctor[symbol] = new Map();
     }
 

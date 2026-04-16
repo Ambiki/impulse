@@ -1,13 +1,13 @@
+import type { ImpulseElement } from './element';
 import { modifierGuards } from './action_descriptor';
-import { type ImpulseElement } from './element';
 
-type Options = {
+interface Options {
   eventListenerOptions: EventListenerOptions;
   eventModifiers: string[];
   eventName: string;
   eventTarget: EventTarget;
   methodName: string;
-};
+}
 
 export default class EventListener implements EventListenerObject {
   private readonly instance: ImpulseElement;

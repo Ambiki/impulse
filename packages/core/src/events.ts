@@ -38,20 +38,20 @@ export function on<E extends keyof HTMLElementEventMap>(
   eventName: E,
   selector: string,
   callback: (event: HTMLElementEventMap[E]) => void,
-  options?: boolean | AddEventListenerOptions
+  options?: boolean | AddEventListenerOptions,
 ): () => void;
 // Tag name selector with custom event type: on<CustomEvent, 'form'>('ajax', 'form', ...)
 export function on<Ev extends Event>(
   eventName: string,
   selector: string,
   callback: (event: Ev) => void,
-  options?: boolean | AddEventListenerOptions
+  options?: boolean | AddEventListenerOptions,
 ): () => void;
 export function on(
   eventName: string,
   selector: string,
   callback: (event: Event) => void,
-  options?: boolean | AddEventListenerOptions
+  options?: boolean | AddEventListenerOptions,
 ): () => void {
   return connected(selector, (element) => {
     element.addEventListener(eventName, callback, options);
@@ -103,7 +103,7 @@ export function on(
 export function emit<T extends Record<string, any>>(
   target: Element | Window | Document,
   eventName: string,
-  { detail = {} as T, ...rest }: CustomEventInit<T> = {}
+  { detail = {} as T, ...rest }: CustomEventInit<T> = {},
 ) {
   const event = new CustomEvent(eventName, { bubbles: true, composed: true, detail, ...rest });
   target.dispatchEvent(event);
