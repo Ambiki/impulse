@@ -1,5 +1,6 @@
 // https://regex101.com/r/noxreJ/1
 // capture nos:                 1          2               3                 4    5
+// eslint-disable-next-line regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
 const descriptorPattern = /(?:(.+?)?(?:\.(.+?))?(?:@(window|document))?->)?(.+)#(.+)?$/;
 
 const validEventModifiers = ['stop', 'prevent', 'self'];

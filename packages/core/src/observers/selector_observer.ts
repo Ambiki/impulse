@@ -1,11 +1,11 @@
+import type { ElementObserverDelegate } from './element_observer';
 import { getMatchingElementsFrom } from '../helpers/dom';
 import { ElementObserver } from './element_observer';
-import { type ElementObserverDelegate } from './element_observer';
 
-export type SelectorObserverDelegate<T = Element> = {
+export interface SelectorObserverDelegate<T = Element> {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
-};
+}
 
 export class SelectorObserver<T extends Element = Element> implements ElementObserverDelegate<T> {
   private elementObserver: ElementObserver<T>;
@@ -13,7 +13,7 @@ export class SelectorObserver<T extends Element = Element> implements ElementObs
   constructor(
     private readonly instance: Element,
     private readonly selector: string,
-    private delegate: SelectorObserverDelegate<T>
+    private delegate: SelectorObserverDelegate<T>,
   ) {
     this.instance = instance;
     this.selector = selector;

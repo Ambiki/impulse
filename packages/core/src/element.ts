@@ -1,5 +1,5 @@
-import Action from './action';
 import type { PropertyConstructor, PropertyType } from './decorators/property';
+import Action from './action';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
 import { camelize, dasherize, parseJSON } from './helpers/string';
@@ -20,8 +20,8 @@ export class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    const store = new Store(this.prototype, 'property');
-    return Array.from(store.value as Set<PropertyType>).map(({ key }) => dasherize(key));
+    const store = new Store<PropertyType>(this.prototype, 'property');
+    return Array.from(store.value ?? []).map(({ key }) => dasherize(key));
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
@@ -31,12 +31,12 @@ export class ImpulseElement extends HTMLElement {
     const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
     if (typeof fn !== 'function') return;
 
-    const store = new Store(Object.getPrototypeOf(this), 'property');
-    const propertyArray = Array.from(store.value as Set<PropertyType>).map(({ key, type }) => ({ key, type }));
+    const store = new Store<PropertyType>(Object.getPrototypeOf(this), 'property');
+    const propertyArray = Array.from(store.value ?? []).map(({ key, type }) => ({ key, type }));
     const property = propertyArray.find(({ key }) => key === camelizedName);
     if (!property) {
       throw new Error(
-        `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`
+        `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`,
       );
     }
 
@@ -77,7 +77,7 @@ export class ImpulseElement extends HTMLElement {
       target = this,
       prefix = this.identifier,
       ...rest
-    }: CustomEventInit<T> & { target?: Element | Window | Document; prefix?: boolean | string } = {}
+    }: CustomEventInit<T> & { target?: Element | Window | Document; prefix?: boolean | string } = {},
   ): CustomEvent<T> {
     const eventName = prefix ? `${prefix}:${name}` : name;
     return emit(target, eventName, rest);

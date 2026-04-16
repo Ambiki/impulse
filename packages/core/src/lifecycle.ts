@@ -37,15 +37,15 @@ import { SelectorObserver } from './observers/selector_observer';
  */
 export function connected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
-  callback: (element: HTMLElementTagNameMap[K]) => void | (() => void)
+  callback: (element: HTMLElementTagNameMap[K]) => void | (() => void),
 ): () => void;
 export function connected<T extends Element = Element>(
   selector: string,
-  callback: (element: T) => void | (() => void)
+  callback: (element: T) => void | (() => void),
 ): () => void;
 export function connected<T extends Element = Element>(
   selector: string,
-  callback: (element: T) => void | (() => void)
+  callback: (element: T) => void | (() => void),
 ) {
   const cleanups = new WeakMap<T, void | (() => void)>();
   const delegate: SelectorObserverDelegate<T> = {
@@ -98,7 +98,7 @@ export function connected<T extends Element = Element>(
  */
 export function disconnected<K extends keyof HTMLElementTagNameMap>(
   selector: K,
-  callback: (element: HTMLElementTagNameMap[K]) => void
+  callback: (element: HTMLElementTagNameMap[K]) => void,
 ): () => void;
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void): () => void;
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void) {

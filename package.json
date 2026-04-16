@@ -1,9 +1,9 @@
 {
-  "private": true,
   "workspaces": [
     "packages/**"
   ],
   "version": "0.0.0",
+  "private": true,
   "scripts": {
     "build": "yarn workspace @ambiki/impulse build",
     "build:watch": "yarn workspace @ambiki/impulse build --watch",
@@ -12,21 +12,16 @@
     "docs": "yarn workspace @ambiki/docs dev",
     "docs:build": "yarn workspace @ambiki/docs build",
     "playground": "yarn workspace @ambiki/playground dev",
-    "lint": "eslint 'packages/**/*.ts'",
-    "prettier": "prettier --write --log-level warn .",
-    "prettier:check": "prettier --check --log-level warn .",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
     "test": "yarn workspace @ambiki/impulse test",
     "test:watch": "yarn workspace @ambiki/impulse test:watch"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^8.2.0",
     "@rollup/plugin-typescript": "^11.1.2",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
     "concurrently": "^8.2.0",
-    "eslint": "^8.45.0",
-    "eslint-config-prettier": "^8.8.0",
-    "eslint-plugin-prettier": "^5.0.0",
-    "prettier": "^3.0.0",
+    "eslint": "^10.2.0",
     "rollup": "^3.30.0",
     "typescript": "^5.9.3"
   }

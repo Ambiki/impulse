@@ -1,16 +1,17 @@
+import type { AttributeObserverDelegate } from './attribute_observer';
 import SetMap from '../data_structures/set_map';
-import { AttributeObserver, type AttributeObserverDelegate } from './attribute_observer';
+import { AttributeObserver } from './attribute_observer';
 
-export type TokenListObserverDelegate<T = Element> = {
+export interface TokenListObserverDelegate<T = Element> {
   tokenMatched?: (token: Token<T>) => void;
   tokenUnmatched?: (token: Token<T>) => void;
-};
+}
 
-export type Token<T> = {
+export interface Token<T> {
   attributeName: string;
   content: string;
   element: T;
-};
+}
 
 export class TokenListObserver<T extends Element = Element> implements AttributeObserverDelegate<T> {
   private elementTokens: SetMap<Element, Token<T>>;
@@ -19,7 +20,7 @@ export class TokenListObserver<T extends Element = Element> implements Attribute
   constructor(
     private readonly element: Element,
     private readonly attributeName: string,
-    private delegate: TokenListObserverDelegate<T>
+    private delegate: TokenListObserverDelegate<T>,
   ) {
     this.element = element;
     this.attributeName = attributeName;

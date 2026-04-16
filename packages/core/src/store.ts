@@ -1,33 +1,33 @@
 const symbol = Symbol.for('impulse');
 
-export default class Store {
-  private map: Map<string, Set<Record<string, unknown>>> = new Map();
+export default class Store<T extends object = Record<string, unknown>> {
+  private map: Map<string, Set<T>> = new Map();
 
   constructor(
     private ctor: any,
-    private name: string
+    private name: string,
   ) {
     this.ctor = ctor;
     this.name = name;
     this.initialize();
   }
 
-  add(value: Record<string, unknown>) {
+  add(value: T) {
     this.value?.add(value);
   }
 
-  get value() {
+  get value(): Set<T> | undefined {
     return this.map.get(this.name);
   }
 
   private initialize() {
-    if (!Object.prototype.hasOwnProperty.call(this.ctor, symbol)) {
+    if (!Object.hasOwn(this.ctor, symbol)) {
       this.ctor[symbol] = new Map();
     }
 
     this.map = this.ctor[symbol];
     if (this.map.has(this.name)) return;
 
-    this.map.set(this.name, new Set<Record<string, unknown>>());
+    this.map.set(this.name, new Set<T>());
   }
 }

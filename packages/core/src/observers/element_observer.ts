@@ -1,10 +1,10 @@
-export type ElementObserverDelegate<T = Element> = {
+export interface ElementObserverDelegate<T = Element> {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
   elementAttributeChanged?: (element: T, name: string) => void;
   getMatchingElements?: (element: T) => T[];
   matchesElement?: (element: T) => boolean;
-};
+}
 
 export class ElementObserver<T extends Element = Element> {
   private observer: MutationObserver;
@@ -14,7 +14,7 @@ export class ElementObserver<T extends Element = Element> {
   constructor(
     private readonly element: Element,
     private delegate: ElementObserverDelegate<T>,
-    private readonly observerOptions?: MutationObserverInit
+    private readonly observerOptions?: MutationObserverInit,
   ) {
     this.element = element;
     this.delegate = delegate;

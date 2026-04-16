@@ -1,10 +1,11 @@
-import { ElementObserver, type ElementObserverDelegate } from './element_observer';
+import type { ElementObserverDelegate } from './element_observer';
+import { ElementObserver } from './element_observer';
 
-export type AttributeObserverDelegate<T = Element> = {
+export interface AttributeObserverDelegate<T = Element> {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
   elementAttributeChanged?: (element: T, name: string) => void;
-};
+}
 
 export class AttributeObserver<T extends Element = Element> implements ElementObserverDelegate<T> {
   private elementObserver: ElementObserver<T>;
@@ -12,7 +13,7 @@ export class AttributeObserver<T extends Element = Element> implements ElementOb
   constructor(
     private readonly instance: Element,
     private readonly attributeName: string,
-    private delegate: AttributeObserverDelegate<T>
+    private delegate: AttributeObserverDelegate<T>,
   ) {
     this.instance = instance;
     this.attributeName = attributeName;
