@@ -23,6 +23,6 @@
     "concurrently": "^8.2.0",
     "eslint": "^10.2.0",
     "rollup": "^3.30.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   }
 }
