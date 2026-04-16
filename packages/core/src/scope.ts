@@ -1,4 +1,4 @@
-import type ImpulseElement from './element';
+import { type ImpulseElement } from './element';
 
 export default class Scope {
   constructor(private readonly instance: ImpulseElement) {

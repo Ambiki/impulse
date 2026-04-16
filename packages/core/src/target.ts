@@ -1,6 +1,6 @@
 import SetMap from './data_structures/set_map';
 import type { TargetType } from './decorators/target';
-import type ImpulseElement from './element';
+import { type ImpulseElement } from './element';
 import { capitalize } from './helpers/string';
 import { TokenListObserver, type Token, type TokenListObserverDelegate } from './observers/token_list_observer';
 import Scope from './scope';
