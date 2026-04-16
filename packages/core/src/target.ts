@@ -49,7 +49,9 @@ export default class Target<T extends Element> implements TokenListObserverDeleg
 
     this.targetsByKey.add(key, element);
 
-    const targets = this.targetsByKey.getValuesForKey(key);
+    const targets = this.targetsByKey
+      .getValuesForKey(key)
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
     if (targets.length > 1 && !this.isKeyMultiple(key)) {
       throw new Error(
         `
