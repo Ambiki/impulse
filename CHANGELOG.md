@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Export `SetMap`
 
+### Fixed
+
+- Preserve DOM order for `@targets()` when a target is dynamically inserted between existing targets
+
 ## [1.1.0] - 2025-10-25
 
 ### Added

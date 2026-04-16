@@ -1,5 +1,5 @@
 import { modifierGuards } from './action_descriptor';
-import type ImpulseElement from './element';
+import { type ImpulseElement } from './element';
 
 type Options = {
   eventListenerOptions: EventListenerOptions;

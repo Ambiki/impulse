@@ -1,6 +1,6 @@
 import SetMap from './data_structures/set_map';
 import type { TargetType } from './decorators/target';
-import type ImpulseElement from './element';
+import { type ImpulseElement } from './element';
 import { capitalize } from './helpers/string';
 import { TokenListObserver, type Token, type TokenListObserverDelegate } from './observers/token_list_observer';
 import Scope from './scope';
@@ -49,7 +49,9 @@ export default class Target<T extends Element> implements TokenListObserverDeleg
 
     this.targetsByKey.add(key, element);
 
-    const targets = this.targetsByKey.getValuesForKey(key);
+    const targets = this.targetsByKey
+      .getValuesForKey(key)
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
     if (targets.length > 1 && !this.isKeyMultiple(key)) {
       throw new Error(
         `

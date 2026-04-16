@@ -64,6 +64,19 @@ describe('@targets', () => {
     expect(el2.buttons).to.eql([]);
   });
 
+  it('should persist the DOM order', async () => {
+    const panel = document.createElement('div');
+    panel.setAttribute('data-target', `${el.identifier}.panels`);
+    panel.id = 'panel-mid';
+    panel.classList.add('panel');
+
+    const panel1 = document.getElementById('panel1')!;
+    panel1.after(panel);
+    await waitUntil(() => document.getElementById('panel-mid'));
+
+    expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel2']);
+  });
+
   it('should call the lifecycle callback function when target is connected to the DOM', () => {
     const panels = Array.from(el.querySelectorAll('.panel'));
 

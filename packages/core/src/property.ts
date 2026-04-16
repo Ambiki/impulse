@@ -1,5 +1,5 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
-import type ImpulseElement from './element';
+import { type ImpulseElement } from './element';
 import { dasherize } from './helpers/string';
 import Store from './store';
 
