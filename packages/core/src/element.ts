@@ -45,7 +45,9 @@ export class ImpulseElement extends HTMLElement {
     // Common case would be:
     // -> 8_000 to 8000
     const { newValue, oldValue } = attributeValueTransformer(_newValue, _oldValue, property.type);
-    if (newValue === oldValue) return;
+    // `Object.is` rather than `===` so a Number that transforms to `NaN` on both sides (e.g. a
+    // non-numeric value replaced with another) is treated as unchanged and does not fire the callback.
+    if (Object.is(newValue, oldValue)) return;
 
     fn.call(this, newValue, oldValue);
   }
