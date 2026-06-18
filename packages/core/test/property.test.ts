@@ -233,4 +233,16 @@ describe('@property', () => {
     el.numericValue = 9000;
     expect(el.numericValueChanged.calledOnceWith(9000, 8000)).to.be.true;
   });
+
+  it('should not fire the Number callback when the value transforms to NaN on both sides', () => {
+    // Starts from `numeric-value="8_000"` (=> 8000).
+    el.setAttribute('numeric-value', 'abc');
+    expect(el.numericValueChanged.calledOnce).to.be.true;
+    expect(Number.isNaN(el.numericValueChanged.getCall(0).args[0])).to.be.true;
+    expect(el.numericValueChanged.getCall(0).args[1]).to.equal(8000);
+
+    // NaN -> NaN is unchanged, so the callback must not fire again.
+    el.setAttribute('numeric-value', 'xyz');
+    expect(el.numericValueChanged.calledOnce).to.be.true;
+  });
 });
