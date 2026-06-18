@@ -1,4 +1,5 @@
 import type { Watcher } from './observers/document_observer';
+import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { watchSelector } from './observers/document_observer';
 
 /**
@@ -98,4 +99,38 @@ export function disconnected<K extends keyof HTMLElementTagNameMap>(
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void): () => void;
 export function disconnected<T extends Element = Element>(selector: string, callback: (element: T) => void) {
   return watchSelector<T>(selector, { elementDisconnected: callback });
+}
+
+/**
+ * Returns a promise that resolves once the element has been fully initialized by Impulse, i.e. once its properties,
+ * targets, and actions have started and the `data-impulse-element` marker attribute has been set.
+ *
+ * This mirrors the familiar `customElements.whenDefined()` pattern, but resolves on full initialization rather than
+ * mere definition. If the element is already initialized, the returned promise resolves on the next microtask. The
+ * promise stays pending until the element initializes, so calling it on an element that never becomes an
+ * `ImpulseElement` never resolves.
+ *
+ * @param element - The element to wait for.
+ * @returns A promise that resolves with the same element once it is initialized.
+ *
+ * @example
+ * ```ts
+ * const select = await whenInitialized(this.selectTarget);
+ * select.doSomething();
+ * ```
+ */
+export function whenInitialized<T extends Element>(element: T): Promise<T> {
+  if (element.hasAttribute(IMPULSE_ELEMENT_ATTRIBUTE)) {
+    return Promise.resolve(element);
+  }
+
+  return new Promise<T>((resolve) => {
+    // `connected` fires when an element starts matching the selector, including when the marker attribute is added
+    // later by `_asyncConnect`. We filter to our specific element and stop watching as soon as it initializes.
+    const stop = connected<T>(`[${IMPULSE_ELEMENT_ATTRIBUTE}]`, (el) => {
+      if (el !== element) return;
+      stop();
+      resolve(element);
+    });
+  });
 }

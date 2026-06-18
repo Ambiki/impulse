@@ -1,5 +1,6 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
 import Action from './action';
+import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
 import { camelize, dasherize, parseJSON } from './helpers/string';
@@ -57,7 +58,7 @@ export class ImpulseElement extends HTMLElement {
       this.target.stop();
       this.property.stop();
       this._started = false;
-      this.removeAttribute('data-impulse-element');
+      this.removeAttribute(IMPULSE_ELEMENT_ATTRIBUTE);
     }
   }
 
@@ -100,7 +101,7 @@ export class ImpulseElement extends HTMLElement {
     this.action.start();
     this._started = true;
 
-    this.setAttribute('data-impulse-element', '');
+    this.setAttribute(IMPULSE_ELEMENT_ATTRIBUTE, '');
     this.connected();
   }
 
