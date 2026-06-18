@@ -9,6 +9,13 @@ import Store from './store';
 import Target from './target';
 
 export class ImpulseElement extends HTMLElement {
+  /**
+   * Set to `true` once you have migrated target connected callbacks to `whenInitialized()` to silence the deprecation
+   * warning about the implicit descendant-definition wait. Set it on `ImpulseElement` to opt out globally, or on a
+   * specific element class to opt out per class.
+   */
+  static migratedToWhenInitialized = false;
+
   private property = new Property(this);
   private target = new Target(this);
   private action = new Action(this);
@@ -98,6 +105,8 @@ export class ImpulseElement extends HTMLElement {
     this.property.start();
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
+    // DEPRECATED: this implicit wait will be removed in the next major version. Use `whenInitialized()` inside connected
+    // callbacks instead. See `_resolveUndefinedElements`.
     await this._resolveUndefinedElements();
     this.target.start();
     this.action.start();
@@ -109,6 +118,15 @@ export class ImpulseElement extends HTMLElement {
 
   private _resolveUndefinedElements() {
     const undefinedElements = Array.from(this.querySelectorAll(':not(:defined)'));
+    const migrated = (this.constructor as typeof ImpulseElement).migratedToWhenInitialized;
+    if (undefinedElements.length > 0 && !migrated) {
+      console.warn(
+        `[impulse] <${this.identifier}> waits for descendant custom elements to be defined before invoking target ` +
+        `connected callbacks. This is deprecated and will be removed in the next major version. If a connected ` +
+        `callback reads properties on a target element, await whenInitialized(target) inside the callback instead. ` +
+        `Set ImpulseElement.migratedToWhenInitialized = true to silence this warning.`,
+      );
+    }
     const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
     return Promise.all(promises);
   }
