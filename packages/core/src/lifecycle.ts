@@ -1,5 +1,6 @@
 import type { Watcher } from './observers/document_observer';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
+import { ImpulseElement } from './element';
 import { watchSelector } from './observers/document_observer';
 
 /**
@@ -107,14 +108,16 @@ const DEFAULT_INITIALIZED_TIMEOUT = 3000;
  * Returns a promise that resolves once the element has been fully initialized by Impulse, i.e. once its properties,
  * targets, and actions have started and the `data-impulse-element` marker attribute has been set.
  *
- * This mirrors the familiar `customElements.whenDefined()` pattern, but resolves on full initialization rather than
- * mere definition.
+ * This mirrors the familiar `customElements.whenDefined()` pattern, but for an Impulse element resolves on full
+ * initialization rather than mere definition.
  *
  * - **Standard HTML elements** (a tag name without a hyphen can never be a custom element) resolve immediately —
  *   there is nothing to initialize.
- * - **Custom elements** resolve once the marker attribute is set. If that does not happen within `timeout`
- *   milliseconds the promise rejects, so a mistyped or non-Impulse element surfaces an error instead of hanging
- *   forever (and the underlying observer is always cleaned up).
+ * - **Impulse custom elements** resolve once the `data-impulse-element` marker attribute is set.
+ * - **Non-Impulse custom elements** never receive the marker, so they resolve as soon as their class is defined
+ *   (equivalent to `customElements.whenDefined`) — making this safe to use on any target element.
+ * - If none of the above happens within `timeout` milliseconds the promise rejects, so a mistyped or never-registered
+ *   element surfaces an error instead of hanging forever (and the underlying observer is always cleaned up).
  *
  * @param element - The element to wait for.
  * @param options - Optional settings.
@@ -141,14 +144,33 @@ export function whenInitialized<T extends Element>(
     return Promise.resolve(element);
   }
 
+  let settled = false;
   let stop: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout>;
 
-  // `connected` fires when an element starts matching the selector, including when the marker attribute is added
-  // later by `_asyncConnect`. We filter to our specific element.
+  // Wait for the class to be registered, then decide how "initialized" is defined for this element.
   const initialized = new Promise<T>((resolve) => {
-    stop = connected<T>(`[${IMPULSE_ELEMENT_ATTRIBUTE}]`, (el) => {
-      if (el === element) resolve(element);
+    customElements.whenDefined(element.localName).then(() => {
+      // The race may have already settled (e.g. timed out) before the class was defined.
+      if (settled) return;
+
+      // Non-Impulse custom elements never get the marker; being defined is as ready as they get.
+      if (!isImpulseElement(element.localName)) {
+        resolve(element);
+        return;
+      }
+
+      // The Impulse element may have finished initializing while we waited for the definition.
+      if (element.hasAttribute(IMPULSE_ELEMENT_ATTRIBUTE)) {
+        resolve(element);
+        return;
+      }
+
+      // `connected` fires when an element starts matching the selector, including when the marker attribute is added
+      // later by `_asyncConnect`. We filter to our specific element.
+      stop = connected<T>(`[${IMPULSE_ELEMENT_ATTRIBUTE}]`, (el) => {
+        if (el === element) resolve(element);
+      });
     });
   });
 
@@ -159,9 +181,20 @@ export function whenInitialized<T extends Element>(
   });
 
   // Whichever settles first wins; `finally` clears the timer and stops the shared-observer watcher on both the
-  // resolve and reject paths so nothing leaks.
+  // resolve and reject paths so nothing leaks. `settled` guards against a late `whenDefined` callback registering a
+  // watcher after the race has already finished.
   return Promise.race([initialized, timedOut]).finally(() => {
+    settled = true;
     clearTimeout(timer);
     stop?.();
   });
+}
+
+/**
+ * Whether the custom element registered for `localName` is an `ImpulseElement` (or a subclass). Returns `false` when the
+ * tag is unregistered or registered to a non-Impulse class.
+ */
+function isImpulseElement(localName: string): boolean {
+  const ctor = customElements.get(localName);
+  return !!ctor && (ctor === ImpulseElement || ctor.prototype instanceof ImpulseElement);
 }

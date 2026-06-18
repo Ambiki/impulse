@@ -266,6 +266,43 @@ describe('whenInitialized', () => {
     expect(resolved).to.eq(element);
   });
 
+  it('resolves once a non-Impulse custom element is defined', async () => {
+    counter += 1;
+    const tag = `non-impulse-${counter}`;
+    // A plain custom element that is not an ImpulseElement, so it never receives the marker attribute.
+    class Plain extends HTMLElement {}
+    customElements.define(tag, Plain);
+
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    try {
+      const resolved = await whenInitialized(element, { timeout: CONNECTION_TIMEOUT_MS });
+      expect(resolved).to.eq(element);
+      expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('resolves once a non-Impulse custom element is defined after the call', async () => {
+    counter += 1;
+    const tag = `non-impulse-late-${counter}`;
+    class Plain extends HTMLElement {}
+
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    try {
+      const promise = whenInitialized(element, { timeout: CONNECTION_TIMEOUT_MS });
+      customElements.define(tag, Plain);
+      const resolved = await promise;
+      expect(resolved).to.eq(element);
+    } finally {
+      element.remove();
+    }
+  });
+
   it('rejects when a custom element is not initialized within the timeout', async () => {
     counter += 1;
     // A hyphenated tag that is never registered, so it never initializes.
