@@ -258,4 +258,30 @@ describe('whenInitialized', () => {
       element.remove();
     }
   });
+
+  it('resolves immediately for a standard HTML element', async () => {
+    const element = document.createElement('div');
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    const resolved = await whenInitialized(element);
+    expect(resolved).to.eq(element);
+  });
+
+  it('rejects when a custom element is not initialized within the timeout', async () => {
+    counter += 1;
+    // A hyphenated tag that is never registered, so it never initializes.
+    const tag = `never-impulse-${counter}`;
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    let error: unknown;
+    try {
+      await whenInitialized(element, { timeout: 50 });
+    } catch (err) {
+      error = err;
+    } finally {
+      element.remove();
+    }
+
+    expect(error).to.be.an.instanceOf(Error);
+  });
 });
