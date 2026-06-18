@@ -102,11 +102,9 @@ export function disconnected<T extends Element = Element>(selector: string, call
   return watchSelector<T>(selector, { elementDisconnected: callback });
 }
 
-const DEFAULT_INITIALIZED_TIMEOUT = 3000;
-
 /**
- * Returns a promise that resolves once the element has been fully initialized by Impulse, i.e. once its properties,
- * targets, and actions have started and the `data-impulse-element` marker attribute has been set.
+ * Returns a promise that resolves once the element is ready to be interacted with. For an Impulse element that means
+ * once its properties, targets, and actions have started and the `data-impulse-element` marker attribute has been set.
  *
  * This mirrors the familiar `customElements.whenDefined()` pattern, but for an Impulse element resolves on full
  * initialization rather than mere definition.
@@ -116,23 +114,29 @@ const DEFAULT_INITIALIZED_TIMEOUT = 3000;
  * - **Impulse custom elements** resolve once the `data-impulse-element` marker attribute is set.
  * - **Non-Impulse custom elements** never receive the marker, so they resolve as soon as their class is defined
  *   (equivalent to `customElements.whenDefined`) — making this safe to use on any target element.
- * - If none of the above happens within `timeout` milliseconds the promise rejects, so a mistyped or never-registered
- *   element surfaces an error instead of hanging forever (and the underlying observer is always cleaned up).
+ *
+ * By default there is no deadline: like `customElements.whenDefined`, the promise stays pending until the element is
+ * ready, so a never-registered (e.g. mistyped) tag never resolves and surfaces as code after the `await` that never
+ * runs. Pass `timeout` to reject after a number of milliseconds you choose — an acceptable wait depends on your bundle
+ * size and your users' network, which only the application can know, so the library does not guess one for you.
  *
  * @param element - The element to wait for.
  * @param options - Optional settings.
- * @param options.timeout - Milliseconds to wait for a custom element to initialize before rejecting. Defaults to 3000.
- * @returns A promise that resolves with the same element once it is initialized.
+ * @param options.timeout - Milliseconds to wait before rejecting. Omit (or pass `Infinity`) to wait indefinitely.
+ * @returns A promise that resolves with the same element once it is ready.
  *
  * @example
  * ```ts
  * const select = await whenInitialized(this.selectTarget);
  * select.doSomething();
+ *
+ * // Bail out after a deadline you choose:
+ * const panel = await whenInitialized(this.panelTarget, { timeout: 5000 });
  * ```
  */
 export function whenInitialized<T extends Element>(
   element: T,
-  { timeout = DEFAULT_INITIALIZED_TIMEOUT }: { timeout?: number } = {},
+  { timeout }: { timeout?: number } = {},
 ): Promise<T> {
   // Already initialized.
   if (element.hasAttribute(IMPULSE_ELEMENT_ATTRIBUTE)) {
@@ -146,7 +150,6 @@ export function whenInitialized<T extends Element>(
 
   let settled = false;
   let stop: (() => void) | undefined;
-  let timer: ReturnType<typeof setTimeout>;
 
   // Wait for the class to be registered, then decide how "initialized" is defined for this element.
   const initialized = new Promise<T>((resolve) => {
@@ -174,6 +177,16 @@ export function whenInitialized<T extends Element>(
     });
   });
 
+  // No deadline by default: wait until the element is ready, mirroring `customElements.whenDefined`. A never-defined tag
+  // simply parks on the native `whenDefined` promise (no per-element watcher is created until the class is defined).
+  if (timeout === undefined || !Number.isFinite(timeout)) {
+    return initialized.finally(() => {
+      settled = true;
+      stop?.();
+    });
+  }
+
+  let timer: ReturnType<typeof setTimeout>;
   const timedOut = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
       reject(new Error(`<${element.localName}> was not initialized within ${timeout}ms.`));
