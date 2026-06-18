@@ -57,6 +57,7 @@ export class ImpulseElement extends HTMLElement {
       this.target.stop();
       this.property.stop();
       this._started = false;
+      this.removeAttribute('data-impulse-element');
     }
   }
 
