@@ -303,7 +303,34 @@ describe('whenInitialized', () => {
     }
   });
 
-  it('rejects when a custom element is not initialized within the timeout', async () => {
+  it('waits indefinitely by default and resolves once the element initializes', async () => {
+    counter += 1;
+    const tag = `no-timeout-${counter}`;
+    class Element extends ImpulseElement {}
+
+    const element = document.createElement(tag) as Element;
+    document.body.appendChild(element);
+
+    try {
+      const promise = whenInitialized(element);
+
+      // With no deadline the promise stays pending while the tag is unregistered - it does not reject.
+      const outcome = await Promise.race([
+        promise.then(() => 'settled', () => 'settled'),
+        new Promise((resolve) => setTimeout(resolve, 50, 'pending')),
+      ]);
+      expect(outcome).to.eq('pending');
+
+      // Once the class is registered it resolves.
+      registerElement(tag)(Element);
+      const resolved = await promise;
+      expect(resolved).to.eq(element);
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('rejects after an explicit timeout when the element never initializes', async () => {
     counter += 1;
     // A hyphenated tag that is never registered, so it never initializes.
     const tag = `never-impulse-${counter}`;

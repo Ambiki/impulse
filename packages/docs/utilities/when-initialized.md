@@ -22,8 +22,6 @@ select.doSomething();
 - **Non-Impulse custom elements** never receive the marker, so they resolve as soon as their class is defined
   (equivalent to `customElements.whenDefined`). This makes `whenInitialized` safe to use on any target element,
   whether or not it is an Impulse element.
-- If none of the above happens within `timeout` milliseconds the promise rejects, so a mistyped or never-registered
-  element surfaces an error instead of hanging forever.
 
 ## Reading a target's properties from a connected callback
 
@@ -42,8 +40,23 @@ async selectConnected(select: SelectElement) {
 
 ## Timeout
 
-The default timeout is `3000` milliseconds. Pass a custom `timeout` to override it:
+By default there is **no deadline** — like `customElements.whenDefined`, the promise stays pending until the element is
+ready. A never-registered (e.g. mistyped) tag therefore never resolves, which surfaces as the code after your `await`
+never running.
+
+If you want to bail out after a while, pass a `timeout` (in milliseconds) and the promise rejects once it elapses. An
+acceptable wait depends on your bundle size and your users' network — which only your application knows — so the library
+does not pick one for you:
 
 ```ts
-await whenInitialized(this.selectTarget, { timeout: 5000 });
+try {
+  const panel = await whenInitialized(this.panelTarget, { timeout: 5000 });
+} catch {
+  // The element did not become ready in time.
+}
 ```
+
+::: tip
+When awaiting a [lazily imported](/utilities/lazy-import) element, remember the wait includes fetching and executing its
+JavaScript chunk. If you set a `timeout`, size it for your worst-case network, or omit it to wait indefinitely.
+:::

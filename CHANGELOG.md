@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `whenInitialized` to await an element being ready. Standard elements resolve immediately; Impulse elements resolve once fully initialized; non-Impulse custom elements resolve once defined (like `customElements.whenDefined`). Rejects after a configurable timeout (default 3000ms) if the element is never registered ([#111](https://github.com/Ambiki/impulse/issues/111))
+- Add `whenInitialized` to await an element being ready. Standard elements resolve immediately; Impulse elements resolve once fully initialized; non-Impulse custom elements resolve once defined (like `customElements.whenDefined`). By default there is no deadline (it waits indefinitely, like `customElements.whenDefined`); pass `{ timeout }` to reject after a number of milliseconds you choose ([#111](https://github.com/Ambiki/impulse/issues/111))
 - Export `SetMap`
 - Export `SelectorSet` data structure for indexing CSS selectors by their leftmost token
 
