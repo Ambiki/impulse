@@ -147,6 +147,16 @@ describe('@property', () => {
     expect(el).to.have.attribute('zero-config').to.deep.equal('{}');
   });
 
+  it('should fall back to an empty array/object when the attribute holds malformed JSON', async () => {
+    const malformed = await fixture<PropertyTest>(html`
+      <property-test fruits="[not valid json" config="{ nope }"></property-test>
+    `);
+    expect(() => malformed.fruits).not.to.throw();
+    expect(malformed.fruits).to.deep.equal([]);
+    expect(() => malformed.config).not.to.throw();
+    expect(malformed.config).to.deep.equal({});
+  });
+
   it('should be able to assign value to a property', () => {
     el.placement = 'start';
     expect(el).to.have.property('placement', 'start');

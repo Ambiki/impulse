@@ -7,8 +7,6 @@ export default class Store<T extends object = Record<string, unknown>> {
     private ctor: any,
     private name: string,
   ) {
-    this.ctor = ctor;
-    this.name = name;
     this.initialize();
   }
 
