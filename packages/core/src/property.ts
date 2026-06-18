@@ -1,6 +1,6 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
-import { dasherize, parseJSON } from './helpers/string';
+import { dasherize } from './helpers/string';
 import Store from './store';
 
 export default class Property {
@@ -61,14 +61,12 @@ function descriptorProperties(element: Element, attributeName: string, type: Pro
       };
     case Array:
       return {
-        // Fall back to an empty array rather than throwing when the attribute holds malformed JSON.
-        get: () => parseJSON(element.getAttribute(attributeName), []),
+        get: () => parseAttributeJSON(element, attributeName, []),
         set: (value: any[]) => element.setAttribute(attributeName, JSON.stringify(value) || '[]'),
       };
     case Object:
       return {
-        // Fall back to an empty object rather than throwing when the attribute holds malformed JSON.
-        get: () => parseJSON(element.getAttribute(attributeName), {}),
+        get: () => parseAttributeJSON(element, attributeName, {}),
         set: (value: Record<any, any>) => element.setAttribute(attributeName, JSON.stringify(value) || '{}'),
       };
     default:
@@ -76,5 +74,25 @@ function descriptorProperties(element: Element, attributeName: string, type: Pro
         get: () => element.getAttribute(attributeName) || '',
         set: (value: string) => element.setAttribute(attributeName, value || ''),
       };
+  }
+}
+
+/**
+ * Reads a JSON-typed (`Array`/`Object`) property attribute. When the attribute holds malformed JSON we log a descriptive
+ * error and return `fallback` rather than throwing - a getter that throws would break unrelated code that merely reads
+ * the property - while still making the mistake visible to the developer.
+ */
+function parseAttributeJSON<T>(element: Element, attributeName: string, fallback: T): T {
+  const value = element.getAttribute(attributeName);
+  if (!value) return fallback;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    console.error(
+      `<${element.localName}> has malformed JSON in its "${attributeName}" attribute: ${JSON.stringify(value)}. ` +
+      `Falling back to ${JSON.stringify(fallback)}.`,
+    );
+    return fallback;
   }
 }
