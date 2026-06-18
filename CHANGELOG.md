@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `lazyImport` no longer leaks a `MutationObserver` per call: the watcher is now torn down after the first match fires
 - `on` now uses event delegation: a single document-level event listener is shared across every `on(eventName, ...)` call with the same capture phase, dispatching to handlers via the central `SelectorSet` index. Previously each call attached one listener per matching element. `event.currentTarget` is patched to point at the matched ancestor so existing handler code continues to work; `event.stopPropagation()` halts further delegated dispatch on the same event
 
+### Deprecated
+
+- The implicit wait for descendant custom elements to be defined before invoking target connected callbacks is deprecated and will be removed in the next major version. If a connected callback reads properties on a target element, `await whenInitialized(target)` inside the callback instead. Silence the warning after migrating by setting `ImpulseElement.migratedToWhenInitialized = true`
+
 ### Removed (BREAKING)
 
 - Public exports of `SelectorObserver`, `ElementObserver`, `AttributeObserver`, and `TokenListObserver`. Use `connected` / `disconnected` instead. The underlying classes have been removed entirely; `@target` and `@action` now share the central observer via an internal `watchTokenList` helper

@@ -38,6 +38,7 @@ export default defineConfig({
           { text: 'emit', link: '/utilities/emit' },
           { text: 'lazyImport', link: '/utilities/lazy-import' },
           { text: 'on', link: '/utilities/on' },
+          { text: 'whenInitialized', link: '/utilities/when-initialized' },
         ],
       },
       {

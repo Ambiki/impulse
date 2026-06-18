@@ -42,6 +42,24 @@ buttonsConnected(button: HTMLButtonElement) {
 }
 ```
 
+::: warning Deprecated behavior
+When this callback fires, the target element is in the DOM but may not have finished initializing, so its `@property`
+accessors may not be installed yet. Today Impulse implicitly waits for descendant custom elements to be defined before
+invoking these callbacks, but **this implicit wait is deprecated and will be removed in the next major version.**
+
+If a connected callback reads properties on a target element, await
+[`whenInitialized`](/utilities/when-initialized) inside the callback instead:
+
+```ts
+async panelConnected(panel: PanelElement) {
+  await whenInitialized(panel);
+  console.log(panel.someProperty);
+}
+```
+
+Once you have migrated, silence the deprecation warning by setting `ImpulseElement.migratedToWhenInitialized = true`.
+:::
+
 ### `connected()`
 
 This function is called when the element itself is connected to the DOM. When this function is invoked, you can be sure

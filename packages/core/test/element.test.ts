@@ -1,4 +1,5 @@
 import { expect, waitUntil } from '@open-wc/testing';
+import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, target } from '../src';
 
 let counter = 0;
@@ -43,6 +44,69 @@ describe('ImpulseElement connection order', () => {
       await waitUntil(() => parent.capturedMessage !== '<unset>', 'childConnected should fire', { timeout: CONNECTION_TIMEOUT_MS });
       expect(parent.capturedMessage).to.eq('from-attribute');
     } finally {
+      wrapper.remove();
+    }
+  });
+
+  it('warns that the implicit descendant-definition wait is deprecated', async () => {
+    counter += 1;
+    const parentTag = `deprecation-parent-${counter}`;
+    const childTag = `deprecation-child-${counter}`;
+    const warn = Sinon.stub(console, 'warn');
+
+    class Child extends ImpulseElement {}
+    class Parent extends ImpulseElement {
+      @target() child!: Child;
+    }
+
+    const wrapper = document.createElement('div');
+    // The child class is intentionally never registered, so it stays undefined and the parent engages the wait.
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <${childTag} data-target="${parentTag}.child"></${childTag}>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    try {
+      await waitUntil(() => warn.called, 'deprecation warning should be emitted', { timeout: CONNECTION_TIMEOUT_MS });
+      expect(warn.getCall(0).args[0]).to.include('whenInitialized');
+    } finally {
+      warn.restore();
+      wrapper.remove();
+    }
+  });
+
+  it('does not warn when migratedToWhenInitialized is set', async () => {
+    counter += 1;
+    const parentTag = `migrated-parent-${counter}`;
+    const childTag = `migrated-child-${counter}`;
+    const warn = Sinon.stub(console, 'warn');
+
+    class Child extends ImpulseElement {}
+    class Parent extends ImpulseElement {
+      @target() child!: Child;
+    }
+    Parent.migratedToWhenInitialized = true;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <${childTag} data-target="${parentTag}.child"></${childTag}>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    try {
+      // Give `_asyncConnect` time to run past `_resolveUndefinedElements`.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(warn.called).to.be.false;
+    } finally {
+      warn.restore();
       wrapper.remove();
     }
   });
