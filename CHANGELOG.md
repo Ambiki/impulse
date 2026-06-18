@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Preserve DOM order for `@targets()` when a target is dynamically inserted between existing targets
+- Remove the `data-impulse-element` attribute when an element is disconnected so mutation observers tracking it stay in sync with the DOM connection state ([#110](https://github.com/Ambiki/impulse/issues/110))
 
 ## [1.1.0] - 2025-10-25
 

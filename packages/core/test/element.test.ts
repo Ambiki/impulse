@@ -46,4 +46,28 @@ describe('ImpulseElement connection order', () => {
       wrapper.remove();
     }
   });
+
+  it('adds the data-impulse-element attribute on connect and removes it on disconnect', async () => {
+    counter += 1;
+    const tag = `marker-element-${counter}`;
+
+    class Element extends ImpulseElement {}
+
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    document.body.appendChild(element);
+
+    try {
+      await waitUntil(() => element.hasAttribute('data-impulse-element'), 'attribute should be added on connect', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      expect(element.hasAttribute('data-impulse-element')).to.be.true;
+
+      element.remove();
+      expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    } finally {
+      element.remove();
+    }
+  });
 });
