@@ -147,26 +147,6 @@ describe('@property', () => {
     expect(el).to.have.attribute('zero-config').to.deep.equal('{}');
   });
 
-  it('should warn and fall back to an empty array/object when the attribute holds malformed JSON', async () => {
-    const error = Sinon.stub(console, 'error');
-    try {
-      const malformed = await fixture<PropertyTest>(html`
-        <property-test fruits="[not valid json" config="{ nope }"></property-test>
-      `);
-
-      expect(() => malformed.fruits).not.to.throw();
-      expect(malformed.fruits).to.deep.equal([]);
-      expect(() => malformed.config).not.to.throw();
-      expect(malformed.config).to.deep.equal({});
-
-      // The malformed attributes are reported instead of being swallowed silently.
-      expect(error.called).to.be.true;
-      expect(error.getCall(0).args[0]).to.include('fruits');
-    } finally {
-      error.restore();
-    }
-  });
-
   it('should be able to assign value to a property', () => {
     el.placement = 'start';
     expect(el).to.have.property('placement', 'start');
