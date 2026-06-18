@@ -45,12 +45,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // Check if the target is within the scope of the instance.
     if (!this.scope.scopedTarget(element)) return;
 
-    this.targetsByKey.add(key, element);
-
-    const targets = this.targetsByKey
-      .getValuesForKey(key)
-      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
-    if (targets.length > 1 && !this.isKeyMultiple(key)) {
+    // Validate before mutating `targetsByKey` so a rejected duplicate does not leave the map in an
+    // inconsistent state.
+    if (!this.isKeyMultiple(key) && this.targetsByKey.getValuesForKey(key).length > 0) {
       throw new Error(
         `
 Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
@@ -59,6 +56,12 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
         `.trim(),
       );
     }
+
+    this.targetsByKey.add(key, element);
+
+    const targets = this.targetsByKey
+      .getValuesForKey(key)
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
 
     this.defineProperty(key, this.isKeyMultiple(key) ? targets : element);
     this.invokeCallback(key, element, 'connected');

@@ -17,7 +17,8 @@ export default class Property {
   }
 
   stop() {
-    //
+    // No-op: the defined getters/setters delegate to the element's attributes, so there is no
+    // per-instance state to tear down when the element disconnects.
   }
 
   private initializeProperty(key: string, type: PropertyConstructor) {
