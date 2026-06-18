@@ -1,6 +1,8 @@
-import { expect, fixture, html, nextFrame } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { connected, disconnected } from '../src';
+import { connected, disconnected, ImpulseElement, registerElement, whenInitialized } from '../src';
+
+let counter = 0;
 
 describe('connected', () => {
   it('invokes when element is already present', async () => {
@@ -191,5 +193,95 @@ describe('disconnected', () => {
     root.removeAttribute('title');
     await nextFrame();
     expect(callback.called).to.be.false;
+  });
+});
+
+describe('whenInitialized', () => {
+  const CONNECTION_TIMEOUT_MS = 200;
+
+  it('resolves with the element when it is already initialized', async () => {
+    counter += 1;
+    const tag = `when-initialized-${counter}`;
+    class Element extends ImpulseElement {}
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    document.body.appendChild(element);
+
+    try {
+      await waitUntil(() => element.hasAttribute('data-impulse-element'), 'element should initialize', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      const resolved = await whenInitialized(element);
+      expect(resolved).to.eq(element);
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('resolves once the element becomes initialized', async () => {
+    counter += 1;
+    const tag = `when-initialized-${counter}`;
+    class Element extends ImpulseElement {}
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    document.body.appendChild(element);
+
+    try {
+      // Called before `_asyncConnect` has set the marker attribute.
+      expect(element.hasAttribute('data-impulse-element')).to.be.false;
+      const resolved = await whenInitialized(element);
+      expect(resolved).to.eq(element);
+      expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('resolves when the element class is registered after the call', async () => {
+    counter += 1;
+    const tag = `when-initialized-${counter}`;
+    class Element extends ImpulseElement {}
+
+    // Create and attach the element before its class is defined.
+    const element = document.createElement(tag) as Element;
+    document.body.appendChild(element);
+
+    try {
+      const promise = whenInitialized(element);
+      registerElement(tag)(Element);
+      const resolved = await promise;
+      expect(resolved).to.eq(element);
+      expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('resolves immediately for a standard HTML element', async () => {
+    const element = document.createElement('div');
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    const resolved = await whenInitialized(element);
+    expect(resolved).to.eq(element);
+  });
+
+  it('rejects when a custom element is not initialized within the timeout', async () => {
+    counter += 1;
+    // A hyphenated tag that is never registered, so it never initializes.
+    const tag = `never-impulse-${counter}`;
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    let error: unknown;
+    try {
+      await whenInitialized(element, { timeout: 50 });
+    } catch (err) {
+      error = err;
+    } finally {
+      element.remove();
+    }
+
+    expect(error).to.be.an.instanceOf(Error);
   });
 });

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `whenInitialized` to await an element being fully initialized. Standard elements resolve immediately; custom elements reject after a configurable timeout (default 3000ms) if they never initialize ([#111](https://github.com/Ambiki/impulse/issues/111))
 - Export `SetMap`
 - Export `SelectorSet` data structure for indexing CSS selectors by their leftmost token
 
