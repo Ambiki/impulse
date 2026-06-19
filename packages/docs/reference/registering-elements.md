@@ -33,8 +33,3 @@ The tag name is also the prefix you reference in [actions](/reference/actions) a
   <button data-action="click->clip-board#copy"></button>
 </clip-board>
 ```
-
-## Re-registering
-
-Defining the same tag name twice throws a `NotSupportedError` in the browser. Impulse swallows this specific error, so
-importing the same element module more than once is safe and will not crash your app.
