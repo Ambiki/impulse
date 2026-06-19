@@ -15,7 +15,7 @@ should react when an event is fired on it.
 
 ```ts{6}
 // elements/greet_user_element.ts
-import { ImpulseElement, registerElement } from 'impulse';
+import { ImpulseElement, registerElement } from '@ambiki/impulse';
 
 @registerElement('greet-user')
 export default class GreetUserElement extends ImpulseElement {
@@ -46,10 +46,8 @@ You can add `@window` or `@document` to the descriptor to listen for events on t
 
 ## Event modifiers
 
-It is very common to call `event.preventDefault()` or `event.stopPropagation()` inside event handlers. Although you
-can do this inside the function, it would be better if it is explicitly mentioned in the action descriptor.
-
-To address this, Impulse provides these modifiers out of the box.
+You'll often call `event.preventDefault()` or `event.stopPropagation()` inside a handler. Declaring it in the action
+descriptor is clearer, so Impulse provides these modifiers out of the box.
 
 - `.stop`
 - `.prevent`
@@ -59,11 +57,11 @@ To address this, Impulse provides these modifiers out of the box.
 - `.passive`
 
 ```html
-<!-- Calls the `.stopPropagation()` on the event. -->
+<!-- Calls `event.stopPropagation()`. -->
 <button data-action="click.stop->my-element#invokeAction"></button>
 
-<!-- Calls the `.preventDefault()` on the event. -->
-<form data-action="click.prevent->my-element#invokeAction"></form>
+<!-- Calls `event.preventDefault()`. -->
+<form data-action="submit.prevent->my-element#invokeAction"></form>
 
 <!-- Only call the function if event.target is the element itself. -->
 <div data-action="click.self->my-element#invokeAction"></div>

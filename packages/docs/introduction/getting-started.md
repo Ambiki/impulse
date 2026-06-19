@@ -2,12 +2,28 @@
 
 ## Installation
 
-```bash
-yarn add @ambiki/impulse
+::: code-group
+
+```sh [npm]
+$ npm install @ambiki/impulse
 ```
 
-You need to disable the typescript's `strictPropertyInitialization` compiler option so that it does not conflict
-with Impulse's `@target()`, `@targets()`, and `@property()` decorators.
+```sh [pnpm]
+$ pnpm add @ambiki/impulse
+```
+
+```sh [yarn]
+$ yarn add @ambiki/impulse
+```
+
+```sh [bun]
+$ bun add @ambiki/impulse
+```
+
+:::
+
+Disable TypeScript's `strictPropertyInitialization` compiler option so it does not conflict with Impulse's
+`@target()`, `@targets()`, and `@property()` decorators.
 
 ```json
 {

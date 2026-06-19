@@ -1,11 +1,10 @@
 # Lifecycle callbacks
 
-Special functions known as "lifecycle callbacks" allow you to respond whenever an element or target is connected or
-disconnected from the DOM.
+Lifecycle callbacks let you respond whenever an element or target is connected to or disconnected from the DOM.
 
 ## Functions
 
-These functions are invoked in order as defined below.
+These functions are invoked in the order shown below.
 
 ### `constructor()`
 
@@ -26,8 +25,8 @@ constructor() {
 ### `[target]Connected()`
 
 This function is called when the declared `target` / `targets` is connected to the DOM. Within this function, you can
-manipulate the target, and the most common of these is setting HTML attributes, and adding event listeners. Anything
-done within this function should be undone when the target is disconnected from the DOM.
+manipulate the target — most commonly setting HTML attributes and adding event listeners. Anything done here should be
+undone when the target is disconnected from the DOM.
 
 ```ts
 @target() panel: HTMLElement;

@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -7,6 +8,14 @@ export default defineConfig({
   description: 'A JavaScript framework that leverages the Web Components API.',
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/impulse/favicon.svg' }]],
   lastUpdated: true,
+  markdown: {
+    config(md) {
+      md.use(groupIconMdPlugin);
+    },
+  },
+  vite: {
+    plugins: [groupIconVitePlugin()],
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/favicon.svg',
@@ -19,12 +28,16 @@ export default defineConfig({
       {
         text: 'Introduction',
         collapsed: false,
-        items: [{ text: 'Getting started', link: '/introduction/getting-started' }],
+        items: [
+          { text: 'What is Impulse?', link: '/introduction/what-is-impulse' },
+          { text: 'Getting started', link: '/introduction/getting-started' },
+        ],
       },
       {
         text: 'Reference',
         collapsed: false,
         items: [
+          { text: 'Registering elements', link: '/reference/registering-elements' },
           { text: 'Lifecycle callbacks', link: '/reference/lifecycle-callbacks' },
           { text: 'Actions', link: '/reference/actions' },
           { text: 'Properties', link: '/reference/properties' },
