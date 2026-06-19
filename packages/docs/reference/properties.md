@@ -8,7 +8,7 @@ Properties allow you to read and write HTML attributes.
 
 ```ts{6,9}
 // elements/lazy_load_element.ts
-import { ImpulseElement, registerElement, property } from 'impulse';
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
@@ -22,13 +22,13 @@ export default class LazyLoadElement extends ImpulseElement {
 
 ## Change callbacks
 
-When property changes, callbacks are triggered so that you can take appropriate actions.
+When a property changes, its callback runs so you can react to the new value.
 
-Define a `[property]Changed` function, where `[property]` is the name of the `@property()` decorator. The function
-receives `newValue` as the first argument and `oldValue` as the second argument.
+Define a `[property]Changed` function, where `[property]` is the property name. It receives `newValue` as the first
+argument and `oldValue` as the second.
 
 ```ts{7}
-import { ImpulseElement, registerElement, property } from 'impulse';
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
@@ -45,12 +45,12 @@ export default class LazyLoadElement extends ImpulseElement {
 A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, with `String` being the default.
 
 ```html
-<pop-over placements="['top', 'right']" open></pop-over>
+<pop-over placements='["top", "right"]' open></pop-over>
 ```
 
 ```ts{6-7,10-11}
 // elements/pop_over_element.ts
-import { ImpulseElement, registerElement, property } from 'impulse';
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
 
 @registerElement('pop-over')
 export default class PopOverElement extends ImpulseElement {
@@ -69,7 +69,7 @@ export default class PopOverElement extends ImpulseElement {
 You can assign a default value to the property and it will be reflected in the element.
 
 ```ts{5,8}
-import { ImpulseElement, registerElement, property } from 'impulse';
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {
@@ -90,7 +90,7 @@ Always use kebab-case in your HTML, and use camelCase in your `.ts` file.
 ```
 
 ```ts{5}
-import { ImpulseElement, registerElement, property } from 'impulse';
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
 
 @registerElement('lazy-load')
 export default class LazyLoadElement extends ImpulseElement {

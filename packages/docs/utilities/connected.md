@@ -8,11 +8,11 @@ This function sets up a [MutationObserver](https://developer.mozilla.org/en-US/d
 document that watches for elements matching the provided CSS selector. The callback is invoked immediately for any
 matching elements already in the DOM, and then for any elements added later.
 
-This is particularly useful for initializing third party libraries where it requires a manual initialization step to be
-installed on a given element.
+This is particularly useful for initializing third-party libraries that require a manual initialization step on a given
+element.
 
-This example initializes the bootstrap's [tooltip](https://getbootstrap.com/docs/4.6/components/tooltips/#tooltipoptions)
-library on any element that matches the selector on the page.
+This example initializes Bootstrap's [tooltip](https://getbootstrap.com/docs/4.6/components/tooltips/#tooltipoptions)
+library on any element matching the selector.
 
 ```ts
 import { connected } from '@ambiki/impulse';

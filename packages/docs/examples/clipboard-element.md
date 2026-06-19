@@ -20,7 +20,7 @@ Create a new file named `clip_board_element.ts` and let's extend the framework's
 
 ```ts{2,4}
 // clip_board_element.ts
-import { ImpulseElement } from 'impulse';
+import { ImpulseElement } from '@ambiki/impulse';
 
 export default class ClipBoardElement extends ImpulseElement {
 }
@@ -33,7 +33,7 @@ element.
 
 ```ts{4}
 // clip_board_element.ts
-import { ImpulseElement, registerElement } from 'impulse';
+import { ImpulseElement, registerElement } from '@ambiki/impulse';
 
 @registerElement('clip-board') // This will be the tag name of our element.
 export default class ClipBoardElement extends ImpulseElement {
@@ -49,7 +49,7 @@ Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 </clip-board>
 ```
 
-## Binding actions and responding to it
+## Binding actions and responding to them
 
 We want to call the `copy` function when the button is clicked. You can do this by binding `button.addEventListener('click', this.copy)`
 in the `connected` [lifecycle callback](/reference/lifecycle-callbacks.md), but Impulse has a better way of doing it.
@@ -59,7 +59,7 @@ disconnected from the DOM.
 
 ```ts{6-8}
 // clip_board_element.ts
-import { ImpulseElement, registerElement } from 'impulse';
+import { ImpulseElement, registerElement } from '@ambiki/impulse';
 
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {
@@ -84,7 +84,7 @@ Next, we will need to get the input's value and copy it to the user's clipboard.
 
 ```ts{7-9}
 // clip_board_element.ts
-import { ImpulseElement, registerElement } from 'impulse';
+import { ImpulseElement, registerElement } from '@ambiki/impulse';
 
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {
@@ -102,7 +102,7 @@ targets using the [`@target()`](/reference/targets.md#single-target) decorator.
 
 ```ts{6,9-10}
 // clip_board_element.ts
-import { ImpulseElement, registerElement, target } from 'impulse';
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
 
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {

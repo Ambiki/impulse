@@ -4,7 +4,7 @@ The `emit` function dispatches a custom event from a specified target element.
 
 ## Usage
 
-This function creates and dispatches [CustomEvents](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) with
+This function creates and dispatches a [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) with
 typed detail data. Events are created with `bubbles: true` and `composed: true` by default, allowing them to propagate
 through the DOM and cross shadow DOM boundaries.
 
@@ -56,7 +56,7 @@ emit(element, 'cancelable-event', {
 
 ## Return value
 
-The function returns the [CustomEvents](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) that was
+The function returns the [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) that was
 dispatched, allowing you to inspect its state:
 
 ```ts
