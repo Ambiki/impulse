@@ -52,3 +52,20 @@ export default class CounterElement extends ImpulseElement {
 ```
 
 No virtual DOM, no JSX — just progressive enhancement of your HTML.
+
+## Coming from Stimulus?
+
+If this looks like [Stimulus](https://stimulus.hotwired.dev/), that's no accident — Impulse borrows its best ideas, so
+actions, targets, and attribute-backed properties will feel familiar. Stimulus is mature and battle-tested, and it
+remains a great choice. Impulse makes a different set of trade-offs that grew out of building [Ambiki](https://www.ambiki.com):
+
+- **Components are native custom elements.** A component _is_ its element (`<counter-element>`), so its methods live
+  on the DOM node — you can call them from anywhere, including existing jQuery code:
+  `document.querySelector('counter-element').increment()`. With Stimulus, the controller instance is not exposed on the
+  element, so reaching it from outside the framework is awkward.
+- **First-class TypeScript.** Properties and targets are declared with typed decorators
+  (`@property({ type: Number }) count`, `@target() output: HTMLElement`) rather than stringly-typed statics.
+- **A single shared DOM observer.** Impulse watches the document with one shared
+  [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver), regardless of how many elements
+  are on the page. Stimulus instantiates several observers per controller instance, which added up on the dense,
+  long-lived pages we were building.
