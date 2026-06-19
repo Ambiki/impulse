@@ -99,10 +99,13 @@ export class ImpulseElement extends HTMLElement {
   }
 
   private async _asyncConnect() {
+    // Define property accessors synchronously, before yielding to `domReady`, so a defined element's properties are live
+    // as soon as it connects. Property setup only reads the element's own attributes/defaults, so it does not need to
+    // wait for the document or for descendants (unlike `target`/`action`, which scan children).
+    this.property.start();
     await domReady();
     customElements.upgrade(this);
     // Order is important
-    this.property.start();
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     // DEPRECATED: this implicit wait will be removed in the next major version. Use `whenInitialized()` inside connected
