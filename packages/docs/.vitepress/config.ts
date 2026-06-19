@@ -28,7 +28,10 @@ export default defineConfig({
       {
         text: 'Introduction',
         collapsed: false,
-        items: [{ text: 'Getting started', link: '/introduction/getting-started' }],
+        items: [
+          { text: 'What is Impulse?', link: '/introduction/what-is-impulse' },
+          { text: 'Getting started', link: '/introduction/getting-started' },
+        ],
       },
       {
         text: 'Reference',
