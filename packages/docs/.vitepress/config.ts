@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitepress';
 import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons';
+import llmstxt, { copyOrDownloadAsMarkdownButtons } from 'vitepress-plugin-llms';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -11,15 +12,52 @@ export default defineConfig({
   markdown: {
     config(md) {
       md.use(groupIconMdPlugin);
+      md.use(copyOrDownloadAsMarkdownButtons);
     },
   },
   vite: {
-    plugins: [groupIconVitePlugin()],
+    plugins: [
+      groupIconVitePlugin(),
+      llmstxt({
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        // Makes the .md links in llms.txt absolute. The plugin already includes the site `base`
+        // (/impulse/) in the paths, so the domain is the bare host without it.
+        domain: 'https://ambiki.github.io',
+        description: 'A lightweight JavaScript framework built on the Web Components API.',
+        details: `\
+Impulse augments your existing HTML with just enough JavaScript to make it interactive and reactive. \
+Write your HTML however you like — server-rendered, static, or generated — and let Impulse handle the behavior. \
+There is no virtual DOM and no JSX; it leans on progressive enhancement.
+
+You write a custom element around your markup, then wire up behavior with a small set of building blocks:
+
+- **Actions** bind event listeners declaratively via \`data-action\` attributes.
+- **Targets** reference child elements by name via \`data-target\` attributes.
+- **Properties** read and write HTML attributes, with change callbacks.
+- **Lifecycle callbacks** run code when an element or target connects to or disconnects from the DOM.
+
+A component _is_ its custom element, so its methods live on the DOM node and can be called from anywhere. \
+Properties and targets are declared with first-class, typed TypeScript decorators.`,
+      }),
+    ],
   },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/favicon.svg',
-    nav: [{ text: 'Home', link: '/' }],
+    nav: [
+      { text: 'Home', link: '/' },
+      {
+        text: 'For AI',
+        items: [
+          // Build-only static files: 404 on the dev server, work in preview/production.
+          // `target: '_blank'` makes VitePress treat these as external, so the `/impulse/`
+          // base is not auto-prepended — include it explicitly.
+          { text: 'llms.txt', link: '/impulse/llms.txt', target: '_blank' },
+          { text: 'llms-full.txt', link: '/impulse/llms-full.txt', target: '_blank' },
+        ],
+      },
+    ],
     outline: 'deep',
     search: {
       provider: 'local',

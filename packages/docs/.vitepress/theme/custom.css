@@ -1,0 +1,24 @@
+/* Overrides for vitepress-plugin-llms' CopyOrDownloadAsMarkdownButtons component. */
+
+/* The home page has a markdown body (the "For AI agents" note), so the button
+   gets injected there too — hide it on the hero landing layout. */
+.VPHome .markdown-copy-buttons {
+  display: none;
+}
+
+/* Drop the translateY(-1px) lift on hover for the dropdown and download buttons.
+   !important is needed to beat the component's scoped-style specificity. */
+.markdown-copy-buttons .dropdown-trigger:hover,
+.markdown-copy-buttons .download-btn:hover {
+  transform: none !important;
+}
+
+/* Keep dropdown items' left padding steady on hover (matches the resting 16px). */
+.markdown-copy-buttons .dropdown-item:hover {
+  padding-left: 16px !important;
+}
+
+/* Drop the translateX(2px) nudge on the external icon when hovering a dropdown item. */
+.markdown-copy-buttons .dropdown-item:hover .icon.external {
+  transform: none !important;
+}
