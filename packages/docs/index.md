@@ -8,7 +8,7 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /introduction/getting-started
+      link: /introduction/what-is-impulse
     - theme: alt
       text: View on GitHub
       link: https://github.com/Ambiki/impulse

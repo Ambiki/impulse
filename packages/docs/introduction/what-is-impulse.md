@@ -52,7 +52,3 @@ export default class CounterElement extends ImpulseElement {
 ```
 
 No virtual DOM, no JSX — just progressive enhancement of your HTML.
-
-## Next steps
-
-Head to [Getting started](/introduction/getting-started) to install Impulse and configure your project.
