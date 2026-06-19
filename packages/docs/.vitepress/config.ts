@@ -45,7 +45,19 @@ Properties and targets are declared with first-class, typed TypeScript decorator
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/favicon.svg',
-    nav: [{ text: 'Home', link: '/' }],
+    nav: [
+      { text: 'Home', link: '/' },
+      {
+        text: 'For AI',
+        items: [
+          // Build-only static files: 404 on the dev server, work in preview/production.
+          // `target: '_blank'` makes VitePress treat these as external, so the `/impulse/`
+          // base is not auto-prepended — include it explicitly.
+          { text: 'llms.txt', link: '/impulse/llms.txt', target: '_blank' },
+          { text: 'llms-full.txt', link: '/impulse/llms-full.txt', target: '_blank' },
+        ],
+      },
+    ],
     outline: 'deep',
     search: {
       provider: 'local',
