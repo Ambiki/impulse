@@ -5,9 +5,11 @@ export default defineConfig({
   base: '/impulse/',
   title: 'Impulse',
   description: 'A JavaScript framework that leverages the Web Components API.',
+  head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/impulse/favicon.svg' }]],
   lastUpdated: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
+    logo: '/favicon.svg',
     nav: [{ text: 'Home', link: '/' }],
     outline: 'deep',
     search: {
