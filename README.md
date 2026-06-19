@@ -49,6 +49,15 @@ HTML:
 The counter automatically syncs the `count` attribute with the component property, calling `countChanged()` whenever it
 updates. No virtual DOM, no JSX - just progressive enhancement of your HTML.
 
+## Coming from Stimulus?
+
+Impulse borrows Stimulus' best ideas, so actions, targets, and attribute-backed properties will feel familiar. The
+difference is that components are native custom elements, which buys a few things:
+
+- **Callable from anywhere.** A component _is_ its element, so its methods live on the DOM node - `document.querySelector('counter-element').increment()` works, even from existing jQuery code.
+- **First-class TypeScript.** Properties and targets are declared with typed decorators.
+- **A single shared DOM observer** for the whole app, rather than several per controller instance.
+
 ## Learn more
 
 Check out the [full documentation](https://ambiki.github.io/impulse/) to explore more.
