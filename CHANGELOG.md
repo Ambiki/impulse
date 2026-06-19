@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Define `@property` accessors synchronously when an element connects, instead of after `await domReady()`. A defined element's properties are now live as soon as it connects, closing a race where a parent's `[target]Connected(child)` callback could read a property on an already-defined child before the child's accessors existed ([#124](https://github.com/Ambiki/impulse/pull/124))
 - Preserve DOM order for `@targets()` when a target is dynamically inserted between existing targets
 - Remove the `data-impulse-element` attribute when an element is disconnected so mutation observers tracking it stay in sync with the DOM connection state ([#110](https://github.com/Ambiki/impulse/issues/110))
 
