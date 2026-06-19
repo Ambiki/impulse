@@ -25,6 +25,7 @@ export default defineConfig({
         text: 'Reference',
         collapsed: false,
         items: [
+          { text: 'Registering elements', link: '/reference/registering-elements' },
           { text: 'Lifecycle callbacks', link: '/reference/lifecycle-callbacks' },
           { text: 'Actions', link: '/reference/actions' },
           { text: 'Properties', link: '/reference/properties' },
