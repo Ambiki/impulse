@@ -105,12 +105,12 @@ export class ImpulseElement extends HTMLElement {
     this.property.start();
     await domReady();
     customElements.upgrade(this);
-    // Order is important
     // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
     // to the assigned value.
     // DEPRECATED: this implicit wait will be removed in the next major version. Use `whenInitialized()` inside connected
     // callbacks instead. See `_resolveUndefinedElements`.
     await this._resolveUndefinedElements();
+    // Order is important: targets must be wired up before actions.
     this.target.start();
     this.action.start();
     this._started = true;

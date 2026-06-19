@@ -111,6 +111,74 @@ describe('ImpulseElement connection order', () => {
     }
   });
 
+  it('makes @property accessors live synchronously on connect, before yielding to domReady', () => {
+    counter += 1;
+    const tag = `sync-property-${counter}`;
+
+    class Element extends ImpulseElement {
+      @property({ type: String }) message = 'default';
+    }
+
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element & { message: string };
+    element.setAttribute('message', 'from-attribute');
+    document.body.appendChild(element);
+
+    try {
+      // `connectedCallback` runs synchronously inside `appendChild` (a [CEReactions] operation), and
+      // `property.start()` is the first statement of `_asyncConnect`, before `await domReady()`. So the
+      // attribute-backed getter must already be live here, with no `await`. This guards against a future
+      // refactor moving `property.start()` back below the await, where this would read the raw field
+      // default (`'default'`) because the accessor would not yet be defined.
+      expect(element.message).to.eq('from-attribute');
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('reads a defined target child’s @property inside the connected callback', async () => {
+    counter += 1;
+    const parentTag = `defined-parent-${counter}`;
+    const childTag = `defined-child-${counter}`;
+
+    class Child extends ImpulseElement {
+      @property({ type: String }) message = 'default';
+    }
+
+    class Parent extends ImpulseElement {
+      @target() child!: Child;
+      capturedMessage = '<unset>';
+      childConnected(child: Child) {
+        this.capturedMessage = child.message;
+      }
+    }
+
+    // Both classes are registered up front, so the child is already defined at parse time and the
+    // implicit `_resolveUndefinedElements` wait does not engage. The parent must still observe the
+    // child's attribute-backed property because the child's accessors are defined synchronously on connect.
+    registerElement(childTag)(Child);
+    registerElement(parentTag)(Parent);
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <${childTag} message="from-attribute" data-target="${parentTag}.child"></${childTag}>
+      </${parentTag}>
+    `;
+    document.body.appendChild(wrapper);
+
+    try {
+      const parent = wrapper.firstElementChild as Parent;
+      await waitUntil(() => parent.capturedMessage !== '<unset>', 'childConnected should fire', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      expect(parent.capturedMessage).to.eq('from-attribute');
+    } finally {
+      wrapper.remove();
+    }
+  });
+
   it('adds the data-impulse-element attribute on connect and removes it on disconnect', async () => {
     counter += 1;
     const tag = `marker-element-${counter}`;
