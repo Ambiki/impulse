@@ -19,6 +19,7 @@ coverage
 dist/
 packages/docs/.vitepress/*
 !packages/docs/.vitepress/config.ts
+!packages/docs/.vitepress/theme
 
 # Dependency directories
 node_modules/

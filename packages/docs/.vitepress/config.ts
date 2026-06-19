@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import { groupIconMdPlugin, groupIconVitePlugin } from 'vitepress-plugin-group-icons';
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -7,6 +8,14 @@ export default defineConfig({
   description: 'A JavaScript framework that leverages the Web Components API.',
   head: [['link', { rel: 'icon', type: 'image/svg+xml', href: '/impulse/favicon.svg' }]],
   lastUpdated: true,
+  markdown: {
+    config(md) {
+      md.use(groupIconMdPlugin);
+    },
+  },
+  vite: {
+    plugins: [groupIconVitePlugin()],
+  },
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: '/favicon.svg',
