@@ -5,19 +5,19 @@
 ::: code-group
 
 ```sh [npm]
-npm install @ambiki/impulse
+$ npm install @ambiki/impulse
 ```
 
 ```sh [pnpm]
-pnpm add @ambiki/impulse
+$ pnpm add @ambiki/impulse
 ```
 
 ```sh [yarn]
-yarn add @ambiki/impulse
+$ yarn add @ambiki/impulse
 ```
 
 ```sh [bun]
-bun add @ambiki/impulse
+$ bun add @ambiki/impulse
 ```
 
 :::
