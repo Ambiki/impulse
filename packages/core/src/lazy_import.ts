@@ -10,9 +10,10 @@ const lazyElements = new SetMap<string, () => void>();
  *
  * Although HTML classes as selectors are supported, it is recommended to use data attributes such as `data-js-load-billing`.
  *
- * The callback is invoked at most once per selector - the first time a matching element is seen, the registered
- * callbacks fire and the watcher is torn down. For callbacks that should run on every connection (e.g. per-page
- * initialization under Turbo/Hotwire navigation), use {@link connected} instead.
+ * The callback is invoked once per selector, the first time a matching element is seen, and the watcher is then torn
+ * down. The imported module should not look the element up with `document.querySelector` when it loads: the import
+ * resolves asynchronously, so the element may already be gone, and later matches (e.g. after Turbo/Hotwire navigation)
+ * would be missed. Have the module register with {@link connected} instead so it sees every matching element.
  *
  * @param selector - The selector to match the elements.
  * @param callback - The callback to execute when the element is present in the DOM.
@@ -24,13 +25,21 @@ const lazyElements = new SetMap<string, () => void>();
 export function lazyImport(selector: string, callback: () => void) {
   lazyElements.add(selector, callback);
 
+  // `watchSelector` scans the document synchronously, so `elementConnected` can run before `stop` is assigned. During
+  // that scan only mark the watcher as stopped; the teardown runs once `watchSelector` has returned.
+  let stopped = false;
+  let scanning = true;
   const stop = watchSelector(selector, {
     elementConnected() {
+      if (stopped) return;
+      stopped = true;
       for (const cb of lazyElements.get(selector) || []) {
         domReady().then(cb);
       }
       lazyElements.deleteKey(selector);
-      stop();
+      if (!scanning) stop();
     },
   });
+  scanning = false;
+  if (stopped) stop();
 }
