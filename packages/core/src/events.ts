@@ -5,9 +5,14 @@ interface Handler {
   callback: (event: Event) => void;
   once: boolean;
   removed: boolean;
+  /** Detaches the registration from its `signal`, if any. Called whenever the handler is removed. */
+  detach: () => void;
 }
 
 interface Bucket {
+  key: string;
+  eventName: string;
+  capture: boolean;
   selectorSet: SelectorSet<Handler>;
   listener: EventListener;
 }
@@ -19,10 +24,10 @@ const stoppedEvents = new WeakSet<Event>();
  * Sets up a delegated event listener that invokes `callback` whenever `eventName` fires on (or bubbles through) an
  * element matching `selector`.
  *
- * Internally a single document-level listener is shared across every call with the same `(eventName, capture)` pair,
- * so the cost of registering N call sites is O(1) listeners - not O(N). When the event fires, ancestors of
- * `event.target` are walked from inner to outer; for each ancestor that matches `selector`, `callback` is invoked with
- * `event.currentTarget` patched to point at the matched ancestor.
+ * Internally a single document-level listener is shared across every call with the same `(eventName, capture,
+ * passive)` triple, so the cost of registering N call sites is O(1) listeners - not O(N). When the event fires,
+ * ancestors of `event.target` are walked from inner to outer; for each ancestor that matches `selector`, `callback` is
+ * invoked with `event.currentTarget` patched to point at the matched ancestor.
  *
  * `event.stopPropagation()` halts further delegated dispatch on the same event. Non-bubbling events (`focus`, `blur`,
  * `mouseenter`, `mouseleave`, `load`, `error`, `scroll`) require `{ capture: true }` so the document listener actually
@@ -31,7 +36,9 @@ const stoppedEvents = new WeakSet<Event>();
  * @param eventName - The name of the event to listen for (e.g., 'click', 'focus', 'custom-event')
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when the event occurs. Receives the event.
- * @param options - Optional event listener options (capture, once, passive, etc.)
+ * @param options - Optional event listener options. `capture`, `once`, `passive`, and `signal` are honored:
+ * `passive` is forwarded to the shared document listener (so passive and non-passive registrations use separate
+ * listeners), and aborting `signal` removes the registration just like calling the returned cleanup.
  * @returns A cleanup function that removes the registration
  *
  * @example
@@ -76,17 +83,29 @@ export function on(
   const opts: AddEventListenerOptions = typeof options === 'boolean' ? { capture: options } : (options ?? {});
   const capture = !!opts.capture;
   const once = !!opts.once;
+  const { passive, signal } = opts;
 
-  const handler: Handler = { selector, callback, once, removed: false };
-  const bucket = getBucket(eventName, capture);
+  if (signal?.aborted) return () => {};
+
+  const handler: Handler = {
+    selector,
+    callback,
+    once,
+    removed: false,
+    detach: () => signal?.removeEventListener('abort', stop),
+  };
+  const bucket = getBucket(eventName, capture, passive);
   bucket.selectorSet.add(selector, handler);
+  signal?.addEventListener('abort', stop);
+  return stop;
 
-  return () => {
+  function stop() {
     if (handler.removed) return;
     handler.removed = true;
+    handler.detach();
     bucket.selectorSet.delete(selector, handler);
-    maybeReleaseBucket(eventName, capture);
-  };
+    maybeReleaseBucket(bucket);
+  }
 }
 
 /**
@@ -139,38 +158,47 @@ export function emit<T extends Record<string, any>>(
   return event;
 }
 
-function bucketKey(eventName: string, capture: boolean): string {
-  return `${capture ? 'c' : 'b'}:${eventName}`;
+// `passive` is three-state on purpose: leaving it unset lets the browser apply its own default (Chrome treats
+// document-level `touchstart` / `wheel` listeners as passive unless told otherwise), so an explicit `false` must
+// get its own listener rather than sharing one with registrations that never mentioned it.
+function bucketKey(eventName: string, capture: boolean, passive: boolean | undefined): string {
+  const passiveKey = passive === undefined ? '' : passive ? 'p' : 'n';
+  return `${capture ? 'c' : 'b'}${passiveKey}:${eventName}`;
 }
 
-function getBucket(eventName: string, capture: boolean): Bucket {
-  const key = bucketKey(eventName, capture);
+function getBucket(eventName: string, capture: boolean, passive: boolean | undefined): Bucket {
+  const key = bucketKey(eventName, capture, passive);
   const existing = buckets.get(key);
   if (existing) return existing;
 
   const selectorSet = new SelectorSet<Handler>();
-  const listener: EventListener = (event) => {
-    try {
-      dispatch(event, selectorSet, capture);
-    } finally {
-      // A `once` handler deletes itself from the set mid-dispatch, and the cleanup returned by
-      // `on()` won't release the bucket for it (it early-returns on `removed`). Check here, once
-      // the dispatch loop is done, so an emptied bucket doesn't keep its document listener.
-      maybeReleaseBucket(eventName, capture);
-    }
+  const bucket: Bucket = {
+    key,
+    eventName,
+    capture,
+    selectorSet,
+    listener: (event) => {
+      try {
+        dispatch(event, bucket.selectorSet, bucket.capture);
+      } finally {
+        // A `once` handler deletes itself from the set mid-dispatch, and the cleanup returned by
+        // `on()` won't release the bucket for it (it early-returns on `removed`). Check here, once
+        // the dispatch loop is done, so an emptied bucket doesn't keep its document listener.
+        maybeReleaseBucket(bucket);
+      }
+    },
   };
-  document.addEventListener(eventName, listener, capture);
-  const bucket: Bucket = { selectorSet, listener };
+  document.addEventListener(eventName, bucket.listener, passive === undefined ? capture : { capture, passive });
   buckets.set(key, bucket);
   return bucket;
 }
 
-function maybeReleaseBucket(eventName: string, capture: boolean) {
-  const key = bucketKey(eventName, capture);
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.selectorSet.size > 0) return;
-  document.removeEventListener(eventName, bucket.listener, capture);
-  buckets.delete(key);
+function maybeReleaseBucket(bucket: Bucket) {
+  // The bucket may already have been released (and possibly replaced) by an earlier cleanup in the
+  // same dispatch, so check identity rather than just the key.
+  if (bucket.selectorSet.size > 0 || buckets.get(bucket.key) !== bucket) return;
+  document.removeEventListener(bucket.eventName, bucket.listener, bucket.capture);
+  buckets.delete(bucket.key);
 }
 
 function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: boolean) {
@@ -236,6 +264,7 @@ function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: bool
       // even if the callback throws or synchronously re-dispatches the same event.
       if (handler.once) {
         handler.removed = true;
+        handler.detach();
         selectorSet.delete(handler.selector, handler);
       }
 

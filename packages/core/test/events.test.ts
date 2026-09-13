@@ -246,6 +246,109 @@ describe('on', () => {
     }
   });
 
+  it('registers the document listener as passive when passive is requested', () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    try {
+      const stop = on('passive-opt:test', '.passive-opt', () => {}, { passive: true });
+      const registration = addSpy.getCalls().find((c) => c.args[0] === 'passive-opt:test');
+      expect(registration?.args[2]).to.deep.include({ capture: false, passive: true });
+      stop();
+    } finally {
+      addSpy.restore();
+    }
+  });
+
+  it('forwards an explicit passive: false to the document listener', () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    try {
+      const stop = on('passive-false:test', '.passive-false', () => {}, { passive: false });
+      const registration = addSpy.getCalls().find((c) => c.args[0] === 'passive-false:test');
+      expect(registration?.args[2]).to.deep.include({ capture: false, passive: false });
+      stop();
+    } finally {
+      addSpy.restore();
+    }
+  });
+
+  it('keeps passive and non-passive registrations in separate document listeners', () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    const removeSpy = Sinon.spy(document, 'removeEventListener');
+    try {
+      const stopPassive = on('passive-split:test', '.passive-split', () => {}, { passive: true });
+      const stopDefault = on('passive-split:test', '.passive-split', () => {});
+      expect(addSpy.getCalls().filter((c) => c.args[0] === 'passive-split:test').length).to.eq(2);
+
+      stopPassive();
+      expect(removeSpy.getCalls().filter((c) => c.args[0] === 'passive-split:test').length).to.eq(1);
+      stopDefault();
+      expect(removeSpy.getCalls().filter((c) => c.args[0] === 'passive-split:test').length).to.eq(2);
+    } finally {
+      addSpy.restore();
+      removeSpy.restore();
+    }
+  });
+
+  it('removes the registration when the signal aborts', async () => {
+    const removeSpy = Sinon.spy(document, 'removeEventListener');
+    try {
+      const callback = Sinon.spy();
+      const root = await fixture<HTMLDivElement>(html`<div class="signal-opt"></div>`);
+      const controller = new AbortController();
+      on('signal-opt:test', '.signal-opt', callback, { signal: controller.signal });
+
+      root.dispatchEvent(new CustomEvent('signal-opt:test', { bubbles: true }));
+      expect(callback.callCount).to.eq(1);
+
+      controller.abort();
+      root.dispatchEvent(new CustomEvent('signal-opt:test', { bubbles: true }));
+      expect(callback.callCount).to.eq(1);
+      expect(removeSpy.getCalls().filter((c) => c.args[0] === 'signal-opt:test').length).to.eq(1);
+    } finally {
+      removeSpy.restore();
+    }
+  });
+
+  it('never registers when the signal is already aborted', async () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    try {
+      const callback = Sinon.spy();
+      const root = await fixture<HTMLDivElement>(html`<div class="signal-aborted"></div>`);
+      const controller = new AbortController();
+      controller.abort();
+      const stop = on('signal-aborted:test', '.signal-aborted', callback, { signal: controller.signal });
+
+      root.dispatchEvent(new CustomEvent('signal-aborted:test', { bubbles: true }));
+      expect(callback.called).to.be.false;
+      expect(addSpy.getCalls().filter((c) => c.args[0] === 'signal-aborted:test').length).to.eq(0);
+      stop();
+    } finally {
+      addSpy.restore();
+    }
+  });
+
+  it('keeps explicit passive: false separate from registrations that leave passive unset', () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    try {
+      const stopExplicit = on('passive-unset:test', '.passive-unset', () => {}, { passive: false });
+      const stopDefault = on('passive-unset:test', '.passive-unset', () => {});
+      expect(addSpy.getCalls().filter((c) => c.args[0] === 'passive-unset:test').length).to.eq(2);
+      stopExplicit();
+      stopDefault();
+    } finally {
+      addSpy.restore();
+    }
+  });
+
+  it('detaches from the signal once a once handler has fired', async () => {
+    const root = await fixture<HTMLDivElement>(html`<div class="signal-once"></div>`);
+    const controller = new AbortController();
+    const removeSpy = Sinon.spy(controller.signal, 'removeEventListener');
+    on('signal-once:test', '.signal-once', () => {}, { once: true, signal: controller.signal });
+
+    root.dispatchEvent(new CustomEvent('signal-once:test', { bubbles: true }));
+    expect(removeSpy.getCalls().filter((c) => c.args[0] === 'abort').length).to.eq(1);
+  });
+
   it('supports capture-phase delegation', async () => {
     const callback = Sinon.spy();
     const root = await fixture<HTMLDivElement>(html`<div class="capture-host"><button></button></div>`);
