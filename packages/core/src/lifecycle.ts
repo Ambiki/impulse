@@ -1,5 +1,6 @@
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { ImpulseElement } from './element';
+import { invokeEach } from './helpers/invoke_each';
 import { watchSelector } from './observers/document_observer';
 
 /**
@@ -71,20 +72,11 @@ export function connected<T extends Element = Element>(
     // runs and the watcher is deregistered even if one throws; the first error is rethrown once that is done.
     const pending = Array.from(cleanups.values());
     cleanups.clear();
-    let firstError: unknown;
-    let failed = false;
-    for (const cleanup of pending) {
-      try {
-        cleanup();
-      } catch (error) {
-        if (!failed) {
-          failed = true;
-          firstError = error;
-        }
-      }
+    try {
+      invokeEach(pending, (cleanup) => cleanup());
+    } finally {
+      stopWatching();
     }
-    stopWatching();
-    if (failed) throw firstError;
   };
 }
 
