@@ -24,5 +24,8 @@
     "eslint": "^10.2.0",
     "rollup": "^3.30.0",
     "typescript": "^6.0.2"
+  },
+  "resolutions": {
+    "errorstacks": "2.4.0"
   }
 }

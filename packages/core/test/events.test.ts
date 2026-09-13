@@ -467,7 +467,7 @@ describe('on', () => {
     parent.removeEventListener('ct:test', direct);
   });
 
-  it('prevents redispatch after propagation is stopped', async () => {
+  it('fires again when the same event object is re-dispatched after propagation was stopped', async () => {
     const callback = Sinon.spy((event: Event) => event.stopPropagation());
     const root = await fixture<HTMLDivElement>(html`<div class="redispatch"></div>`);
     const stop = on('redispatch:test', '.redispatch', callback);
@@ -476,8 +476,49 @@ describe('on', () => {
     root.dispatchEvent(event);
     expect(callback.callCount).to.eq(1);
     root.dispatchEvent(event);
-    expect(callback.callCount).to.eq(1);
+    expect(callback.callCount).to.eq(2);
     stop();
+  });
+
+  it('stopPropagation in one bucket blocks the other buckets of the same dispatch', async () => {
+    const stopper = Sinon.spy((event: Event) => event.stopPropagation());
+    const nonPassive = Sinon.spy();
+    const root = await fixture<HTMLDivElement>(html`<div class="cross-bucket"></div>`);
+    // Registered first, so its document listener runs first.
+    const stopPassive = on('cross-bucket:test', '.cross-bucket', stopper, { passive: true });
+    const stopNonPassive = on('cross-bucket:test', '.cross-bucket', nonPassive);
+
+    try {
+      const event = new CustomEvent('cross-bucket:test', { bubbles: true });
+      root.dispatchEvent(event);
+      expect(stopper.callCount).to.eq(1);
+      expect(nonPassive.called).to.be.false;
+
+      root.dispatchEvent(event);
+      expect(stopper.callCount).to.eq(2);
+      expect(nonPassive.called).to.be.false;
+    } finally {
+      stopPassive();
+      stopNonPassive();
+    }
+  });
+
+  it('still dispatches when a non-delegated document listener stopped propagation first', async () => {
+    const foreign = Sinon.spy((event: Event) => event.stopPropagation());
+    const callback = Sinon.spy();
+    const root = await fixture<HTMLDivElement>(html`<div class="foreign-stop"></div>`);
+    // Registered before `on()`, so the browser runs it first within the same phase on `document`.
+    document.addEventListener('foreign-stop:test', foreign);
+    const stop = on('foreign-stop:test', '.foreign-stop', callback);
+
+    try {
+      root.dispatchEvent(new CustomEvent('foreign-stop:test', { bubbles: true }));
+      expect(foreign.callCount).to.eq(1);
+      expect(callback.callCount).to.eq(1);
+    } finally {
+      stop();
+      document.removeEventListener('foreign-stop:test', foreign);
+    }
   });
 
   it('stops propagation between matched ancestors via stopPropagation', async () => {
