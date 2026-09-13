@@ -1,4 +1,4 @@
-import { expect, fixture, html, waitUntil } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import { sendKeys } from '@web/test-runner-commands';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement } from '../src';
@@ -30,6 +30,15 @@ describe('action', () => {
       </action-test>
     `);
   });
+
+  // Appends a div whose `data-action` lists the same `click->#foo` descriptor twice and waits for it to be tracked.
+  async function appendDuplicateActionElement(): Promise<HTMLDivElement> {
+    const element = document.createElement('div');
+    element.setAttribute('data-action', `click->${el.identifier}#foo click->${el.identifier}#foo`);
+    el.append(element);
+    await waitUntil(() => el.contains(element));
+    return element;
+  }
 
   it('should call the function', () => {
     const button = el.querySelector<HTMLButtonElement>('#button1')!;
@@ -82,6 +91,64 @@ describe('action', () => {
     button.focus();
     await sendKeys({ press: 'Enter' });
     expect(el.keydown.calledOnce).to.be.true;
+  });
+
+  it('should keep other listeners when one action token is removed', async () => {
+    const button = el.querySelector<HTMLButtonElement>('#button1')!;
+    button.setAttribute('data-action', `click->${el.identifier}#toggle`);
+    await nextFrame();
+
+    button.click();
+    expect(el.toggle.calledOnce).to.be.true;
+
+    button.focus();
+    await sendKeys({ press: 'Enter' });
+    expect(el.keydown.notCalled).to.be.true;
+  });
+
+  it('should keep the remaining listener when the removed token is re-added', async () => {
+    const button = el.querySelector<HTMLButtonElement>('#button1')!;
+    button.setAttribute('data-action', `click->${el.identifier}#toggle`);
+    await nextFrame();
+    button.setAttribute('data-action', `click->${el.identifier}#toggle keydown->${el.identifier}#keydown`);
+    await nextFrame();
+
+    button.click();
+    expect(el.toggle.calledOnce).to.be.true;
+
+    button.focus();
+    await sendKeys({ press: 'Enter' });
+    expect(el.keydown.calledOnce).to.be.true;
+  });
+
+  it('should stop every listener when duplicate tokens are removed', async () => {
+    const element = await appendDuplicateActionElement();
+    element.removeAttribute('data-action');
+    await nextFrame();
+
+    element.click();
+    expect(el.foo.notCalled).to.be.true;
+  });
+
+  it('should keep one listener when one of two duplicate tokens is removed', async () => {
+    const element = await appendDuplicateActionElement();
+    element.click();
+    expect(el.foo.calledTwice).to.be.true;
+
+    el.foo.resetHistory();
+    element.setAttribute('data-action', `click->${el.identifier}#foo`);
+    await nextFrame();
+    element.click();
+    expect(el.foo.calledOnce).to.be.true;
+  });
+
+  it('should stop every listener when an element with duplicate tokens is removed from the DOM', async () => {
+    const element = await appendDuplicateActionElement();
+    element.remove();
+    await waitUntil(() => !el.contains(element));
+
+    element.click();
+    expect(el.foo.notCalled).to.be.true;
   });
 
   it('should bind action to the window', () => {

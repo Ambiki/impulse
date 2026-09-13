@@ -134,6 +134,49 @@ describe('@target', () => {
     expect(el2.panelDisconnectedSpy.calledOnce).to.be.true;
   });
 
+  it('should register duplicate data-target tokens once', async () => {
+    const div = document.getElementById('just-div')!;
+    div.setAttribute('data-target', `${el.identifier}.sheet ${el.identifier}.sheet`);
+    await waitUntil(() => el.sheetConnectedSpy.called);
+    expect(el.sheetConnectedSpy.calledOnce).to.be.true;
+    expect(el.sheet).to.eq(div);
+  });
+
+  it('should keep the target when one of two duplicate data-target tokens is removed', async () => {
+    const div = document.getElementById('just-div')!;
+    div.setAttribute('data-target', `${el.identifier}.sheet ${el.identifier}.sheet`);
+    await waitUntil(() => el.sheetConnectedSpy.called);
+
+    div.setAttribute('data-target', `${el.identifier}.sheet`);
+    await nextFrame();
+    expect(el.sheet).to.eq(div);
+    expect(el.sheetDisconnectedSpy.notCalled).to.be.true;
+
+    div.removeAttribute('data-target');
+    await nextFrame();
+    expect(el.sheet).to.eq(null);
+    expect(el.sheetDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('should keep a target declared with duplicate tokens in the initial HTML when one token is removed', async () => {
+    @registerElement('duplicate-target-test')
+    class DuplicateTargetTest extends ImpulseElement {
+      @target() sheet: HTMLElement;
+    }
+
+    const root = await fixture<DuplicateTargetTest>(html`
+      <duplicate-target-test>
+        <div data-target="duplicate-target-test.sheet duplicate-target-test.sheet"></div>
+      </duplicate-target-test>
+    `);
+    const div = root.querySelector('div')!;
+    expect(root.sheet).to.eq(div);
+
+    div.setAttribute('data-target', 'duplicate-target-test.sheet');
+    await nextFrame();
+    expect(root.sheet).to.eq(div);
+  });
+
   it('should call the connected callback after [target]Connected callback', () => {
     expect(el.connectedSpy.calledAfter(el.panelConnectedSpy)).to.be.true;
     expect(el.connectedSpy.calledAfter(el.buttonConnectedSpy)).to.be.true;

@@ -81,10 +81,27 @@ function parseTokens<T extends Element>(element: T, attributeName: string): Toke
     .map((content) => ({ element, attributeName, content }));
 }
 
+/**
+ * Multiset diff: each old token is matched to at most one new token with the same content. Matched old tokens keep
+ * their identity (so delegates can key state on the `Token` object); unmatched old tokens are removed and unmatched
+ * new tokens are added. Duplicate contents are therefore counted, not collapsed.
+ */
 function diffTokens<T>(newTokens: Token<T>[], oldTokens: Token<T>[]): [Token<T>[], Token<T>[]] {
-  const newContents = new Set(newTokens.map(({ content }) => content));
-  const oldContents = new Set(oldTokens.map(({ content }) => content));
-  const added = newTokens.filter((t) => !oldContents.has(t.content));
-  const removed = oldTokens.filter((t) => !newContents.has(t.content));
-  return [added, removed];
+  const unmatchedOld = new SetMap<string, Token<T>>();
+  for (const token of oldTokens) {
+    unmatchedOld.add(token.content, token);
+  }
+
+  const added: Token<T>[] = [];
+  for (const token of newTokens) {
+    const [match] = unmatchedOld.getValuesForKey(token.content);
+    if (match) {
+      unmatchedOld.delete(token.content, match);
+    } else {
+      added.push(token);
+    }
+  }
+
+  // Filter the original list so removals are reported in attribute order rather than grouped by content.
+  return [added, oldTokens.filter((token) => unmatchedOld.has(token.content, token))];
 }
