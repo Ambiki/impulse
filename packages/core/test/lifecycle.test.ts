@@ -358,10 +358,10 @@ describe('whenInitialized', () => {
   it('resolves with the element when it is already initialized', async () => {
     counter += 1;
     const tag = `when-initialized-${counter}`;
-    class Element extends ImpulseElement {}
-    registerElement(tag)(Element);
+    class WhenInitializedElement extends ImpulseElement {}
+    registerElement(tag)(WhenInitializedElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as WhenInitializedElement;
     document.body.appendChild(element);
 
     try {
@@ -378,10 +378,10 @@ describe('whenInitialized', () => {
   it('resolves once the element becomes initialized', async () => {
     counter += 1;
     const tag = `when-initialized-${counter}`;
-    class Element extends ImpulseElement {}
-    registerElement(tag)(Element);
+    class WhenInitializedElement extends ImpulseElement {}
+    registerElement(tag)(WhenInitializedElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as WhenInitializedElement;
     document.body.appendChild(element);
 
     try {
@@ -398,15 +398,15 @@ describe('whenInitialized', () => {
   it('resolves when the element class is registered after the call', async () => {
     counter += 1;
     const tag = `when-initialized-${counter}`;
-    class Element extends ImpulseElement {}
+    class WhenInitializedElement extends ImpulseElement {}
 
     // Create and attach the element before its class is defined.
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as WhenInitializedElement;
     document.body.appendChild(element);
 
     try {
       const promise = whenInitialized(element);
-      registerElement(tag)(Element);
+      registerElement(tag)(WhenInitializedElement);
       const resolved = await promise;
       expect(resolved).to.eq(element);
       expect(element.hasAttribute('data-impulse-element')).to.be.true;
@@ -462,9 +462,9 @@ describe('whenInitialized', () => {
   it('waits indefinitely by default and resolves once the element initializes', async () => {
     counter += 1;
     const tag = `no-timeout-${counter}`;
-    class Element extends ImpulseElement {}
+    class WhenInitializedElement extends ImpulseElement {}
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as WhenInitializedElement;
     document.body.appendChild(element);
 
     try {
@@ -478,7 +478,7 @@ describe('whenInitialized', () => {
       expect(outcome).to.eq('pending');
 
       // Once the class is registered it resolves.
-      registerElement(tag)(Element);
+      registerElement(tag)(WhenInitializedElement);
       const resolved = await promise;
       expect(resolved).to.eq(element);
     } finally {
