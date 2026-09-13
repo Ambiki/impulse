@@ -415,3 +415,50 @@ describe('ImpulseElement init races', () => {
     expect(element.hasAttribute('data-impulse-element')).to.be.true;
   });
 });
+
+describe('ImpulseElement watcher sharing', () => {
+  it('matches an inserted node against [data-target] and [data-action] once, however many instances are live', async () => {
+    counter += 1;
+    const tag = `shared-watcher-${counter}`;
+    class SharedWatcherElement extends ImpulseElement {
+      @target() panel!: HTMLElement;
+      panelConnectedSpy = Sinon.spy();
+      toggle = Sinon.spy();
+      panelConnected() {
+        this.panelConnectedSpy();
+      }
+    }
+    registerElement(tag)(SharedWatcherElement);
+
+    const root = await fixture(html`<div></div>`);
+    const instances: SharedWatcherElement[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const element = document.createElement(tag) as SharedWatcherElement;
+      element.innerHTML = `<div data-target="${tag}.panel" data-action="click->${tag}#toggle"></div>`;
+      root.append(element);
+      instances.push(element);
+    }
+    await waitUntil(() => instances.every((element) => element.panelConnectedSpy.calledOnce), 'targets connect', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+
+    const matches = Sinon.spy(Element.prototype, 'matches');
+    try {
+      const inserted = document.createElement('div');
+      inserted.setAttribute('data-action', `click->${tag}#toggle`);
+      instances[2].append(inserted);
+      await nextFrame();
+      const selectors = matches.args.map(([selector]) => selector);
+      expect(selectors.filter((selector) => selector === '[data-target]').length).to.eq(1);
+      expect(selectors.filter((selector) => selector === '[data-action]').length).to.eq(1);
+    } finally {
+      matches.restore();
+    }
+
+    // The routed listener still lands on the right instance.
+    instances[2].querySelector<HTMLElement>('div:last-child')!.click();
+    expect(instances[2].toggle.calledOnce).to.be.true;
+    const others = instances.filter((element) => element !== instances[2]);
+    expect(others.every((element) => element.toggle.notCalled)).to.be.true;
+  });
+});
