@@ -232,12 +232,14 @@ function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: bool
         get: () => node,
       });
 
-      handler.callback.call(node, event);
-
-      if (handler.once && !handler.removed) {
+      // Remove a `once` handler before invoking it, as native `once` does, so it fires at most once
+      // even if the callback throws or synchronously re-dispatches the same event.
+      if (handler.once) {
         handler.removed = true;
         selectorSet.delete(handler.selector, handler);
       }
+
+      handler.callback.call(node, event);
     }
   } finally {
     if (propagationStopped) stoppedEvents.add(event);
