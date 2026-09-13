@@ -3,6 +3,10 @@ import SelectorSet from '../data_structures/selector_set';
 export interface Watcher<T extends Element = Element> {
   elementConnected?: (element: T) => void;
   elementDisconnected?: (element: T) => void;
+  /**
+   * Only fires for elements still in the document when the mutation record is delivered. An element mutated and then
+   * removed in the same task gets a single `elementDisconnected` instead.
+   */
   elementAttributeChanged?: (element: T, attributeName: string) => void;
 }
 
@@ -22,8 +26,8 @@ let mutationObserver: MutationObserver | null = null;
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
  * registration and torn down once the last watcher is removed.
  *
- * Returns a cleanup function that deregisters the watcher and synchronously fires `elementDisconnected` for every
- * element it had previously matched.
+ * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
+ * `elementDisconnected` for them; callers that need teardown must handle it themselves.
  */
 export function watchSelector<T extends Element = Element>(selector: string, watcher: Watcher<T>): () => void {
   const registered: RegisteredWatcher = {
@@ -113,6 +117,12 @@ function visitDisconnect(element: Element) {
 }
 
 function processAttributeChange(element: Element, attributeName: string | null) {
+  // A node removed in the same task as an attribute change still delivers that record through its transient registered
+  // observer, and `isConnected` reflects the tree at delivery time. The `childList` record for the removal is in the
+  // same batch (before or after this one) and `walkRemoved` handles the disconnect, so there is nothing to do here;
+  // matching now would fire `elementConnected` for an element that will never be disconnected.
+  if (!element.isConnected) return;
+
   const previouslyMatching = watchersByElement.get(element);
   const candidates = new Set<RegisteredWatcher>();
   for (const { value: watcher } of watcherIndex.matches(element)) candidates.add(watcher);

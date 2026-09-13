@@ -94,6 +94,18 @@ describe('connected', () => {
     expect(disconnectedCallback.calledOnceWith(root)).to.be.true;
   });
 
+  it('does not invoke when an attribute change makes a detached element match', async () => {
+    const callback = Sinon.spy();
+    const stop = connected('.detached-attr', callback);
+    const element = await fixture(html`<div></div>`);
+
+    element.remove();
+    element.classList.add('detached-attr');
+    await nextFrame();
+    stop();
+    expect(callback.called).to.be.false;
+  });
+
   it('does not invoke when stopped', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
