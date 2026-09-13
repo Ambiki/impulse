@@ -24,13 +24,21 @@ const lazyElements = new SetMap<string, () => void>();
 export function lazyImport(selector: string, callback: () => void) {
   lazyElements.add(selector, callback);
 
+  // `watchSelector` scans the document synchronously, so `elementConnected` can run before `stop` is assigned. During
+  // that scan only mark the watcher as stopped; the teardown runs once `watchSelector` has returned.
+  let stopped = false;
+  let scanning = true;
   const stop = watchSelector(selector, {
     elementConnected() {
+      if (stopped) return;
+      stopped = true;
       for (const cb of lazyElements.get(selector) || []) {
         domReady().then(cb);
       }
       lazyElements.deleteKey(selector);
-      stop();
+      if (!scanning) stop();
     },
   });
+  scanning = false;
+  if (stopped) stop();
 }

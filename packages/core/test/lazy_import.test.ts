@@ -28,6 +28,35 @@ describe('lazy import', () => {
     expect(callback.calledOnce).to.be.true;
   });
 
+  it('calls the callback once when a matching element is already in the DOM', async () => {
+    await fixture(html`<div class="lazy-already"></div>`);
+    const callback = Sinon.spy();
+    lazyImport('.lazy-already', callback);
+
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('calls the callback once for several existing matches and not again for later ones', async () => {
+    const root = await fixture(html`
+      <div>
+        <div class="lazy-several"></div>
+        <div class="lazy-several"></div>
+      </div>
+    `);
+    const callback = Sinon.spy();
+    lazyImport('.lazy-several', callback);
+
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+
+    const late = document.createElement('div');
+    late.classList.add('lazy-several');
+    root.append(late);
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
   it('calls the callback for dynamically added elements', async () => {
     const callback = Sinon.spy();
     lazyImport('lazy-define-dynamic', callback);
