@@ -53,6 +53,42 @@ describe('watchTokenList', () => {
     expect(delegate.tokenUnmatched.calledTwice).to.be.true;
   });
 
+  it('fires tokenUnmatched once with the original token when one of two duplicate tokens is removed', async () => {
+    const span = scope.querySelector('span')!;
+    span.setAttribute('data-test', 'foo foo');
+    await nextFrame();
+    resetSpies();
+
+    span.setAttribute('data-test', 'foo');
+    await nextFrame();
+    expect(delegate.tokenMatched.called).to.be.false;
+    expect(delegate.tokenUnmatched.calledOnce).to.be.true;
+    expect(delegate.tokenUnmatched.args[0][0].content).to.eq('foo');
+  });
+
+  it('fires tokenMatched once when a duplicate of an existing token is added', async () => {
+    resetSpies();
+    scope.querySelector('span')!.setAttribute('data-test', 'foo bar foo');
+    await nextFrame();
+    expect(delegate.tokenMatched.calledOnce).to.be.true;
+    expect(delegate.tokenMatched.args[0][0].content).to.eq('foo');
+    expect(delegate.tokenUnmatched.called).to.be.false;
+  });
+
+  it('passes the same token object to tokenUnmatched that tokenMatched received', async () => {
+    const span = scope.querySelector('span')!;
+    resetSpies();
+    span.setAttribute('data-test', 'foo bar baz');
+    await nextFrame();
+    const added = delegate.tokenMatched.args[0][0];
+    resetSpies();
+
+    span.setAttribute('data-test', 'foo bar');
+    await nextFrame();
+    expect(delegate.tokenUnmatched.calledOnce).to.be.true;
+    expect(delegate.tokenUnmatched.args[0][0]).to.eq(added);
+  });
+
   it('fires tokenUnmatched when an element is removed from the DOM', async () => {
     resetSpies();
     scope.querySelector('span')!.remove();

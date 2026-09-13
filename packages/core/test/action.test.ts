@@ -124,6 +124,21 @@ describe('action', () => {
     expect(el.foo.notCalled).to.be.true;
   });
 
+  it('should keep one listener when one of two duplicate tokens is removed', async () => {
+    const element = document.createElement('div');
+    element.setAttribute('data-action', `click->${el.identifier}#foo click->${el.identifier}#foo`);
+    el.append(element);
+    await waitUntil(() => el.contains(element));
+    element.click();
+    expect(el.foo.calledTwice).to.be.true;
+
+    el.foo.resetHistory();
+    element.setAttribute('data-action', `click->${el.identifier}#foo`);
+    await nextFrame();
+    element.click();
+    expect(el.foo.calledOnce).to.be.true;
+  });
+
   it('should bind action to the window', () => {
     window.dispatchEvent(new CustomEvent('foo'));
     expect(el.foo.calledOnce).to.be.true;
