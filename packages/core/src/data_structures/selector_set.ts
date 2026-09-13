@@ -17,6 +17,8 @@ export interface Match<T> {
  * with a part whose subject has no such token (e.g. `[data-x]`, `:is(...)`, `*`) fall into a catch-all bucket and are
  * checked against every element.
  *
+ * Modeled on https://github.com/josh/selector-set, which likewise keys each comma-separated part on its last compound.
+ *
  * Callers must run the final `element.matches(selector)` check on the returned candidates - the index narrows the
  * search space; it does not validate the full selector.
  */
