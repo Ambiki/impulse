@@ -1,4 +1,5 @@
 import SetMap from '../data_structures/set_map';
+import { invokeReporting } from '../helpers/errors';
 import { invokeEach } from '../helpers/invoke_each';
 import { watchSelector } from './document_observer';
 
@@ -18,6 +19,9 @@ export interface TokenListWatcherDelegate<T> {
  * separated token in the attribute value. Token additions and removals (via attribute changes) are diffed and emitted
  * incrementally.
  *
+ * A delegate that throws for one token is reported like an uncaught error; the remaining tokens on that element are
+ * still tracked and reported.
+ *
  * Only elements contained within `scope` (or the `scope` element itself) are tracked. The returned `stop` function
  * synchronously fires `tokenUnmatched` for every currently-tracked token before deregistering. Every token is reported
  * and the watcher is deregistered even if the delegate throws; the first error is rethrown afterwards.
@@ -29,21 +33,24 @@ export function watchTokenList<T extends Element = Element>(
 ): () => void {
   const elementTokens = new SetMap<Element, Token<T>>();
 
+  const track = (element: Element, token: Token<T>) => {
+    elementTokens.add(element, token);
+    delegate.tokenMatched?.(token);
+  };
+  const untrack = (element: Element, token: Token<T>) => {
+    elementTokens.delete(element, token);
+    delegate.tokenUnmatched?.(token);
+  };
+
   const stopWatching = watchSelector<T>(`[${attributeName}]`, {
+    // Each token is tracked before its delegate runs and every delegate error is reported on its own, so a throw for
+    // one token never leaves later tokens on the same element untracked or unreported.
     elementConnected(element) {
       if (!scope.contains(element)) return;
-      const tokens = parseTokens(element, attributeName);
-      for (const token of tokens) {
-        elementTokens.add(element, token);
-        delegate.tokenMatched?.(token);
-      }
+      for (const token of parseTokens(element, attributeName)) invokeReporting(() => track(element, token));
     },
     elementDisconnected(element) {
-      const tracked = elementTokens.getValuesForKey(element);
-      for (const token of tracked) {
-        elementTokens.delete(element, token);
-        delegate.tokenUnmatched?.(token);
-      }
+      for (const token of elementTokens.getValuesForKey(element)) invokeReporting(() => untrack(element, token));
     },
     elementAttributeChanged(element, name) {
       if (name !== attributeName) return;
@@ -51,14 +58,8 @@ export function watchTokenList<T extends Element = Element>(
       const oldTokens = elementTokens.getValuesForKey(element);
       const newTokens = parseTokens(element, attributeName);
       const [added, removed] = diffTokens(newTokens, oldTokens);
-      for (const token of removed) {
-        elementTokens.delete(element, token);
-        delegate.tokenUnmatched?.(token);
-      }
-      for (const token of added) {
-        elementTokens.add(element, token);
-        delegate.tokenMatched?.(token);
-      }
+      for (const token of removed) invokeReporting(() => untrack(element, token));
+      for (const token of added) invokeReporting(() => track(element, token));
     },
   });
 

@@ -1,6 +1,7 @@
 import { expect, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, target } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
 
 let counter = 0;
 const CONNECTION_TIMEOUT_MS = 200;
@@ -205,24 +206,6 @@ describe('ImpulseElement connection order', () => {
 });
 
 describe('ImpulseElement teardown', () => {
-  // Custom element reactions report exceptions to `window.onerror` rather than throwing to the caller. Mocha treats
-  // those as test failures, so the handler is swapped out while the reaction runs and restored afterwards.
-  function captureReportedErrors(message: string) {
-    const reported: unknown[] = [];
-    const previous = window.onerror;
-    window.onerror = (event, source, lineno, colno, error) => {
-      if (error instanceof Error && error.message.includes(message)) {
-        reported.push(error);
-        return true;
-      }
-      return previous?.call(window, event, source, lineno, colno, error) ?? false;
-    };
-    const release = () => {
-      window.onerror = previous;
-    };
-    return { reported, release };
-  }
-
   it('still tears down and re-initializes on reconnect when disconnected() throws', async () => {
     counter += 1;
     const tag = `teardown-throws-${counter}`;
@@ -293,6 +276,40 @@ describe('ImpulseElement teardown', () => {
       await waitUntil(() => element.panelConnectedSpy.calledTwice, 'target should reconnect', {
         timeout: CONNECTION_TIMEOUT_MS,
       });
+    } finally {
+      element.remove();
+      errors.release();
+    }
+  });
+});
+
+describe('ImpulseElement callback errors', () => {
+  it('reports a duplicate @target and still finishes initializing', async () => {
+    counter += 1;
+    const tag = `duplicate-target-${counter}`;
+    class Element extends ImpulseElement {
+      @target() panel!: HTMLElement;
+      connectedSpy = Sinon.spy();
+      connected() {
+        this.connectedSpy();
+      }
+    }
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    element.innerHTML = `
+      <div data-target="${tag}.panel"></div>
+      <div data-target="${tag}.panel"></div>
+    `;
+    const errors = captureReportedErrors('Multiple "panel" targets');
+    try {
+      document.body.appendChild(element);
+      await waitUntil(() => element.connectedSpy.calledOnce, 'element should initialize', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      expect(errors.reported.length).to.eq(1);
+      expect(element.hasAttribute('data-impulse-element')).to.be.true;
+      expect(element.panel).to.eq(element.querySelector('div'));
     } finally {
       element.remove();
       errors.release();

@@ -1,8 +1,40 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { watchSelector } from '../../src/observers/document_observer';
+import { captureReportedErrors } from '../support/capture_reported_errors';
 
 describe('watchSelector', () => {
+  describe('throwing callbacks', () => {
+    it('reports an error thrown during the initial scan, keeps scanning, and still returns the cleanup', async () => {
+      const root = await fixture(html`
+        <div>
+          <div class="scan-throws" id="first"></div>
+          <div class="scan-throws" id="second"></div>
+        </div>
+      `);
+      const elementConnected = Sinon.spy((element: Element) => {
+        if (element.id === 'first') throw new Error('scan failed');
+      });
+      const errors = captureReportedErrors('scan failed');
+      let stop = () => {};
+      try {
+        stop = watchSelector('.scan-throws', { elementConnected });
+        expect(errors.reported.length).to.eq(1);
+        expect(elementConnected.calledTwice).to.be.true;
+
+        stop();
+        const late = document.createElement('div');
+        late.classList.add('scan-throws');
+        root.append(late);
+        await nextFrame();
+        expect(elementConnected.calledTwice).to.be.true;
+      } finally {
+        stop();
+        errors.release();
+      }
+    });
+  });
+
   describe('detached elements', () => {
     it('does not fire elementConnected when an attribute change makes a detached element match', async () => {
       const elementConnected = Sinon.spy();
