@@ -5,10 +5,11 @@ import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
 import Store from './store';
+import { parseTargetDescriptor } from './target_descriptor';
 
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
 // `identifier.key` descriptor.
-const router = new TokenRouter('data-target', (content) => content.split('.')[0]);
+const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
 
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
   private store: Store<TargetType>;
@@ -47,10 +48,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 
   tokenMatched(token: Token<T>) {
     const { content, element } = token;
-    const [identifier, key] = content.split('.');
+    const { identifier, key } = parseTargetDescriptor(content);
     // The router only delivers tokens whose closest `identifier` ancestor is this instance, so no scope check is
-    // needed here. `isValidIdKeyPair` still rejects tokens routed here by a selector other than this tag name; it
-    // splits the content the same way the router's `identifierFor` does, and the two must stay in step.
+    // needed here. `isValidIdKeyPair` still rejects tokens routed here by a selector other than this tag name.
     if (!this.isValidIdKeyPair(identifier, key)) return;
 
     if (this.targetsByKey.has(key, element)) {
@@ -83,7 +83,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
   tokenUnmatched(token: Token<T>) {
     const { content, element } = token;
-    const [identifier, key] = content.split('.');
+    const { identifier, key } = parseTargetDescriptor(content);
     if (!this.isValidIdKeyPair(identifier, key) || !this.targetsByKey.has(key, element)) return;
 
     this.tokensByElement.delete(element, token);
