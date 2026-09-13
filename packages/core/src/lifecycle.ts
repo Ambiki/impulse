@@ -12,7 +12,8 @@ import { watchSelector } from './observers/document_observer';
  *
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return
- *                   a cleanup function that will be called when the element is disconnected.
+ *                   a cleanup function that will be called when the element is disconnected. If it
+ *                   throws, the error is reported like an uncaught error and other watchers still run.
  * @returns A cleanup function that stops observing and runs the pending cleanup of every element still connected
  *
  * @example

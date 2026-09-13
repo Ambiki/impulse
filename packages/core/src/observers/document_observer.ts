@@ -1,4 +1,5 @@
 import SelectorSet from '../data_structures/selector_set';
+import { invokeReporting } from '../helpers/errors';
 
 export interface Watcher<T extends Element = Element> {
   elementConnected?: (element: T) => void;
@@ -24,7 +25,8 @@ let mutationObserver: MutationObserver | null = null;
 
 /**
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
- * registration and torn down once the last watcher is removed.
+ * registration and torn down once the last watcher is removed. A callback that throws is reported like an uncaught
+ * error and never unwinds the observer or this function, so other watchers and later mutation records still run.
  *
  * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
  * `elementDisconnected` for them; callers that need teardown must handle it themselves.
@@ -43,10 +45,7 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
   watcherIndex.add(selector, registered);
   ensureObserving();
 
-  for (const element of document.querySelectorAll(selector)) {
-    addMatch(element, registered);
-    registered.elementConnected?.(element);
-  }
+  for (const element of document.querySelectorAll(selector)) connect(element, registered);
 
   return () => {
     watcherIndex.delete(selector, registered);
@@ -100,20 +99,14 @@ function walkRemoved(node: Node) {
 function visitConnect(element: Element) {
   if (!element.isConnected) return;
   for (const { value: watcher } of watcherIndex.matches(element)) {
-    if (!watcher.elements.has(element) && element.matches(watcher.selector)) {
-      addMatch(element, watcher);
-      watcher.elementConnected?.(element);
-    }
+    if (!watcher.elements.has(element) && element.matches(watcher.selector)) connect(element, watcher);
   }
 }
 
 function visitDisconnect(element: Element) {
   const watchers = watchersByElement.get(element);
   if (!watchers) return;
-  for (const watcher of Array.from(watchers)) {
-    removeMatch(element, watcher);
-    watcher.elementDisconnected?.(element);
-  }
+  for (const watcher of Array.from(watchers)) disconnect(element, watcher);
 }
 
 function processAttributeChange(element: Element, attributeName: string | null) {
@@ -136,15 +129,25 @@ function processAttributeChange(element: Element, attributeName: string | null) 
     const wasMatching = previouslyMatching?.has(watcher) === true;
     const matchesNow = element.matches(watcher.selector);
     if (matchesNow && !wasMatching) {
-      addMatch(element, watcher);
-      watcher.elementConnected?.(element);
+      connect(element, watcher);
     } else if (!matchesNow && wasMatching) {
-      removeMatch(element, watcher);
-      watcher.elementDisconnected?.(element);
+      disconnect(element, watcher);
     } else if (matchesNow && wasMatching) {
-      watcher.elementAttributeChanged?.(element, attributeName ?? '');
+      invokeReporting(() => watcher.elementAttributeChanged?.(element, attributeName ?? ''));
     }
   }
+}
+
+// The index is updated before the callback runs, so a throwing callback can only affect its own work: it is reported
+// like an uncaught error and the remaining callbacks and mutation records still run.
+function connect(element: Element, watcher: RegisteredWatcher) {
+  addMatch(element, watcher);
+  invokeReporting(() => watcher.elementConnected?.(element));
+}
+
+function disconnect(element: Element, watcher: RegisteredWatcher) {
+  removeMatch(element, watcher);
+  invokeReporting(() => watcher.elementDisconnected?.(element));
 }
 
 function addMatch(element: Element, watcher: RegisteredWatcher) {

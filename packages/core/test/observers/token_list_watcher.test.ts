@@ -1,6 +1,7 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { watchTokenList } from '../../src/observers/token_list_watcher';
+import { captureReportedErrors } from '../support/capture_reported_errors';
 
 describe('watchTokenList', () => {
   let scope: HTMLElement;
@@ -140,6 +141,76 @@ describe('watchTokenList', () => {
     stop();
     stop = () => {};
     expect(delegate.tokenUnmatched.calledTwice).to.be.true;
+  });
+
+  it('tracks every token on an element when tokenMatched throws for one of them', async () => {
+    const throwing = {
+      tokenMatched: Sinon.spy((token: { content: string }) => {
+        if (token.content === 'foo') throw new Error('matched failed');
+      }),
+      tokenUnmatched: Sinon.spy(),
+    };
+    const errors = captureReportedErrors('matched failed');
+    let stopThrowing = () => {};
+    try {
+      stopThrowing = watchTokenList(scope, 'data-test', throwing);
+      expect(errors.reported.length).to.eq(1);
+      expect(throwing.tokenMatched.calledTwice).to.be.true;
+      expect(throwing.tokenMatched.args[1][0].content).to.eq('bar');
+
+      scope.querySelector('span')!.remove();
+      await nextFrame();
+      expect(throwing.tokenUnmatched.calledTwice).to.be.true;
+    } finally {
+      stopThrowing();
+      errors.release();
+    }
+  });
+
+  it('reports every error when the delegate throws for several tokens', () => {
+    const throwing = {
+      tokenMatched: Sinon.spy((token: { content: string }) => {
+        throw new Error(`matched ${token.content} failed`);
+      }),
+    };
+    const errors = captureReportedErrors('failed');
+    let stopThrowing = () => {};
+    try {
+      stopThrowing = watchTokenList(scope, 'data-test', throwing);
+      expect(errors.reported.map((error) => error.message)).to.deep.eq(['matched foo failed', 'matched bar failed']);
+    } finally {
+      stopThrowing();
+      errors.release();
+    }
+  });
+
+  it('still tracks added tokens when tokenUnmatched throws for a removed one', async () => {
+    const throwing = {
+      tokenMatched: Sinon.spy(),
+      tokenUnmatched: Sinon.spy((token: { content: string }) => {
+        if (token.content === 'foo') throw new Error('unmatched foo failed');
+      }),
+    };
+    const errors = captureReportedErrors('unmatched foo failed');
+    let stopThrowing = () => {};
+    try {
+      stopThrowing = watchTokenList(scope, 'data-test', throwing);
+      throwing.tokenMatched.resetHistory();
+
+      scope.querySelector('span')!.setAttribute('data-test', 'bar baz');
+      await nextFrame();
+      expect(errors.reported.length).to.eq(1);
+      expect(throwing.tokenMatched.calledOnce).to.be.true;
+      expect(throwing.tokenMatched.args[0][0].content).to.eq('baz');
+
+      throwing.tokenUnmatched.resetHistory();
+      scope.querySelector('span')!.remove();
+      await nextFrame();
+      expect(throwing.tokenUnmatched.args.map(([token]) => token.content)).to.deep.eq(['bar', 'baz']);
+    } finally {
+      stopThrowing();
+      errors.release();
+    }
   });
 
   it('fires each tokenUnmatched once and stops observing when a delegate calls stop again during stop', async () => {

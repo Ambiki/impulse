@@ -1,6 +1,7 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { connected, disconnected, ImpulseElement, registerElement, whenInitialized } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
 
 let counter = 0;
 
@@ -181,6 +182,33 @@ describe('connected', () => {
 
     stop();
     expect(cleanup.calledOnce).to.be.true;
+  });
+
+  it('still invokes other watchers in the same batch when one callback throws', async () => {
+    const good = Sinon.spy();
+    const errors = captureReportedErrors('bad watcher');
+    let stopBad = () => {};
+    let stopGood = () => {};
+    try {
+      stopBad = connected('.batch-bad', () => {
+        throw new Error('bad watcher');
+      });
+      stopGood = connected('.batch-good', good);
+      const root = await fixture(html`<div></div>`);
+      const bad = document.createElement('div');
+      bad.className = 'batch-bad';
+      const ok = document.createElement('div');
+      ok.className = 'batch-good';
+      root.append(bad, ok);
+      await nextFrame();
+
+      expect(errors.reported.length).to.eq(1);
+      expect(good.calledOnceWith(ok)).to.be.true;
+    } finally {
+      stopBad();
+      stopGood();
+      errors.release();
+    }
   });
 
   it('does not invoke when an attribute change makes a detached element match', async () => {
