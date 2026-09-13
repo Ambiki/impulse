@@ -169,4 +169,28 @@ describe('SelectorSet', () => {
     const span = await fixture<HTMLElement>(html`<span></span>`);
     expect(set.matches(span)).to.deep.equal([]);
   });
+
+  it('matches ids that need CSS escapes', async () => {
+    const set = new SelectorSet<string>();
+    set.add(`#${CSS.escape('1foo')}`, 'escaped-id');
+    set.add(`.${CSS.escape('a:b')}`, 'escaped-class');
+    set.add(`form #${CSS.escape('1foo')}`, 'escaped-descendant');
+    const root = await fixture<HTMLElement>(html`<form><div id="1foo" class="a:b"></div></form>`);
+    const el = root.querySelector('div')!;
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['escaped-class', 'escaped-descendant', 'escaped-id']);
+  });
+
+  it('matches camel-cased SVG elements by tag', async () => {
+    const set = new SelectorSet<string>();
+    set.add('svg linearGradient', 'camel');
+    set.add('linearGradient', 'bare');
+    const root = await fixture<SVGSVGElement>(html`<svg><linearGradient></linearGradient></svg>`);
+    const el = root.querySelector('linearGradient')!;
+    expect(el.localName).to.equal('linearGradient');
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['bare', 'camel']);
+  });
 });

@@ -63,7 +63,8 @@ export default class SelectorSet<T> {
     // A selector list is indexed once per part, so the same entry can live in several buckets.
     const seen = new Set<Entry<T>>();
 
-    const tagSet = this.tagIndex.get(element.localName);
+    // Tag keys are lowercased on both sides so camel-cased SVG names (`linearGradient`) still find their bucket.
+    const tagSet = this.tagIndex.get(element.localName.toLowerCase());
     if (tagSet) collect(tagSet, results, seen);
 
     if (element.id) {
@@ -90,6 +91,10 @@ export default class SelectorSet<T> {
    * the fallback bucket so no part is ever missed).
    */
   private bucketsFor(selector: string): Array<{ map: SetMap<string, Entry<T>>; key: string }> | null {
+    // Escaped identifiers (e.g. `#\31 foo` from `CSS.escape('1foo')`) would need decoding to index correctly; the
+    // fallback bucket is always correct, just unindexed.
+    if (selector.includes('\\')) return null;
+
     const buckets: Array<{ map: SetMap<string, Entry<T>>; key: string }> = [];
     const seen = new Set<string>();
     for (const part of splitSelectorList(selector)) {
@@ -123,36 +128,46 @@ const IDENT_PATTERN = /^[\w-]+/;
 const TAG_PATTERN = /^[a-z][\w-]*/i;
 
 /**
+ * Walks `value` from index `from`, skipping over quoted strings and tracking `(...)` / `[...]` nesting. `visit` is
+ * called for every unquoted character with the nesting depth *after* that character is applied (so a closing bracket
+ * is visited at the depth of its opener) and may return `true` to stop early. Returns the index the walk stopped at,
+ * or `-1` if it reached the end - `null` if quotes or nesting were unbalanced.
+ */
+function scan(value: string, from: number, visit: (ch: string, index: number, depth: number) => boolean | void) {
+  let depth = 0;
+  let quote: string | null = null;
+
+  for (let i = from; i < value.length; i += 1) {
+    const ch = value[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === '\'') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '(' || ch === '[') depth += 1;
+    else if (ch === ')' || ch === ']') depth -= 1;
+    if (depth < 0) return null;
+    if (visit(ch, i, depth)) return i;
+  }
+
+  return depth === 0 && quote === null ? -1 : null;
+}
+
+/**
  * Splits a selector list on top-level commas, ignoring commas inside `(...)`, `[...]`, and quoted strings.
  */
 function splitSelectorList(selector: string): string[] {
   const parts: string[] = [];
   let start = 0;
-  let parens = 0;
-  let brackets = 0;
-  let quote: string | null = null;
-
-  for (let i = 0; i < selector.length; i += 1) {
-    const ch = selector[i];
-    if (ch === '\\') {
-      i += 1;
-    } else if (quote) {
-      if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === '\'') {
-      quote = ch;
-    } else if (ch === '(') {
-      parens += 1;
-    } else if (ch === ')') {
-      parens -= 1;
-    } else if (ch === '[') {
-      brackets += 1;
-    } else if (ch === ']') {
-      brackets -= 1;
-    } else if (ch === ',' && parens === 0 && brackets === 0) {
+  scan(selector, 0, (ch, i, depth) => {
+    if (ch === ',' && depth === 0) {
       parts.push(selector.slice(start, i));
       start = i + 1;
     }
-  }
+  });
   parts.push(selector.slice(start));
 
   return parts.map((part) => part.trim()).filter((part) => part.length > 0);
@@ -189,8 +204,8 @@ function subjectToken(selector: string): Token | null {
       else className ??= match[0];
       i += 1 + match[0].length;
     } else if (ch === '[') {
-      const end = matchingClose(compound, i, '[', ']');
-      if (end === -1) return null;
+      const end = matchingClose(compound, i);
+      if (end === null) return null;
       i = end + 1;
     } else if (ch === ':') {
       i += compound[i + 1] === ':' ? 2 : 1;
@@ -198,8 +213,8 @@ function subjectToken(selector: string): Token | null {
       if (!match) return null;
       i += match[0].length;
       if (compound[i] === '(') {
-        const end = matchingClose(compound, i, '(', ')');
-        if (end === -1) return null;
+        const end = matchingClose(compound, i);
+        if (end === null) return null;
         i = end + 1;
       }
     } else {
@@ -219,55 +234,17 @@ function subjectToken(selector: string): Token | null {
  */
 function rightmostCompound(selector: string): string | null {
   let start = 0;
-  let parens = 0;
-  let brackets = 0;
-  let quote: string | null = null;
-
-  for (let i = 0; i < selector.length; i += 1) {
-    const ch = selector[i];
-    if (ch === '\\') {
-      i += 1;
-    } else if (quote) {
-      if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === '\'') {
-      quote = ch;
-    } else if (ch === '(') {
-      parens += 1;
-    } else if (ch === ')') {
-      parens -= 1;
-    } else if (ch === '[') {
-      brackets += 1;
-    } else if (ch === ']') {
-      brackets -= 1;
-    } else if (parens === 0 && brackets === 0 && (ch === '>' || ch === '+' || ch === '~' || /\s/.test(ch))) {
-      start = i + 1;
-    }
-  }
-
-  if (parens !== 0 || brackets !== 0 || quote !== null) return null;
-  return selector.slice(start);
+  const end = scan(selector, 0, (ch, i, depth) => {
+    if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || /\s/.test(ch))) start = i + 1;
+  });
+  return end === null ? null : selector.slice(start);
 }
 
 /**
- * Index of the bracket closing the one at `openIndex`, honoring nesting and quoted strings; `-1` if unbalanced.
+ * Index of the bracket or paren closing the one at `openIndex`, honoring nesting and quoted strings; `null` if
+ * unbalanced.
  */
-function matchingClose(value: string, openIndex: number, open: string, close: string): number {
-  let depth = 0;
-  let quote: string | null = null;
-  for (let i = openIndex; i < value.length; i += 1) {
-    const ch = value[i];
-    if (ch === '\\') {
-      i += 1;
-    } else if (quote) {
-      if (ch === quote) quote = null;
-    } else if (ch === '"' || ch === '\'') {
-      quote = ch;
-    } else if (ch === open) {
-      depth += 1;
-    } else if (ch === close) {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
+function matchingClose(value: string, openIndex: number): number | null {
+  const end = scan(value, openIndex, (_ch, i, depth) => i > openIndex && depth === 0);
+  return end === null || end === -1 ? null : end;
 }
