@@ -4,7 +4,6 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
-import Scope from './scope';
 import Store from './store';
 
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
@@ -13,7 +12,6 @@ const router = new TokenRouter('data-target', (content) => content.split('.')[0]
 
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
   private store: Store<TargetType>;
-  private scope: Scope;
   private targetsByKey: SetMap<string, T>;
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
@@ -22,7 +20,6 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 
   constructor(private readonly instance: ImpulseElement) {
     this.store = new Store<TargetType>(Object.getPrototypeOf(this.instance), 'target');
-    this.scope = new Scope(this.instance);
     this.targetsByKey = new SetMap();
     this.tokensByElement = new SetMap();
   }
@@ -51,9 +48,10 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   tokenMatched(token: Token<T>) {
     const { content, element } = token;
     const [identifier, key] = content.split('.');
+    // The router only delivers tokens whose closest `identifier` ancestor is this instance, so no scope check is
+    // needed here. `isValidIdKeyPair` still rejects tokens routed here by a selector other than this tag name; it
+    // splits the content the same way the router's `identifierFor` does, and the two must stay in step.
     if (!this.isValidIdKeyPair(identifier, key)) return;
-    // Check if the target is within the scope of the instance.
-    if (!this.scope.scopedTarget(element)) return;
 
     if (this.targetsByKey.has(key, element)) {
       this.tokensByElement.add(element, token);
