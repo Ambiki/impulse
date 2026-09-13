@@ -156,6 +156,62 @@ describe('on', () => {
     }
   });
 
+  it('removes the document listener after a once handler fires', async () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    const removeSpy = Sinon.spy(document, 'removeEventListener');
+    try {
+      const root = await fixture<HTMLDivElement>(html`<div class="once-release"></div>`);
+      on('once-release:test', '.once-release', () => {}, { once: true });
+      root.dispatchEvent(new CustomEvent('once-release:test', { bubbles: true }));
+
+      const added = addSpy.getCalls().filter((c) => c.args[0] === 'once-release:test').length;
+      const removed = removeSpy.getCalls().filter((c) => c.args[0] === 'once-release:test').length;
+      expect(added).to.eq(1);
+      expect(removed).to.eq(1);
+    } finally {
+      addSpy.restore();
+      removeSpy.restore();
+    }
+  });
+
+  it('removes the capture-phase document listener after a once handler fires', async () => {
+    const removeSpy = Sinon.spy(document, 'removeEventListener');
+    try {
+      const root = await fixture<HTMLDivElement>(html`<div class="once-capture"></div>`);
+      on('once-capture:test', '.once-capture', () => {}, { once: true, capture: true });
+      root.dispatchEvent(new CustomEvent('once-capture:test', { bubbles: false }));
+
+      const removals = removeSpy.getCalls().filter((c) => c.args[0] === 'once-capture:test');
+      expect(removals.length).to.eq(1);
+      expect(removals[0].args[2]).to.eq(true);
+    } finally {
+      removeSpy.restore();
+    }
+  });
+
+  it('keeps the document listener when other handlers remain after a once handler fires', async () => {
+    const removeSpy = Sinon.spy(document, 'removeEventListener');
+    try {
+      const root = await fixture<HTMLDivElement>(html`<div class="once-keep"></div>`);
+      const persistent = Sinon.spy();
+      const stop = on('once-keep:test', '.once-keep', persistent);
+      on('once-keep:test', '.once-keep', () => {}, { once: true });
+      root.dispatchEvent(new CustomEvent('once-keep:test', { bubbles: true }));
+
+      let removed = removeSpy.getCalls().filter((c) => c.args[0] === 'once-keep:test').length;
+      expect(removed).to.eq(0);
+
+      root.dispatchEvent(new CustomEvent('once-keep:test', { bubbles: true }));
+      expect(persistent.callCount).to.eq(2);
+
+      stop();
+      removed = removeSpy.getCalls().filter((c) => c.args[0] === 'once-keep:test').length;
+      expect(removed).to.eq(1);
+    } finally {
+      removeSpy.restore();
+    }
+  });
+
   it('supports capture-phase delegation', async () => {
     const callback = Sinon.spy();
     const root = await fixture<HTMLDivElement>(html`<div class="capture-host"><button></button></div>`);

@@ -149,7 +149,16 @@ function getBucket(eventName: string, capture: boolean): Bucket {
   if (existing) return existing;
 
   const selectorSet = new SelectorSet<Handler>();
-  const listener: EventListener = (event) => dispatch(event, selectorSet, capture);
+  const listener: EventListener = (event) => {
+    try {
+      dispatch(event, selectorSet, capture);
+    } finally {
+      // A `once` handler deletes itself from the set mid-dispatch, and the cleanup returned by
+      // `on()` won't release the bucket for it (it early-returns on `removed`). Check here, once
+      // the dispatch loop is done, so an emptied bucket doesn't keep its document listener.
+      maybeReleaseBucket(eventName, capture);
+    }
+  };
   document.addEventListener(eventName, listener, capture);
   const bucket: Bucket = { selectorSet, listener };
   buckets.set(key, bucket);
