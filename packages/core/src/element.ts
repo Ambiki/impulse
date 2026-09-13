@@ -21,11 +21,13 @@ export class ImpulseElement extends HTMLElement {
   private target = new Target(this);
   private action = new Action(this);
   private _started = false;
+  private _connecting = false;
 
   connectedCallback() {
-    if (!this._started) {
-      this._asyncConnect();
-    }
+    // A reconnect while an init is still pending must not start a second one; the pending init re-checks
+    // `isConnected` after each await and finishes on its own.
+    if (this._started || this._connecting) return;
+    this._asyncConnect();
   }
 
   static get observedAttributes(): string[] {
@@ -108,24 +110,36 @@ export class ImpulseElement extends HTMLElement {
   }
 
   private async _asyncConnect() {
-    // Define property accessors synchronously, before yielding to `domReady`, so a defined element's properties are live
-    // as soon as it connects. Property setup only reads the element's own attributes/defaults, so it does not need to
-    // wait for the document or for descendants (unlike `target`/`action`, which scan children).
-    this.property.start();
-    await domReady();
-    customElements.upgrade(this);
-    // Resolve all undefined elements before initializing the target/targets so that property references can be resolved
-    // to the assigned value.
-    // DEPRECATED: this implicit wait will be removed in the next major version. Use `whenInitialized()` inside connected
-    // callbacks instead. See `_resolveUndefinedElements`.
-    await this._resolveUndefinedElements();
-    // Order is important: targets must be wired up before actions.
-    this.target.start();
-    this.action.start();
-    this._started = true;
+    // `_connecting` is cleared in the `finally` of this method rather than from a `.finally()` on its promise so it
+    // clears synchronously on every exit; a reconnect in the next microtask must see it cleared and start a fresh init.
+    this._connecting = true;
+    try {
+      // Define property accessors synchronously, before yielding to `domReady`, so a defined element's properties are
+      // live as soon as it connects. Property setup only reads the element's own attributes/defaults, so it does not
+      // need to wait for the document or for descendants (unlike `target`/`action`, which scan children).
+      this.property.start();
+      await domReady();
+      // Removed while waiting: no watcher has been registered yet, so there is nothing to tear down and a later
+      // reconnect starts over. The same applies after the second await below.
+      if (!this.isConnected) return;
+      customElements.upgrade(this);
+      // Resolve all undefined elements before initializing the target/targets so that property references can be
+      // resolved to the assigned value.
+      // DEPRECATED: this implicit wait will be removed in the next major version. Use `whenInitialized()` inside
+      // connected callbacks instead. See `_resolveUndefinedElements`.
+      await this._resolveUndefinedElements();
+      // Removed while waiting for descendants to be defined.
+      if (!this.isConnected) return;
+      // Order is important: targets must be wired up before actions.
+      this.target.start();
+      this.action.start();
+      this._started = true;
 
-    this.setAttribute(IMPULSE_ELEMENT_ATTRIBUTE, '');
-    this.connected();
+      this.setAttribute(IMPULSE_ELEMENT_ATTRIBUTE, '');
+      this.connected();
+    } finally {
+      this._connecting = false;
+    }
   }
 
   private _resolveUndefinedElements() {

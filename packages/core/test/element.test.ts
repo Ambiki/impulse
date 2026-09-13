@@ -1,4 +1,4 @@
-import { expect, waitUntil } from '@open-wc/testing';
+import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, target } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
@@ -314,5 +314,104 @@ describe('ImpulseElement callback errors', () => {
       element.remove();
       errors.release();
     }
+  });
+});
+
+describe('ImpulseElement init races', () => {
+  function createRaceElement(tag: string) {
+    class RaceElement extends ImpulseElement {
+      @target() panel!: HTMLElement;
+      // Records whether the element was in the document when `connected()` ran.
+      connectedSpy = Sinon.spy((_connected: boolean) => {});
+      disconnectedSpy = Sinon.spy();
+      panelConnectedSpy = Sinon.spy();
+      connected() {
+        this.connectedSpy(this.isConnected);
+      }
+
+      disconnected() {
+        this.disconnectedSpy();
+      }
+
+      panelConnected() {
+        this.panelConnectedSpy();
+      }
+    }
+    registerElement(tag)(RaceElement);
+    const element = document.createElement(tag) as RaceElement;
+    element.innerHTML = `<div data-target="${tag}.panel"></div>`;
+    return element;
+  }
+
+  it('initializes once when the element is moved synchronously, and still tears down normally', async () => {
+    counter += 1;
+    const element = createRaceElement(`race-move-${counter}`);
+    const a = await fixture(html`<div></div>`);
+    const b = await fixture(html`<div></div>`);
+
+    a.append(element);
+    b.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.panelConnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+
+    element.remove();
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+  });
+
+  it('does not initialize when removed during async init, and initializes once when re-appended later', async () => {
+    counter += 1;
+    const element = createRaceElement(`race-detach-${counter}`);
+    const a = await fixture(html`<div></div>`);
+
+    a.append(element);
+    element.remove();
+    await nextFrame();
+    await nextFrame();
+    expect(element.connectedSpy.called).to.be.false;
+    expect(element.panelConnectedSpy.called).to.be.false;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+
+    // Positive control: the bailed-out init left nothing behind, so a later reconnect initializes from scratch.
+    a.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.panelConnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+  });
+
+  it('initializes once when removed and re-appended before init resumes', async () => {
+    counter += 1;
+    const element = createRaceElement(`race-reattach-${counter}`);
+    const a = await fixture(html`<div></div>`);
+    const b = await fixture(html`<div></div>`);
+
+    a.append(element);
+    element.remove();
+    b.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+  });
+
+  it('initializes once, connected, when re-appended after a bailed-out init', async () => {
+    counter += 1;
+    const element = createRaceElement(`race-late-reattach-${counter}`);
+    const a = await fixture(html`<div></div>`);
+    const b = await fixture(html`<div></div>`);
+
+    a.append(element);
+    element.remove();
+    // Yield one microtask so the pending init resumes and bails before the element comes back. Clearing the in-flight
+    // flag from a `.finally()` on the init promise would be one microtask late here and drop this reconnect.
+    await Promise.resolve();
+    b.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
   });
 });
