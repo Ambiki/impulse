@@ -74,6 +74,27 @@ describe('on', () => {
     button.remove();
   });
 
+  it('delegates to the subject of a combinator selector', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture<HTMLFormElement>(html`<form><button type="button"></button></form>`);
+    const stop = on('click', 'form button', callback);
+
+    root.querySelector('button')!.click();
+    expect(callback.calledOnce).to.be.true;
+    stop();
+  });
+
+  it('delegates to every part of a selector list', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture<HTMLDivElement>(html`<div><span></span><b></b></div>`);
+    const stop = on('click', 'span, b', callback);
+
+    root.querySelector('span')!.click();
+    root.querySelector('b')!.click();
+    expect(callback.calledTwice).to.be.true;
+    stop();
+  });
+
   it('walks up ancestors to find a matching element', async () => {
     let observedCurrentTarget: EventTarget | null = null;
     const callback = Sinon.spy((event: Event) => {

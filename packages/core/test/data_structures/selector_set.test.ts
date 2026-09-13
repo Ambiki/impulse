@@ -93,4 +93,118 @@ describe('SelectorSet', () => {
     const matches = set.matches(el);
     expect(matches.map((m) => m.value)).to.deep.equal(['b']);
   });
+
+  it('indexes a combinator selector by its rightmost compound', async () => {
+    const set = new SelectorSet<string>();
+    set.add('form button', 'descendant');
+    set.add('form > button', 'child');
+    set.add('label + button', 'adjacent');
+    set.add('label ~ button', 'sibling');
+    set.add('form div', 'unrelated');
+    const root = await fixture<HTMLElement>(html`<form><label></label><button></button></form>`);
+    const button = root.querySelector('button')!;
+
+    const matches = set.matches(button);
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['adjacent', 'child', 'descendant', 'sibling']);
+  });
+
+  it('indexes every part of a selector list', async () => {
+    const set = new SelectorSet<string>();
+    set.add('div, span', 'list');
+    set.add('#main, .foo', 'mixed');
+    const span = await fixture<HTMLElement>(html`<span class="foo"></span>`);
+
+    const matches = set.matches(span);
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['list', 'mixed']);
+  });
+
+  it('returns a selector list entry at most once per element', async () => {
+    const set = new SelectorSet<string>();
+    set.add('div, .foo, #main', 'list');
+    const el = await fixture<HTMLElement>(html`<div id="main" class="foo"></div>`);
+
+    expect(set.matches(el).map((m) => m.value)).to.deep.equal(['list']);
+  });
+
+  it('prefers id over class over tag within a compound', async () => {
+    const set = new SelectorSet<string>();
+    set.add('div.foo#main', 'compound');
+    set.add('div.foo', 'class-compound');
+    set.add('.other', 'other');
+    const el = await fixture<HTMLElement>(html`<div id="main" class="foo"></div>`);
+
+    expect(set.matches(el).map((m) => m.value).sort()).to.deep.equal(['class-compound', 'compound']);
+  });
+
+  it('ignores commas and combinators inside brackets, parens, and quotes', async () => {
+    const set = new SelectorSet<string>();
+    set.add('[data-list="a, b > c"]', 'attr');
+    set.add(':is(a, b) > .foo', 'pseudo');
+    set.add('.foo:not(.bar, .baz)', 'not');
+    set.add('[data-x="#nope"].foo', 'quoted-hash');
+    const el = await fixture<HTMLElement>(html`<div class="foo" data-list="a, b > c" data-x="#nope"></div>`);
+
+    const matches = set.matches(el);
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['attr', 'not', 'pseudo', 'quoted-hash']);
+  });
+
+  it('falls back when any part of a selector list is not indexable', async () => {
+    const set = new SelectorSet<string>();
+    set.add('div, [data-x]', 'list');
+    const el = await fixture<HTMLElement>(html`<span data-x></span>`);
+
+    expect(set.matches(el).map((m) => m.value)).to.deep.equal(['list']);
+  });
+
+  it('deletes combinator and list selectors', async () => {
+    const set = new SelectorSet<string>();
+    set.add('form button', 'a');
+    set.add('div, span', 'b');
+    set.delete('form button', 'a');
+    set.delete('div, span', 'b');
+    expect(set.size).to.equal(0);
+
+    const root = await fixture<HTMLElement>(html`<form><button></button></form>`);
+    expect(set.matches(root.querySelector('button')!)).to.deep.equal([]);
+    const span = await fixture<HTMLElement>(html`<span></span>`);
+    expect(set.matches(span)).to.deep.equal([]);
+  });
+
+  it('matches ids that need CSS escapes', async () => {
+    const set = new SelectorSet<string>();
+    set.add(`#${CSS.escape('1foo')}`, 'escaped-id');
+    set.add(`.${CSS.escape('a:b')}`, 'escaped-class');
+    set.add(`form #${CSS.escape('1foo')}`, 'escaped-descendant');
+    const root = await fixture<HTMLElement>(html`<form><div id="1foo" class="a:b"></div></form>`);
+    const el = root.querySelector('div')!;
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['escaped-class', 'escaped-descendant', 'escaped-id']);
+  });
+
+  it('matches camel-cased SVG elements by tag', async () => {
+    const set = new SelectorSet<string>();
+    set.add('svg linearGradient', 'camel');
+    set.add('linearGradient', 'bare');
+    const root = await fixture<SVGSVGElement>(html`<svg><linearGradient></linearGradient></svg>`);
+    const el = root.querySelector('linearGradient')!;
+    expect(el.localName).to.equal('linearGradient');
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['bare', 'camel']);
+  });
+
+  it('treats only CSS whitespace as a descendant combinator', async () => {
+    const set = new SelectorSet<string>();
+    const nbspClass = 'foo\u00A0bar';
+    set.add(`.${CSS.escape(nbspClass)}`, 'nbsp-class');
+    set.add('form\n>\tbutton', 'tab-newline');
+    set.add(' \f button\r', 'form-feed');
+    const root = await fixture<HTMLElement>(html`<form><button class=${nbspClass}></button></form>`);
+    const el = root.querySelector('button')!;
+    expect(el.classList.contains(nbspClass)).to.be.true;
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['form-feed', 'nbsp-class', 'tab-newline']);
+  });
 });

@@ -11,9 +11,13 @@ export interface Match<T> {
 }
 
 /**
- * Indexes selectors by their leftmost token (`#id`, `.class`, `tag`) so a DOM mutation only needs to consult selectors
- * that could plausibly match the affected element. Selectors whose leftmost token is not one of those forms (e.g.
- * `[data-x]`, `:is(...)`, `*`) fall into a catch-all bucket and are checked against every element.
+ * Indexes selectors by the key token (`#id`, `.class`, or `tag`) of their *subject* - the rightmost compound of each
+ * comma-separated part - so a DOM mutation only needs to consult selectors that could plausibly match the affected
+ * element. `form > button` is indexed under the `button` tag, and `div, .foo` under both `div` and `.foo`. Selectors
+ * with a part whose subject has no such token (e.g. `[data-x]`, `:is(...)`, `*`) fall into a catch-all bucket and are
+ * checked against every element.
+ *
+ * Modeled on https://github.com/josh/selector-set, which likewise keys each comma-separated part on its last compound.
  *
  * Callers must run the final `element.matches(selector)` check on the returned candidates - the index narrows the
  * search space; it does not validate the full selector.
@@ -27,9 +31,9 @@ export default class SelectorSet<T> {
 
   add(selector: string, value: T): void {
     const entry: Entry<T> = { selector, value };
-    const bucket = this.bucketFor(selector);
-    if (bucket) {
-      bucket.map.add(bucket.key, entry);
+    const buckets = this.bucketsFor(selector);
+    if (buckets) {
+      for (const bucket of buckets) bucket.map.add(bucket.key, entry);
     } else {
       this.fallback.add(entry);
     }
@@ -37,14 +41,14 @@ export default class SelectorSet<T> {
   }
 
   delete(selector: string, value: T): void {
-    const bucket = this.bucketFor(selector);
-    const entries = bucket ? bucket.map.get(bucket.key) : this.fallback;
+    const buckets = this.bucketsFor(selector);
+    const entries = buckets ? buckets[0].map.get(buckets[0].key) : this.fallback;
     if (!entries) return;
 
     for (const entry of entries) {
       if (entry.selector === selector && entry.value === value) {
-        if (bucket) {
-          bucket.map.delete(bucket.key, entry);
+        if (buckets) {
+          for (const bucket of buckets) bucket.map.delete(bucket.key, entry);
         } else {
           this.fallback.delete(entry);
         }
@@ -56,21 +60,24 @@ export default class SelectorSet<T> {
 
   matches(element: Element): Match<T>[] {
     const results: Match<T>[] = [];
+    // A selector list is indexed once per part, so the same entry can live in several buckets.
+    const seen = new Set<Entry<T>>();
 
-    const tagSet = this.tagIndex.get(element.localName);
-    if (tagSet) collect(tagSet, results);
+    // Tag keys are lowercased on both sides so camel-cased SVG names (`linearGradient`) still find their bucket.
+    const tagSet = this.tagIndex.get(element.localName.toLowerCase());
+    if (tagSet) collect(tagSet, results, seen);
 
     if (element.id) {
       const idSet = this.idIndex.get(element.id);
-      if (idSet) collect(idSet, results);
+      if (idSet) collect(idSet, results, seen);
     }
 
     for (const className of element.classList) {
       const classSet = this.classIndex.get(className);
-      if (classSet) collect(classSet, results);
+      if (classSet) collect(classSet, results, seen);
     }
 
-    if (this.fallback.size > 0) collect(this.fallback, results);
+    if (this.fallback.size > 0) collect(this.fallback, results, seen);
 
     return results;
   }
@@ -79,17 +86,35 @@ export default class SelectorSet<T> {
     return this.count;
   }
 
-  private bucketFor(selector: string): { map: SetMap<string, Entry<T>>; key: string } | null {
-    const token = leftmostToken(selector);
-    if (!token) return null;
-    if (token.kind === 'id') return { map: this.idIndex, key: token.value };
-    if (token.kind === 'class') return { map: this.classIndex, key: token.value };
-    return { map: this.tagIndex, key: token.value };
+  /**
+   * One bucket per comma-separated part, or `null` when any part cannot be indexed (the whole selector then goes to
+   * the fallback bucket so no part is ever missed).
+   */
+  private bucketsFor(selector: string): Array<{ map: SetMap<string, Entry<T>>; key: string }> | null {
+    // Escaped identifiers (e.g. `#\31 foo` from `CSS.escape('1foo')`) would need decoding to index correctly; the
+    // fallback bucket is always correct, just unindexed.
+    if (selector.includes('\\')) return null;
+
+    const buckets: Array<{ map: SetMap<string, Entry<T>>; key: string }> = [];
+    const seen = new Set<string>();
+    for (const part of splitSelectorList(selector)) {
+      const token = subjectToken(part);
+      if (!token) return null;
+      const id = `${token.kind}:${token.value}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      if (token.kind === 'id') buckets.push({ map: this.idIndex, key: token.value });
+      else if (token.kind === 'class') buckets.push({ map: this.classIndex, key: token.value });
+      else buckets.push({ map: this.tagIndex, key: token.value });
+    }
+    return buckets.length > 0 ? buckets : null;
   }
 }
 
-function collect<T>(set: Set<Entry<T>>, out: Match<T>[]) {
+function collect<T>(set: Set<Entry<T>>, out: Match<T>[], seen: Set<Entry<T>>) {
   for (const entry of set) {
+    if (seen.has(entry)) continue;
+    seen.add(entry);
     out.push({ selector: entry.selector, value: entry.value });
   }
 }
@@ -99,21 +124,131 @@ interface Token {
   value: string;
 }
 
-const ID_PATTERN = /^#([\w-]+)/;
-const CLASS_PATTERN = /^\.([\w-]+)/;
-const TAG_PATTERN = /^([a-z][\w-]*)/i;
+// CSS identifiers may contain any non-ASCII code point, so `\u00A0` (which `CSS.escape` leaves unescaped) is part of
+// an identifier, not whitespace. Only the five CSS whitespace characters separate compounds.
+const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
+const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
+const CSS_WHITESPACE = /[\t\n\f\r ]/;
+const CSS_TRIM = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
 
-function leftmostToken(selector: string): Token | null {
-  const trimmed = selector.replace(/^\s+/, '');
+/**
+ * Walks `value` from index `from`, skipping over quoted strings and tracking `(...)` / `[...]` nesting. `visit` is
+ * called for every unquoted character with the nesting depth *after* that character is applied (so a closing bracket
+ * is visited at the depth of its opener) and may return `true` to stop early. Returns the index the walk stopped at,
+ * or `-1` if it reached the end - `null` if quotes or nesting were unbalanced.
+ */
+function scan(value: string, from: number, visit: (ch: string, index: number, depth: number) => boolean | void) {
+  let depth = 0;
+  let quote: string | null = null;
 
-  let match = ID_PATTERN.exec(trimmed);
-  if (match) return { kind: 'id', value: match[1] };
+  for (let i = from; i < value.length; i += 1) {
+    const ch = value[i];
+    if (quote) {
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === '\'') {
+      quote = ch;
+      continue;
+    }
+    if (ch === '(' || ch === '[') depth += 1;
+    else if (ch === ')' || ch === ']') depth -= 1;
+    if (depth < 0) return null;
+    if (visit(ch, i, depth)) return i;
+  }
 
-  match = CLASS_PATTERN.exec(trimmed);
-  if (match) return { kind: 'class', value: match[1] };
+  return depth === 0 && quote === null ? -1 : null;
+}
 
-  match = TAG_PATTERN.exec(trimmed);
-  if (match) return { kind: 'tag', value: match[1].toLowerCase() };
+/**
+ * Splits a selector list on top-level commas, ignoring commas inside `(...)`, `[...]`, and quoted strings.
+ */
+function splitSelectorList(selector: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  scan(selector, 0, (ch, i, depth) => {
+    if (ch === ',' && depth === 0) {
+      parts.push(selector.slice(start, i));
+      start = i + 1;
+    }
+  });
+  parts.push(selector.slice(start));
 
+  return parts.map((part) => part.replace(CSS_TRIM, '')).filter((part) => part.length > 0);
+}
+
+/**
+ * Returns the key token of a single complex selector's subject: its rightmost compound. Prefers `#id` over `.class`
+ * over `tag`, since a more specific key means fewer candidates. Returns `null` when the compound has no such token or
+ * contains syntax this parser does not understand.
+ */
+function subjectToken(selector: string): Token | null {
+  const compound = rightmostCompound(selector);
+  if (compound === null) return null;
+
+  let id: string | undefined;
+  let className: string | undefined;
+  let tag: string | undefined;
+  let i = 0;
+
+  const tagMatch = TAG_PATTERN.exec(compound);
+  if (tagMatch) {
+    tag = tagMatch[0].toLowerCase();
+    i = tagMatch[0].length;
+  } else if (compound[0] === '*') {
+    i = 1;
+  }
+
+  while (i < compound.length) {
+    const ch = compound[i];
+    if (ch === '#' || ch === '.') {
+      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
+      if (!match) return null;
+      if (ch === '#') id ??= match[0];
+      else className ??= match[0];
+      i += 1 + match[0].length;
+    } else if (ch === '[') {
+      const end = matchingClose(compound, i);
+      if (end === null) return null;
+      i = end + 1;
+    } else if (ch === ':') {
+      i += compound[i + 1] === ':' ? 2 : 1;
+      const match = IDENT_PATTERN.exec(compound.slice(i));
+      if (!match) return null;
+      i += match[0].length;
+      if (compound[i] === '(') {
+        const end = matchingClose(compound, i);
+        if (end === null) return null;
+        i = end + 1;
+      }
+    } else {
+      return null;
+    }
+  }
+
+  if (id !== undefined) return { kind: 'id', value: id };
+  if (className !== undefined) return { kind: 'class', value: className };
+  if (tag !== undefined) return { kind: 'tag', value: tag };
   return null;
+}
+
+/**
+ * Returns the substring after the last top-level combinator (descendant whitespace, `>`, `+`, `~`), or `null` if the
+ * selector is malformed (unbalanced brackets/parens/quotes).
+ */
+function rightmostCompound(selector: string): string | null {
+  let start = 0;
+  const end = scan(selector, 0, (ch, i, depth) => {
+    if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || CSS_WHITESPACE.test(ch))) start = i + 1;
+  });
+  return end === null ? null : selector.slice(start);
+}
+
+/**
+ * Index of the bracket or paren closing the one at `openIndex`, honoring nesting and quoted strings; `null` if
+ * unbalanced.
+ */
+function matchingClose(value: string, openIndex: number): number | null {
+  const end = scan(value, openIndex, (_ch, i, depth) => i > openIndex && depth === 0);
+  return end === null || end === -1 ? null : end;
 }
