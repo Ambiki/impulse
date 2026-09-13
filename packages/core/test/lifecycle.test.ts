@@ -26,6 +26,33 @@ describe('connected', () => {
     expect(callback.calledOnceWith(element)).to.be.true;
   });
 
+  it('invokes for the subject of a combinator selector added later', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<form></form>`);
+    const stop = connected('form > button', callback);
+
+    const button = document.createElement('button');
+    root.append(button);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(button)).to.be.true;
+  });
+
+  it('invokes for every part of a selector list added later', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = connected('span, b', callback);
+
+    const span = document.createElement('span');
+    const b = document.createElement('b');
+    root.append(span, b);
+    await nextFrame();
+    stop();
+    expect(callback.calledTwice).to.be.true;
+    expect(callback.calledWith(span)).to.be.true;
+    expect(callback.calledWith(b)).to.be.true;
+  });
+
   it('invokes when the selector is added', async () => {
     const callback = Sinon.spy();
     const root = await fixture(html`<div></div>`);
