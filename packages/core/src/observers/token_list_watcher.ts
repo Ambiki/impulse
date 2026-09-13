@@ -1,4 +1,5 @@
 import SetMap from '../data_structures/set_map';
+import { invokeEach } from '../helpers/invoke_each';
 import { watchSelector } from './document_observer';
 
 export interface Token<T> {
@@ -67,20 +68,11 @@ export function watchTokenList<T extends Element = Element>(
     // once that is done.
     const pending = elementTokens.values;
     elementTokens.clear();
-    let firstError: unknown;
-    let failed = false;
-    for (const token of pending) {
-      try {
-        delegate.tokenUnmatched?.(token);
-      } catch (error) {
-        if (!failed) {
-          failed = true;
-          firstError = error;
-        }
-      }
+    try {
+      invokeEach(pending, (token) => delegate.tokenUnmatched?.(token));
+    } finally {
+      stopWatching();
     }
-    stopWatching();
-    if (failed) throw firstError;
   };
 }
 

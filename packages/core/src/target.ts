@@ -37,10 +37,11 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   }
 
   stop() {
-    if (this.stopWatching) {
-      this.stopWatching();
-      this.stopWatching = undefined;
-    }
+    const stopWatching = this.stopWatching;
+    if (!stopWatching) return;
+    // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect.
+    this.stopWatching = undefined;
+    stopWatching();
   }
 
   tokenMatched(token: Token<T>) {
