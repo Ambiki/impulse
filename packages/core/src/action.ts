@@ -3,7 +3,6 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import { parseActionDescriptor } from './action_descriptor';
 import EventListener from './event_listener';
 import TokenRouter from './observers/token_router';
-import Scope from './scope';
 
 // One document-wide `[data-action]` watcher for every instance; tokens are routed to the instance named by the
 // descriptor's identifier.
@@ -11,14 +10,12 @@ const router = new TokenRouter('data-action', (content) => parseActionDescriptor
 
 export default class Action<T extends Element = Element> implements TokenListWatcherDelegate<T> {
   private stopWatching?: () => void;
-  private scope: Scope;
   // Keyed by the `Token` object so `tokenUnmatched` only stops the listener that exact token created. The watcher
   // passes the same `Token` instance to both callbacks, and duplicate descriptors on one element get distinct tokens.
   private eventListenerMap = new Map<Token<T>, EventListener>();
 
   constructor(private readonly instance: ImpulseElement) {
     this.instance = instance;
-    this.scope = new Scope(this.instance);
   }
 
   start() {
@@ -38,7 +35,10 @@ export default class Action<T extends Element = Element> implements TokenListWat
   tokenMatched(token: Token<T>) {
     const { content, element } = token;
     const { identifier, eventTarget, ...options } = parseActionDescriptor(content);
-    if (options.eventName && identifier === this.identifier && options.methodName && this.scope.scopedTarget(element)) {
+    // The router only delivers tokens whose closest `identifier` ancestor is this instance, so no scope check is
+    // needed here. The identifier comparison still rejects tokens routed here by a selector other than this tag name;
+    // it parses the content with the same `parseActionDescriptor` the router's `identifierFor` uses.
+    if (options.eventName && identifier === this.identifier && options.methodName) {
       const eventListener = new EventListener(this.instance, { ...options, eventTarget: eventTarget || element });
       this.eventListenerMap.set(token, eventListener);
       eventListener.start();

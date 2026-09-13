@@ -122,6 +122,10 @@ export default class TokenRouter {
     return owned ? Array.from(owned) : [];
   }
 
+  /**
+   * The single place that decides which element a token belongs to: the nearest ancestor-or-self whose tag name is the
+   * token's identifier. Delegates do not repeat this walk; they only verify the identifier is their own tag name.
+   */
   private ownerOf(token: Token<Element>): Element | null {
     const identifier = this.identifierFor(token.content);
     if (!identifier) return null;
