@@ -124,8 +124,12 @@ interface Token {
   value: string;
 }
 
-const IDENT_PATTERN = /^[\w-]+/;
-const TAG_PATTERN = /^[a-z][\w-]*/i;
+// CSS identifiers may contain any non-ASCII code point, so `\u00A0` (which `CSS.escape` leaves unescaped) is part of
+// an identifier, not whitespace. Only the five CSS whitespace characters separate compounds.
+const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
+const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
+const CSS_WHITESPACE = /[\t\n\f\r ]/;
+const CSS_TRIM = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
 
 /**
  * Walks `value` from index `from`, skipping over quoted strings and tracking `(...)` / `[...]` nesting. `visit` is
@@ -170,7 +174,7 @@ function splitSelectorList(selector: string): string[] {
   });
   parts.push(selector.slice(start));
 
-  return parts.map((part) => part.trim()).filter((part) => part.length > 0);
+  return parts.map((part) => part.replace(CSS_TRIM, '')).filter((part) => part.length > 0);
 }
 
 /**
@@ -235,7 +239,7 @@ function subjectToken(selector: string): Token | null {
 function rightmostCompound(selector: string): string | null {
   let start = 0;
   const end = scan(selector, 0, (ch, i, depth) => {
-    if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || /\s/.test(ch))) start = i + 1;
+    if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || CSS_WHITESPACE.test(ch))) start = i + 1;
   });
   return end === null ? null : selector.slice(start);
 }

@@ -193,4 +193,18 @@ describe('SelectorSet', () => {
     const matches = set.matches(el).filter((m) => el.matches(m.selector));
     expect(matches.map((m) => m.value).sort()).to.deep.equal(['bare', 'camel']);
   });
+
+  it('treats only CSS whitespace as a descendant combinator', async () => {
+    const set = new SelectorSet<string>();
+    const nbspClass = 'foo\u00A0bar';
+    set.add(`.${CSS.escape(nbspClass)}`, 'nbsp-class');
+    set.add('form\n>\tbutton', 'tab-newline');
+    set.add(' \f button\r', 'form-feed');
+    const root = await fixture<HTMLElement>(html`<form><button class=${nbspClass}></button></form>`);
+    const el = root.querySelector('button')!;
+    expect(el.classList.contains(nbspClass)).to.be.true;
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value).sort()).to.deep.equal(['form-feed', 'nbsp-class', 'tab-newline']);
+  });
 });
