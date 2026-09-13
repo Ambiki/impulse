@@ -31,6 +31,15 @@ describe('action', () => {
     `);
   });
 
+  // Appends a div whose `data-action` lists the same `click->#foo` descriptor twice and waits for it to be tracked.
+  async function appendDuplicateActionElement(): Promise<HTMLDivElement> {
+    const element = document.createElement('div');
+    element.setAttribute('data-action', `click->${el.identifier}#foo click->${el.identifier}#foo`);
+    el.append(element);
+    await waitUntil(() => el.contains(element));
+    return element;
+  }
+
   it('should call the function', () => {
     const button = el.querySelector<HTMLButtonElement>('#button1')!;
     button.click();
@@ -113,10 +122,7 @@ describe('action', () => {
   });
 
   it('should stop every listener when duplicate tokens are removed', async () => {
-    const element = document.createElement('div');
-    element.setAttribute('data-action', `click->${el.identifier}#foo click->${el.identifier}#foo`);
-    el.append(element);
-    await waitUntil(() => el.contains(element));
+    const element = await appendDuplicateActionElement();
     element.removeAttribute('data-action');
     await nextFrame();
 
@@ -125,10 +131,7 @@ describe('action', () => {
   });
 
   it('should keep one listener when one of two duplicate tokens is removed', async () => {
-    const element = document.createElement('div');
-    element.setAttribute('data-action', `click->${el.identifier}#foo click->${el.identifier}#foo`);
-    el.append(element);
-    await waitUntil(() => el.contains(element));
+    const element = await appendDuplicateActionElement();
     element.click();
     expect(el.foo.calledTwice).to.be.true;
 
