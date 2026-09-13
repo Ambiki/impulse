@@ -1,6 +1,7 @@
 import { expect, fixture, html, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { emit, on } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
 
 describe('on', () => {
   it('sets up an event listener', async () => {
@@ -209,6 +210,39 @@ describe('on', () => {
       expect(removed).to.eq(1);
     } finally {
       removeSpy.restore();
+    }
+  });
+
+  it('fires a once handler only once when its callback throws', async () => {
+    const root = await fixture<HTMLDivElement>(html`<div class="once-throws"></div>`);
+    const callback = Sinon.spy(() => {
+      throw new Error('once-throws failed');
+    });
+    const errors = captureReportedErrors('once-throws failed');
+    const stop = on('once-throws:test', '.once-throws', callback, { once: true });
+    try {
+      root.dispatchEvent(new CustomEvent('once-throws:test', { bubbles: true }));
+      root.dispatchEvent(new CustomEvent('once-throws:test', { bubbles: true }));
+      expect(callback.callCount).to.eq(1);
+      expect(errors.reported.length).to.eq(1);
+    } finally {
+      stop();
+      errors.release();
+    }
+  });
+
+  it('fires a once handler only once when its callback re-dispatches the same event', async () => {
+    const root = await fixture<HTMLDivElement>(html`<div class="once-redispatch"></div>`);
+    let calls = 0;
+    const callback = Sinon.spy(() => {
+      if (calls++ === 0) root.dispatchEvent(new CustomEvent('once-redispatch:test', { bubbles: true }));
+    });
+    const stop = on('once-redispatch:test', '.once-redispatch', callback, { once: true });
+    try {
+      root.dispatchEvent(new CustomEvent('once-redispatch:test', { bubbles: true }));
+      expect(callback.callCount).to.eq(1);
+    } finally {
+      stop();
     }
   });
 
