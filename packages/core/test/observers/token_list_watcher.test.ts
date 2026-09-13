@@ -75,6 +75,26 @@ describe('watchTokenList', () => {
     expect(delegate.tokenUnmatched.called).to.be.false;
   });
 
+  it('fires nothing when tokens are only reordered', async () => {
+    resetSpies();
+    scope.querySelector('span')!.setAttribute('data-test', 'bar foo');
+    await nextFrame();
+    expect(delegate.tokenMatched.called).to.be.false;
+    expect(delegate.tokenUnmatched.called).to.be.false;
+  });
+
+  it('fires tokenUnmatched in attribute order when duplicate tokens are cleared', async () => {
+    const span = scope.querySelector('span')!;
+    span.setAttribute('data-test', 'foo bar foo bar');
+    await nextFrame();
+    resetSpies();
+
+    span.setAttribute('data-test', '');
+    await nextFrame();
+    const contents = delegate.tokenUnmatched.args.map(([token]) => token.content);
+    expect(contents).to.deep.eq(['foo', 'bar', 'foo', 'bar']);
+  });
+
   it('passes the same token object to tokenUnmatched that tokenMatched received', async () => {
     const span = scope.querySelector('span')!;
     resetSpies();

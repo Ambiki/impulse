@@ -158,6 +158,25 @@ describe('@target', () => {
     expect(el.sheetDisconnectedSpy.calledOnce).to.be.true;
   });
 
+  it('should keep a target declared with duplicate tokens in the initial HTML when one token is removed', async () => {
+    @registerElement('duplicate-target-test')
+    class DuplicateTargetTest extends ImpulseElement {
+      @target() sheet: HTMLElement;
+    }
+
+    const root = await fixture<DuplicateTargetTest>(html`
+      <duplicate-target-test>
+        <div data-target="duplicate-target-test.sheet duplicate-target-test.sheet"></div>
+      </duplicate-target-test>
+    `);
+    const div = root.querySelector('div')!;
+    expect(root.sheet).to.eq(div);
+
+    div.setAttribute('data-target', 'duplicate-target-test.sheet');
+    await nextFrame();
+    expect(root.sheet).to.eq(div);
+  });
+
   it('should call the connected callback after [target]Connected callback', () => {
     expect(el.connectedSpy.calledAfter(el.panelConnectedSpy)).to.be.true;
     expect(el.connectedSpy.calledAfter(el.buttonConnectedSpy)).to.be.true;

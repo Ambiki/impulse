@@ -102,5 +102,6 @@ function diffTokens<T>(newTokens: Token<T>[], oldTokens: Token<T>[]): [Token<T>[
     }
   }
 
-  return [added, unmatchedOld.values];
+  // Filter the original list so removals are reported in attribute order rather than grouped by content.
+  return [added, oldTokens.filter((token) => unmatchedOld.has(token.content, token))];
 }

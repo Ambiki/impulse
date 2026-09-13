@@ -142,6 +142,15 @@ describe('action', () => {
     expect(el.foo.calledOnce).to.be.true;
   });
 
+  it('should stop every listener when an element with duplicate tokens is removed from the DOM', async () => {
+    const element = await appendDuplicateActionElement();
+    element.remove();
+    await waitUntil(() => !el.contains(element));
+
+    element.click();
+    expect(el.foo.notCalled).to.be.true;
+  });
+
   it('should bind action to the window', () => {
     window.dispatchEvent(new CustomEvent('foo'));
     expect(el.foo.calledOnce).to.be.true;
