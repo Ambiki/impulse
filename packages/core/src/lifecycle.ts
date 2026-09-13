@@ -1,4 +1,3 @@
-import type { Watcher } from './observers/document_observer';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { ImpulseElement } from './element';
 import { watchSelector } from './observers/document_observer';
@@ -13,7 +12,7 @@ import { watchSelector } from './observers/document_observer';
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return
  *                   a cleanup function that will be called when the element is disconnected.
- * @returns A cleanup function that stops observing
+ * @returns A cleanup function that stops observing and runs the pending cleanup of every element still connected
  *
  * @example
  * ```ts
@@ -49,8 +48,8 @@ export function connected<T extends Element = Element>(
   selector: string,
   callback: (element: T) => void | (() => void),
 ) {
-  const cleanups = new WeakMap<T, void | (() => void)>();
-  const watcher: Watcher<T> = {
+  const cleanups = new Map<T, () => void>();
+  const stopWatching = watchSelector<T>(selector, {
     elementConnected: (element) => {
       const cleanup = callback(element);
       if (cleanup) {
@@ -60,12 +59,33 @@ export function connected<T extends Element = Element>(
     elementDisconnected: (element) => {
       const cleanup = cleanups.get(element);
       if (cleanup) {
-        cleanup();
         cleanups.delete(element);
+        cleanup();
       }
     },
+  });
+
+  return () => {
+    // Elements still in the DOM will never be disconnected through this watcher, so their cleanups would leak. The map
+    // is cleared before any cleanup runs so a cleanup that calls stop() again finds nothing left to do. Every cleanup
+    // runs and the watcher is deregistered even if one throws; the first error is rethrown once that is done.
+    const pending = Array.from(cleanups.values());
+    cleanups.clear();
+    let firstError: unknown;
+    let failed = false;
+    for (const cleanup of pending) {
+      try {
+        cleanup();
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
+      }
+    }
+    stopWatching();
+    if (failed) throw firstError;
   };
-  return watchSelector<T>(selector, watcher);
 }
 
 /**

@@ -94,6 +94,95 @@ describe('connected', () => {
     expect(disconnectedCallback.calledOnceWith(root)).to.be.true;
   });
 
+  it('runs pending cleanups when stopped while elements are still connected', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`<div class="stop-cleanup"></div>`);
+    const stop = connected('.stop-cleanup', () => cleanup);
+
+    await nextFrame();
+    expect(cleanup.called).to.be.false;
+
+    stop();
+    expect(cleanup.calledOnce).to.be.true;
+    expect(root.isConnected).to.be.true;
+  });
+
+  it('runs each pending cleanup exactly once across removed and still-connected elements', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="stop-mixed"></div>
+        <div class="stop-mixed"></div>
+      </div>
+    `);
+    const stop = connected('.stop-mixed', (element) => () => cleanup(element));
+    const [removed, kept] = Array.from(root.querySelectorAll('.stop-mixed'));
+
+    await nextFrame();
+    removed.remove();
+    await nextFrame();
+    expect(cleanup.calledOnceWith(removed)).to.be.true;
+
+    stop();
+    expect(cleanup.calledTwice).to.be.true;
+    expect(cleanup.calledWith(kept)).to.be.true;
+  });
+
+  it('stops observing even if a cleanup throws', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div><div class="stop-throws"></div></div>`);
+    const stop = connected('.stop-throws', (element) => {
+      callback(element);
+      return () => {
+        throw new Error('cleanup failed');
+      };
+    });
+
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+    expect(stop).to.throw('cleanup failed');
+
+    const late = document.createElement('div');
+    late.classList.add('stop-throws');
+    root.append(late);
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('runs every pending cleanup even if an earlier one throws', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="stop-partial"></div>
+        <div class="stop-partial"></div>
+      </div>
+    `);
+    const [first, second] = Array.from(root.querySelectorAll('.stop-partial'));
+    const stop = connected('.stop-partial', (element) => () => {
+      cleanup(element);
+      if (element === first) throw new Error('first cleanup failed');
+    });
+
+    await nextFrame();
+    expect(stop).to.throw('first cleanup failed');
+    expect(cleanup.calledTwice).to.be.true;
+    expect(cleanup.calledWith(second)).to.be.true;
+  });
+
+  it('does not rerun a cleanup on stop for an element already disconnected', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`<div class="stop-once"></div>`);
+    const stop = connected('.stop-once', () => cleanup);
+
+    await nextFrame();
+    root.remove();
+    await nextFrame();
+    expect(cleanup.calledOnce).to.be.true;
+
+    stop();
+    expect(cleanup.calledOnce).to.be.true;
+  });
+
   it('does not invoke when an attribute change makes a detached element match', async () => {
     const callback = Sinon.spy();
     const stop = connected('.detached-attr', callback);
