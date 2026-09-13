@@ -42,7 +42,7 @@ connected('.dynamic-content', (element) => {
 
 ## Stopping observation
 
-The `connected` function returns a cleanup function that stops observing when called.
+The `connected` function returns a cleanup function that stops observing when called. Any element still in the DOM at that point has its cleanup function run immediately, since it will never be disconnected through this watcher.
 
 ```ts{1,6}
 const stop = connected('div', (element) => {
