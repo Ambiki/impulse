@@ -202,7 +202,6 @@ function maybeReleaseBucket(bucket: Bucket) {
 }
 
 function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: boolean) {
-  if (stoppedEvents.has(event)) return;
   // Firefox throws on `event.eventPhase` access for some re-dispatched CustomEvents; bail
   // rather than letting the error escape into the host event loop.
   try {
@@ -210,6 +209,17 @@ function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: bool
   }
   catch {
     return;
+  }
+  // A delegated handler in a sibling bucket on the same phase (passive vs. not) may already have
+  // stopped propagation during this dispatch; the browser still runs the other `document` listeners.
+  // It resets its stop-propagation flag when the same Event object is dispatched again, so a recorded
+  // stop only counts while `cancelBubble` still reports it; otherwise it is stale and dropped. The
+  // one gap: a re-dispatch where a non-delegated `document` listener stops the event before this
+  // bucket runs keeps `cancelBubble` true, so the stale entry is honoured. There is no per-dispatch
+  // identity on `Event` to tell those apart.
+  if (stoppedEvents.has(event)) {
+    if (event.cancelBubble) return;
+    stoppedEvents.delete(event);
   }
   const target = event.target;
   if (!(target instanceof Node)) return;
