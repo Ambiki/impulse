@@ -26,8 +26,8 @@ let mutationObserver: MutationObserver | null = null;
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
  * registration and torn down once the last watcher is removed.
  *
- * Returns a cleanup function that deregisters the watcher and synchronously fires `elementDisconnected` for every
- * element it had previously matched.
+ * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
+ * `elementDisconnected` for them; callers that need teardown must handle it themselves.
  */
 export function watchSelector<T extends Element = Element>(selector: string, watcher: Watcher<T>): () => void {
   const registered: RegisteredWatcher = {
