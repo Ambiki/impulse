@@ -18,7 +18,8 @@ export interface TokenListWatcherDelegate<T> {
  * incrementally.
  *
  * Only elements contained within `scope` (or the `scope` element itself) are tracked. The returned `stop` function
- * synchronously fires `tokenUnmatched` for every currently-tracked token before deregistering.
+ * synchronously fires `tokenUnmatched` for every currently-tracked token before deregistering. Every token is reported
+ * and the watcher is deregistered even if the delegate throws; the first error is rethrown afterwards.
  */
 export function watchTokenList<T extends Element = Element>(
   scope: Element,
@@ -61,14 +62,25 @@ export function watchTokenList<T extends Element = Element>(
   });
 
   return () => {
-    for (const element of elementTokens.keys) {
-      const tokens = elementTokens.getValuesForKey(element);
-      for (const token of tokens) {
+    // The index is cleared before any delegate runs so a delegate that calls stop() again finds nothing left to do.
+    // Every token is reported and the watcher is deregistered even if a delegate throws; the first error is rethrown
+    // once that is done.
+    const pending = elementTokens.values;
+    elementTokens.clear();
+    let firstError: unknown;
+    let failed = false;
+    for (const token of pending) {
+      try {
         delegate.tokenUnmatched?.(token);
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          firstError = error;
+        }
       }
     }
-    elementTokens.clear();
     stopWatching();
+    if (failed) throw firstError;
   };
 }
 

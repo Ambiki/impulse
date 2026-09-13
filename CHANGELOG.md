@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removing one of two duplicate `data-target` tokens (`x.a x.a` to `x.a`) no longer unregisters the target or fires its disconnected callback while the attribute still references it ([#157](https://github.com/Ambiki/impulse/pull/157))
 - Removing one token from a multi-token `data-action` attribute no longer stops every listener on that element. Each `@action` listener is now keyed by its own token, and the token list watcher diffs duplicate tokens as a multiset, so only the removed descriptor is unbound ([#157](https://github.com/Ambiki/impulse/pull/157))
+- Stopping a token list watcher (`@target` / `@action` teardown) now reports every tracked token and deregisters the watcher even if a delegate throws or calls stop again ([#164](https://github.com/Ambiki/impulse/pull/164))
 - Stopping a `connected` watcher now runs the pending cleanup of every matched element still in the DOM, instead of leaking them ([#162](https://github.com/Ambiki/impulse/pull/162))
 - Define `@property` accessors synchronously when an element connects, instead of after `await domReady()`. A defined element's properties are now live as soon as it connects, closing a race where a parent's `[target]Connected(child)` callback could read a property on an already-defined child before the child's accessors existed ([#124](https://github.com/Ambiki/impulse/pull/124))
 - Preserve DOM order for `@targets()` when a target is dynamically inserted between existing targets

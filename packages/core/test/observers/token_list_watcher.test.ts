@@ -141,4 +141,43 @@ describe('watchTokenList', () => {
     stop = () => {};
     expect(delegate.tokenUnmatched.calledTwice).to.be.true;
   });
+
+  it('fires each tokenUnmatched once and stops observing when a delegate calls stop again during stop', async () => {
+    let stopReentrant: () => void = () => {};
+    const reentrant = { tokenMatched: Sinon.spy(), tokenUnmatched: Sinon.spy(() => stopReentrant()) };
+    stopReentrant = watchTokenList(scope, 'data-test', reentrant);
+    reentrant.tokenMatched.resetHistory();
+
+    stopReentrant();
+    expect(reentrant.tokenUnmatched.calledTwice).to.be.true;
+    expect(reentrant.tokenUnmatched.args[0][0].content).to.eq('foo');
+    expect(reentrant.tokenUnmatched.args[1][0].content).to.eq('bar');
+
+    const late = document.createElement('span');
+    late.setAttribute('data-test', 'baz');
+    scope.append(late);
+    await nextFrame();
+    expect(reentrant.tokenMatched.called).to.be.false;
+  });
+
+  it('fires every tokenUnmatched and stops observing even if a delegate throws', async () => {
+    const throwing = {
+      tokenMatched: Sinon.spy(),
+      tokenUnmatched: Sinon.spy((token: { content: string }) => {
+        if (token.content === 'foo') throw new Error('unmatched failed');
+      }),
+    };
+    const stopThrowing = watchTokenList(scope, 'data-test', throwing);
+    throwing.tokenMatched.resetHistory();
+
+    expect(stopThrowing).to.throw('unmatched failed');
+    expect(throwing.tokenUnmatched.calledTwice).to.be.true;
+    expect(throwing.tokenUnmatched.args[1][0].content).to.eq('bar');
+
+    const late = document.createElement('span');
+    late.setAttribute('data-test', 'baz');
+    scope.append(late);
+    await nextFrame();
+    expect(throwing.tokenMatched.called).to.be.false;
+  });
 });
