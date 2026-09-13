@@ -11,12 +11,16 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   private store: Store<TargetType>;
   private scope: Scope;
   private targetsByKey: SetMap<string, T>;
+  // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
+  // unregistered once the last token referencing it goes away.
+  private tokensByElement: SetMap<T, Token<T>>;
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
     this.store = new Store<TargetType>(Object.getPrototypeOf(this.instance), 'target');
     this.scope = new Scope(this.instance);
     this.targetsByKey = new SetMap();
+    this.tokensByElement = new SetMap();
   }
 
   start() {
@@ -39,11 +43,17 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     }
   }
 
-  tokenMatched({ content, element }: Token<T>) {
+  tokenMatched(token: Token<T>) {
+    const { content, element } = token;
     const [identifier, key] = content.split('.');
-    if (!this.isValidIdKeyPair(identifier, key) || this.targetsByKey.has(key, element)) return;
+    if (!this.isValidIdKeyPair(identifier, key)) return;
     // Check if the target is within the scope of the instance.
     if (!this.scope.scopedTarget(element)) return;
+
+    if (this.targetsByKey.has(key, element)) {
+      this.tokensByElement.add(element, token);
+      return;
+    }
 
     // Validate before mutating `targetsByKey` so a rejected duplicate does not leave the map in an
     // inconsistent state.
@@ -58,6 +68,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     }
 
     this.targetsByKey.add(key, element);
+    this.tokensByElement.add(element, token);
 
     const targets = this.targetsByKey
       .getValuesForKey(key)
@@ -67,14 +78,22 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.invokeCallback(key, element, 'connected');
   }
 
-  tokenUnmatched({ content, element }: Token<T>) {
+  tokenUnmatched(token: Token<T>) {
+    const { content, element } = token;
     const [identifier, key] = content.split('.');
     if (!this.isValidIdKeyPair(identifier, key) || !this.targetsByKey.has(key, element)) return;
+
+    this.tokensByElement.delete(element, token);
+    if (this.isStillReferenced(element, content)) return;
 
     this.targetsByKey.delete(key, element);
     this.invokeCallback(key, element, 'disconnected');
     // Update property after invoking callback.
     this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : null);
+  }
+
+  private isStillReferenced(element: T, content: string): boolean {
+    return this.tokensByElement.getValuesForKey(element).some((token) => token.content === content);
   }
 
   private defineProperty(key: string, result: T | T[] | null) {
