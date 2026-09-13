@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { watchSelector } from '../../src/observers/document_observer';
+import { flushMutations, watchSelector } from '../../src/observers/document_observer';
 import { captureReportedErrors } from '../support/capture_reported_errors';
 
 describe('watchSelector', () => {
@@ -72,5 +72,32 @@ describe('watchSelector', () => {
       expect(elementAttributeChanged.called).to.be.false;
       expect(elementDisconnected.calledOnceWith(element)).to.be.true;
     });
+  });
+});
+
+describe('flushMutations', () => {
+  it('delivers pending mutation records synchronously', async () => {
+    const root = await fixture(html`<div></div>`);
+    const elementConnected = Sinon.spy();
+    const stop = watchSelector('.flushed', { elementConnected });
+    try {
+      const element = document.createElement('div');
+      element.classList.add('flushed');
+      root.append(element);
+      expect(elementConnected.called).to.be.false;
+
+      flushMutations();
+      expect(elementConnected.calledOnceWith(element)).to.be.true;
+
+      // The observer must not deliver the same record again.
+      await nextFrame();
+      expect(elementConnected.calledOnce).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('does nothing when no watcher is registered', () => {
+    expect(() => flushMutations()).not.to.throw();
   });
 });

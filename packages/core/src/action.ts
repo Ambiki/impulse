@@ -2,10 +2,12 @@ import type { ImpulseElement } from './element';
 import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import { parseActionDescriptor } from './action_descriptor';
 import EventListener from './event_listener';
-import { watchTokenList } from './observers/token_list_watcher';
+import TokenRouter from './observers/token_router';
 import Scope from './scope';
 
-const ATTRIBUTE_NAME = 'data-action';
+// One document-wide `[data-action]` watcher for every instance; tokens are routed to the instance named by the
+// descriptor's identifier.
+const router = new TokenRouter('data-action', (content) => parseActionDescriptor(content).identifier);
 
 export default class Action<T extends Element = Element> implements TokenListWatcherDelegate<T> {
   private stopWatching?: () => void;
@@ -21,7 +23,7 @@ export default class Action<T extends Element = Element> implements TokenListWat
 
   start() {
     if (!this.stopWatching) {
-      this.stopWatching = watchTokenList<T>(this.instance, ATTRIBUTE_NAME, this);
+      this.stopWatching = router.subscribe(this.instance, this);
     }
   }
 

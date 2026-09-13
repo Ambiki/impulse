@@ -57,6 +57,15 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
   };
 }
 
+/**
+ * Delivers every mutation record the shared observer has queued but not yet dispatched, so callers that need the index
+ * to reflect the DOM as of now (rather than as of the last microtask checkpoint) can read it synchronously.
+ */
+export function flushMutations(): void {
+  if (!mutationObserver) return;
+  processMutations(mutationObserver.takeRecords());
+}
+
 function ensureObserving() {
   if (mutationObserver) return;
   mutationObserver = new MutationObserver(processMutations);

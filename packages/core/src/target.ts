@@ -3,9 +3,13 @@ import type { ImpulseElement } from './element';
 import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
-import { watchTokenList } from './observers/token_list_watcher';
+import TokenRouter from './observers/token_router';
 import Scope from './scope';
 import Store from './store';
+
+// One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
+// `identifier.key` descriptor.
+const router = new TokenRouter('data-target', (content) => content.split('.')[0]);
 
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
   private store: Store<TargetType>;
@@ -32,7 +36,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     }
 
     if (!this.stopWatching) {
-      this.stopWatching = watchTokenList<T>(this.instance, 'data-target', this);
+      this.stopWatching = router.subscribe(this.instance, this);
     }
   }
 
