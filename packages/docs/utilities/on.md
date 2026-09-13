@@ -5,8 +5,8 @@ selector - including elements added to the DOM after `on` was called.
 
 ## Usage
 
-A single document-level listener is shared across every `on(eventName, ...)` call with the same capture phase, so
-registering many handlers does not multiply the number of native listeners. When the event fires, ancestors of
+A single document-level listener is shared across every `on(eventName, ...)` call with the same `capture` and `passive`
+options, so registering many handlers does not multiply the number of native listeners. When the event fires, ancestors of
 `event.target` are walked and `callback` is invoked once per matching ancestor with `event.currentTarget` set to the
 matched element.
 
@@ -21,9 +21,10 @@ on('click', 'button', (event) => {
 
 ## Event listener options
 
-You can pass standard event listener [options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options):
+You can pass the standard event listener [options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options):
+`capture`, `once`, `passive`, and `signal`.
 
-```ts{4,9}
+```ts{4,9,14,20}
 // Fire the event listener only once across the entire document
 on('click', '.once-button', (event) => {
   console.log('Clicked once');
@@ -33,7 +34,23 @@ on('click', '.once-button', (event) => {
 on('click', '.capture-host', (event) => {
   console.log('Captured');
 }, { capture: true });
+
+// Mark the shared document listener as passive
+on('touchstart', '.swipe-area', (event) => {
+  console.log('Touch started');
+}, { passive: true });
+
+// Tie the registration to an AbortSignal
+const controller = new AbortController();
+on('click', 'button', (event) => {
+  console.log('Clicked');
+}, { signal: controller.signal });
 ```
+
+A `once` handler is removed before its callback runs, so it fires at most once even if the callback throws or
+re-dispatches the same event. `passive` is forwarded to the shared document listener, so passive and non-passive
+registrations for the same event use separate listeners. Aborting `signal` removes the registration exactly as calling
+the returned cleanup would; a signal that is already aborted skips registration entirely.
 
 ## Non-bubbling events
 
@@ -55,8 +72,9 @@ remaining handlers registered against the same element.
 
 ## Stopping observation
 
-The `on` function returns a cleanup function that detaches the handler. The shared document listener is removed once
-the last handler for that event name (and capture phase) is detached.
+The `on` function returns a cleanup function that detaches the handler. The same detachment happens when a `once`
+handler fires or when the `signal` passed in the options aborts. The shared document listener is removed once the last
+handler for that event name (and `capture` / `passive` options) is detached.
 
 ```ts{1,6}
 const stop = on('click', 'button', (event) => {
