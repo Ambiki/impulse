@@ -3,6 +3,7 @@ import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
+import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import Property from './property';
 import Store from './store';
@@ -60,12 +61,20 @@ export class ImpulseElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (this._started) {
-      // Order is important
-      this.disconnected();
-      this.action.stop();
-      this.target.stop();
-      this.property.stop();
+    if (!this._started) return;
+
+    // Order is important. Every step runs even if an earlier one throws, so a throwing `disconnected()` cannot leave
+    // the watchers registered or the element unable to re-initialize; the first error is rethrown once the element is
+    // fully torn down.
+    const steps = [
+      () => this.disconnected(),
+      () => this.action.stop(),
+      () => this.target.stop(),
+      () => this.property.stop(),
+    ];
+    try {
+      invokeEach(steps, (step) => step());
+    } finally {
       this._started = false;
       this.removeAttribute(IMPULSE_ELEMENT_ATTRIBUTE);
     }

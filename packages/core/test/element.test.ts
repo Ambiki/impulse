@@ -203,3 +203,99 @@ describe('ImpulseElement connection order', () => {
     }
   });
 });
+
+describe('ImpulseElement teardown', () => {
+  // Custom element reactions report exceptions to `window.onerror` rather than throwing to the caller. Mocha treats
+  // those as test failures, so the handler is swapped out while the reaction runs and restored afterwards.
+  function captureReportedErrors(message: string) {
+    const reported: unknown[] = [];
+    const previous = window.onerror;
+    window.onerror = (event, source, lineno, colno, error) => {
+      if (error instanceof Error && error.message.includes(message)) {
+        reported.push(error);
+        return true;
+      }
+      return previous?.call(window, event, source, lineno, colno, error) ?? false;
+    };
+    const release = () => {
+      window.onerror = previous;
+    };
+    return { reported, release };
+  }
+
+  it('still tears down and re-initializes on reconnect when disconnected() throws', async () => {
+    counter += 1;
+    const tag = `teardown-throws-${counter}`;
+    class Element extends ImpulseElement {
+      connectedSpy = Sinon.spy();
+      connected() {
+        this.connectedSpy();
+      }
+
+      disconnected() {
+        throw new Error('disconnected failed');
+      }
+    }
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    const errors = captureReportedErrors('disconnected failed');
+    try {
+      document.body.appendChild(element);
+      await waitUntil(() => element.hasAttribute('data-impulse-element'), 'element should initialize', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      expect(element.connectedSpy.calledOnce).to.be.true;
+
+      element.remove();
+      expect(errors.reported.length).to.eq(1);
+      expect(element.hasAttribute('data-impulse-element')).to.be.false;
+
+      document.body.appendChild(element);
+      await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+    } finally {
+      element.remove();
+      errors.release();
+    }
+  });
+
+  it('re-creates the target watcher on reconnect when a target disconnected callback throws', async () => {
+    counter += 1;
+    const tag = `target-teardown-throws-${counter}`;
+    class Element extends ImpulseElement {
+      @target() panel!: HTMLElement;
+      panelConnectedSpy = Sinon.spy();
+      panelConnected() {
+        this.panelConnectedSpy();
+      }
+
+      panelDisconnected() {
+        throw new Error('panel disconnected failed');
+      }
+    }
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    element.innerHTML = `<div data-target="${tag}.panel"></div>`;
+    const errors = captureReportedErrors('panel disconnected failed');
+    try {
+      document.body.appendChild(element);
+      await waitUntil(() => element.panelConnectedSpy.calledOnce, 'target should connect', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+
+      element.remove();
+      expect(errors.reported.length).to.eq(1);
+
+      document.body.appendChild(element);
+      await waitUntil(() => element.panelConnectedSpy.calledTwice, 'target should reconnect', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+    } finally {
+      element.remove();
+      errors.release();
+    }
+  });
+});
