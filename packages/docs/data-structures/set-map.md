@@ -65,12 +65,12 @@ clicks.keys; // ['click'] — still there, now holding nothing.
 
 | Member                     | Description                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------ |
-| `add(key, value)`          | Adds `value` under `key`, creating the set on first use.                        |
-| `delete(key, value)`       | Removes `value` from `key`, dropping the key when that was its last value.      |
-| `deleteKey(key)`           | Drops the key and every value under it at once.                                 |
-| `clear()`                  | Empties the map.                                                                |
-| `get(key)`                 | The live `Set` backing `key`, or `undefined`.                                   |
-| `getValuesForKey(key)`     | The values under `key` as a new array, empty when the key is absent.            |
-| `has(key, value)`          | Whether `value` is stored under `key`.                                          |
-| `keys`                     | Every key the map is holding. One emptied through `get()` stays until deleted.  |
-| `values`                   | Every value across every key, flattened in insertion order.                     |
+| `add(key, value)`          | Adds `value` under `key`, creating the set on first use.                       |
+| `delete(key, value)`       | Removes `value` from `key`, dropping the key when that was its last value.     |
+| `deleteKey(key)`           | Drops the key and every value under it at once.                                |
+| `clear()`                  | Empties the map.                                                               |
+| `get(key)`                 | The live `Set` backing `key`, or `undefined`.                                  |
+| `getValuesForKey(key)`     | The values under `key` as a new array, empty when the key is absent.           |
+| `has(key, value)`          | Whether `value` is stored under `key`.                                         |
+| `keys`                     | Every key the map is holding. One emptied through `get()` stays until deleted. |
+| `values`                   | Every value across every key, flattened in insertion order.                    |

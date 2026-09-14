@@ -52,7 +52,7 @@ handlers.size; // 1
 
 | Member                     | Description                                                                    |
 | -------------------------- | ------------------------------------------------------------------------------ |
-| `add(selector, value)`     | Indexes `value` under `selector`.                                               |
-| `delete(selector, value)`  | Removes one entry for the pair. A no-op when the pair was never added.          |
-| `matches(element)`         | Every entry whose selector could match `element`, as `{ selector, value }`.     |
-| `size`                     | How many entries are indexed.                                                   |
+| `add(selector, value)`     | Indexes `value` under `selector`.                                              |
+| `delete(selector, value)`  | Removes one entry for the pair. A no-op when the pair was never added.         |
+| `matches(element)`         | Every entry whose selector could match `element`, as `{ selector, value }`.    |
+| `size`                     | How many entries are indexed.                                                  |
