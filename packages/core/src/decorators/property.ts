@@ -1,4 +1,4 @@
-import Store from '../store';
+import { PROPERTIES, register } from '../registry';
 
 /**
  * A single `@property()` registration: the field name and the constructor its attribute value is converted with.
@@ -44,7 +44,6 @@ export type PropertyConstructor =
  */
 export function property({ type = String }: { type?: PropertyConstructor } = {}) {
   return (ctor: any, key: string) => {
-    const store = new Store<PropertyType>(ctor, 'property');
-    store.add({ key, type });
+    register(ctor, PROPERTIES, { key, type });
   };
 }

@@ -1,4 +1,3 @@
-import type { PropertyType } from './decorators/property';
 import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
@@ -7,7 +6,7 @@ import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import Property, { fromAttribute } from './property';
-import Store from './store';
+import { PROPERTIES, registered, registeredFor } from './registry';
 import Target from './target';
 
 export class ImpulseElement extends HTMLElement {
@@ -32,8 +31,7 @@ export class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    const store = new Store<PropertyType>(this.prototype, 'property');
-    return Array.from(store.value ?? []).map(({ key }) => dasherize(key));
+    return Array.from(registered(this.prototype, PROPERTIES)).map(({ key }) => dasherize(key));
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
@@ -43,9 +41,8 @@ export class ImpulseElement extends HTMLElement {
     const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
     if (typeof fn !== 'function') return;
 
-    const store = new Store<PropertyType>(Object.getPrototypeOf(this), 'property');
-    const propertyArray = Array.from(store.value ?? []).map(({ key, type }) => ({ key, type }));
-    const property = propertyArray.find(({ key }) => key === camelizedName);
+    const properties = registeredFor(this, PROPERTIES);
+    const property = Array.from(properties).find(({ key }) => key === camelizedName);
     if (!property) {
       throw new Error(
         `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`,

@@ -1,14 +1,10 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { dasherize, parseJSON } from './helpers/string';
-import Store from './store';
+import { PROPERTIES, registeredFor } from './registry';
 
 export default class Property {
-  private store: Store<PropertyType>;
-
-  constructor(private readonly instance: ImpulseElement) {
-    this.store = new Store<PropertyType>(Object.getPrototypeOf(this.instance), 'property');
-  }
+  constructor(private readonly instance: ImpulseElement) {}
 
   start() {
     for (const [{ key, type }] of this.properties.entries()) {
@@ -35,8 +31,8 @@ export default class Property {
     }
   }
 
-  private get properties(): Set<PropertyType> {
-    return this.store.value ?? new Set();
+  private get properties(): ReadonlySet<PropertyType> {
+    return registeredFor(this.instance, PROPERTIES);
   }
 }
 
