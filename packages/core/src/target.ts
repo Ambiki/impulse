@@ -91,9 +91,18 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : null);
   }
 
-  // Both the connect and the disconnect path re-sort, so the array is in document order however the targets arrived:
-  // `SetMap` hands them back in insertion order, which only matches the document while nothing has connected out of
-  // order or disconnected.
+  /**
+   * The targets under `key`, in document order.
+   *
+   * Both the connect and the disconnect path sort through here, because `targetsByKey` itself is never ordered: the
+   * connect path sorts a throwaway array, so one target connecting out of document order leaves the underlying set
+   * unsorted for good, and an unsorted disconnect path then hands that order straight to the property.
+   *
+   * Targets removed earlier in the same mutation batch are already detached when this runs, and
+   * `compareDocumentPosition` orders nodes in different trees arbitrarily. A `[key]Disconnected` callback part-way
+   * through such a batch can therefore see the survivors out of order; the last unmatch of the batch sorts them
+   * correctly again.
+   */
   private targetsInDocumentOrder(key: string): T[] {
     return this.targetsByKey
       .getValuesForKey(key)

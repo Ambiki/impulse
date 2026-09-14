@@ -49,7 +49,7 @@ export default class SetMap<K, V> {
   }
 
   /**
-   * Every key currently holding at least one value.
+   * Every key the map is holding. A key emptied through {@link SetMap.get} stays until it is deleted.
    */
   get keys() {
     return Array.from(this.map.keys());

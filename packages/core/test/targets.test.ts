@@ -84,18 +84,17 @@ describe('@targets', () => {
     last.id = 'panel-last';
     last.classList.add('panel');
     el.append(last);
-    await waitUntil(() => document.getElementById('panel-last'));
+    await nextFrame();
 
     const middle = document.createElement('div');
     middle.setAttribute('data-target', `${el.identifier}.panels`);
     middle.id = 'panel-mid';
     middle.classList.add('panel');
     document.getElementById('panel1')!.after(middle);
-    await waitUntil(() => document.getElementById('panel-mid'));
+    await nextFrame();
 
-    const panel2 = document.getElementById('panel2')!;
-    panel2.remove();
-    await waitUntil(() => !document.getElementById('panel2'));
+    document.getElementById('panel2')!.remove();
+    await nextFrame();
 
     expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel-last']);
   });

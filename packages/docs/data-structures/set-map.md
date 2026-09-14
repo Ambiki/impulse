@@ -72,5 +72,5 @@ clicks.keys; // ['click'] — still there, now holding nothing.
 | `get(key)`                 | The live `Set` backing `key`, or `undefined`.                                   |
 | `getValuesForKey(key)`     | The values under `key` as a new array, empty when the key is absent.            |
 | `has(key, value)`          | Whether `value` is stored under `key`.                                          |
-| `keys`                     | Every key currently holding at least one value.                                 |
+| `keys`                     | Every key the map is holding. One emptied through `get()` stays until deleted.  |
 | `values`                   | Every value across every key, flattened in insertion order.                     |
