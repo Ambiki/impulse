@@ -4,7 +4,7 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
-import Store from './store';
+import { registeredFor, TARGETS } from './store';
 import { parseTargetDescriptor } from './target_descriptor';
 
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
@@ -12,7 +12,6 @@ import { parseTargetDescriptor } from './target_descriptor';
 const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
 
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
-  private store: Store<TargetType>;
   private targetsByKey: SetMap<string, T>;
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
@@ -20,7 +19,6 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
-    this.store = new Store<TargetType>(Object.getPrototypeOf(this.instance), 'target');
     this.targetsByKey = new SetMap();
     this.tokensByElement = new SetMap();
   }
@@ -146,8 +144,8 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     return Array.from(this.targetKeys).map(({ key }) => key);
   }
 
-  private get targetKeys(): Set<TargetType> {
-    return this.store.value ?? new Set();
+  private get targetKeys(): ReadonlySet<TargetType> {
+    return registeredFor(this.instance, TARGETS);
   }
 
   private get identifier() {

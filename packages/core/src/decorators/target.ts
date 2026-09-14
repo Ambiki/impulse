@@ -1,4 +1,4 @@
-import Store from '../store';
+import { register, TARGETS } from '../store';
 
 /**
  * A single `@target()` / `@targets()` registration: the field name, and whether it collects every matching element or
@@ -38,8 +38,7 @@ export interface TargetType {
  */
 export function target() {
   return (ctor: any, key: string) => {
-    const store = new Store<TargetType>(ctor, 'target');
-    store.add({ key, multiple: false });
+    register(ctor, TARGETS, { key, multiple: false });
   };
 }
 
@@ -64,7 +63,6 @@ export function target() {
  */
 export function targets() {
   return (ctor: any, key: string) => {
-    const store = new Store<TargetType>(ctor, 'target');
-    store.add({ key, multiple: true });
+    register(ctor, TARGETS, { key, multiple: true });
   };
 }
