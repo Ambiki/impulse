@@ -64,6 +64,11 @@ export default class PopOverElement extends ImpulseElement {
 }
 ```
 
+Attribute values are converted on read, so `this.property` and the value passed to the
+[change callback](#change-callbacks) always agree. A missing attribute reads as the type's empty value — `''`, `0`,
+`false`, `[]`, or `{}` — and an `Array` or `Object` attribute that is not valid JSON falls back to `[]` or `{}`
+rather than throwing.
+
 ## Default property values
 
 You can assign a default value to the property and it will be reflected in the element.

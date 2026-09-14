@@ -1,11 +1,11 @@
-import type { PropertyConstructor, PropertyType } from './decorators/property';
+import type { PropertyType } from './decorators/property';
 import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
 import { invokeEach } from './helpers/invoke_each';
-import { camelize, dasherize, parseJSON } from './helpers/string';
-import Property from './property';
+import { camelize, dasherize } from './helpers/string';
+import Property, { fromAttribute } from './property';
 import Store from './store';
 import Target from './target';
 
@@ -54,7 +54,8 @@ export class ImpulseElement extends HTMLElement {
     // Validate if value changed after transformation.
     // Common case would be:
     // -> 8_000 to 8000
-    const { newValue, oldValue } = attributeValueTransformer(_newValue, _oldValue, property.type);
+    const newValue = fromAttribute(_newValue, property.type);
+    const oldValue = fromAttribute(_oldValue, property.type);
     // `Object.is` rather than `===` so a Number that transforms to `NaN` on both sides (e.g. a
     // non-numeric value replaced with another) is treated as unchanged and does not fire the callback.
     if (Object.is(newValue, oldValue)) return;
@@ -155,24 +156,5 @@ export class ImpulseElement extends HTMLElement {
     }
     const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
     return Promise.all(promises);
-  }
-}
-
-function attributeValueTransformer(_newValue: string | null, _oldValue: string | null, type: PropertyConstructor) {
-  switch (type) {
-    case Boolean: {
-      const transform = (value: string | null) => value !== null && value !== 'false';
-      return { newValue: transform(_newValue), oldValue: transform(_oldValue) };
-    }
-    case Number: {
-      const transform = (value: string | null) => value?.replace(/_/g, '');
-      return { newValue: Number(transform(_newValue)), oldValue: Number(transform(_oldValue)) };
-    }
-    case Array:
-      return { newValue: parseJSON(_newValue, []), oldValue: parseJSON(_oldValue, []) };
-    case Object:
-      return { newValue: parseJSON(_newValue, {}), oldValue: parseJSON(_oldValue, {}) };
-    default:
-      return { newValue: _newValue, oldValue: _oldValue };
   }
 }

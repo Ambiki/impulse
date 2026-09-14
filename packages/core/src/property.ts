@@ -1,6 +1,6 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
-import { dasherize } from './helpers/string';
+import { dasherize, parseJSON } from './helpers/string';
 import Store from './store';
 
 export default class Property {
@@ -40,39 +40,64 @@ export default class Property {
   }
 }
 
-function descriptorProperties(element: Element, attributeName: string, type: PropertyConstructor) {
+/**
+ * Converts an attribute value into the value of its `@property()` for the given type.
+ *
+ * Both the property getter and `attributeChangedCallback` read through this, so `this.prop` and the value handed to
+ * `[property]Changed` can never disagree. A missing attribute (`null`) yields the same empty value the getter
+ * reports: `0` for a Number rather than `NaN`, `''` for a String rather than `null`.
+ *
+ * @example
+ * fromAttribute('8_000', Number);
+ * //=> 8000
+ *
+ * fromAttribute(null, String);
+ * //=> ''
+ */
+export function fromAttribute(value: string | null, type: PropertyConstructor) {
   switch (type) {
     case Number:
-      return {
-        get: () => Number(element.getAttribute(attributeName)?.replace(/_/g, '') || 0),
-        set: (value: number) => element.setAttribute(attributeName, (value || 0).toString()),
-      };
+      return Number(value?.replace(/_/g, '') || 0);
     case Boolean:
-      return {
-        get: () => element.hasAttribute(attributeName) && element.getAttribute(attributeName) !== 'false',
-        set: (value: boolean) => {
-          // Simply toggling the attribute will not work.
-          if (value) {
-            element.setAttribute(attributeName, '');
-          } else {
-            element.removeAttribute(attributeName);
-          }
-        },
+      return value !== null && value !== 'false';
+    case Array:
+      return parseJSON(value, []);
+    case Object:
+      return parseJSON(value, {});
+    default:
+      return value || '';
+  }
+}
+
+function descriptorProperties(element: Element, attributeName: string, type: PropertyConstructor) {
+  return {
+    get: () => fromAttribute(element.getAttribute(attributeName), type),
+    set: toAttribute(element, attributeName, type),
+  };
+}
+
+/**
+ * Returns the setter that writes a property value back to its attribute. Kept beside `fromAttribute` so the two
+ * halves of the conversion stay in step, case for case.
+ */
+function toAttribute(element: Element, attributeName: string, type: PropertyConstructor) {
+  switch (type) {
+    case Number:
+      return (value: number) => element.setAttribute(attributeName, (value || 0).toString());
+    case Boolean:
+      return (value: boolean) => {
+        // Simply toggling the attribute will not work.
+        if (value) {
+          element.setAttribute(attributeName, '');
+        } else {
+          element.removeAttribute(attributeName);
+        }
       };
     case Array:
-      return {
-        get: () => JSON.parse(element.getAttribute(attributeName) || '[]'),
-        set: (value: any[]) => element.setAttribute(attributeName, JSON.stringify(value) || '[]'),
-      };
+      return (value: any[]) => element.setAttribute(attributeName, JSON.stringify(value) || '[]');
     case Object:
-      return {
-        get: () => JSON.parse(element.getAttribute(attributeName) || '{}'),
-        set: (value: Record<any, any>) => element.setAttribute(attributeName, JSON.stringify(value) || '{}'),
-      };
+      return (value: Record<any, any>) => element.setAttribute(attributeName, JSON.stringify(value) || '{}');
     default:
-      return {
-        get: () => element.getAttribute(attributeName) || '',
-        set: (value: string) => element.setAttribute(attributeName, value || ''),
-      };
+      return (value: string) => element.setAttribute(attributeName, value || '');
   }
 }
