@@ -1,7 +1,8 @@
 /**
  * A `Map` whose values are `Set`s, so a key holds many values without a caller ever having to create the inner set or
- * clean it up. A key disappears as soon as its last value is deleted, so `keys` never reports an empty bucket and a
- * long-lived map does not accumulate one entry per key it has ever seen.
+ * clean it up. Deleting a key's last value through {@link SetMap.delete} drops the key with it, so a long-lived map
+ * does not accumulate one entry per key it has ever seen. Emptying the live set from {@link SetMap.get} is the one way
+ * to leave a key behind with nothing in it.
  */
 export default class SetMap<K, V> {
   private map = new Map<K, Set<V>>();

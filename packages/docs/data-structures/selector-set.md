@@ -30,8 +30,10 @@ preferring `#id`, then `.class`, then the tag name. `form > button` is filed und
 under both `div` and `.foo`. When an element comes in, only the buckets for its tag name, id, and class names are
 consulted.
 
-A selector whose subject has no such token — `[data-x]`, `:is(...)`, `*`, or anything containing an escape sequence —
-goes into a catch-all bucket that is checked against every element. Those still work; they are just not narrowed.
+A selector that cannot be filed goes into a catch-all bucket that is checked against every element. That happens when
+any one of its comma-separated parts has a subject with no such token — `[data-x]`, `:is(...)`, `*` — or when the
+selector contains an escape sequence anywhere in it. One unindexable part is enough: `div, [data-x]` goes to the
+catch-all whole, `div` included. Those selectors still work; they are just not narrowed.
 
 ## Duplicates
 

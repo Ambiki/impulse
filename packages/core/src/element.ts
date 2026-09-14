@@ -91,7 +91,11 @@ export class ImpulseElement extends HTMLElement {
   }
 
   /**
-   * Emits a custom event from the element.
+   * Emits a custom event from the element, prefixed with the element's identifier so listeners can tell one element's
+   * events from another's: `this.emit('copied')` on a `<clip-board>` dispatches `clip-board:copied`.
+   *
+   * Takes the same options as the standalone {@link emit}, plus `prefix` (a different prefix, or `false` for the bare
+   * event name) and `target` (what to dispatch from, defaulting to the element).
    */
   emit<T extends Record<string, any>>(
     name: string,

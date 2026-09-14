@@ -40,6 +40,7 @@ declaring a target or a property without an initializer is not an error.
 ::: warning
 `experimentalDecorators` is required. TypeScript 5 and later default to the standard (stage 3) decorators, which
 Impulse does not support yet — see [issue #183](https://github.com/Ambiki/impulse/issues/183). Without the flag, every
-`@property()` and `@target()` fails to compile with `TS1240: Unable to resolve signature of property decorator when
-called as an expression`.
+`@property()`, `@target()`, and `@targets()` fails to compile with `TS1240: Unable to resolve signature of property
+decorator when called as an expression`, and they throw at runtime because a standard decorator is handed a different
+set of arguments.
 :::

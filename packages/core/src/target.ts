@@ -73,11 +73,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.targetsByKey.add(key, element);
     this.tokensByElement.add(element, token);
 
-    const targets = this.targetsByKey
-      .getValuesForKey(key)
-      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
-
-    this.defineProperty(key, this.isKeyMultiple(key) ? targets : element);
+    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : element);
     this.invokeCallback(key, element, 'connected');
   }
 
@@ -92,7 +88,16 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.targetsByKey.delete(key, element);
     this.invokeCallback(key, element, 'disconnected');
     // Update property after invoking callback.
-    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : null);
+    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : null);
+  }
+
+  // Both the connect and the disconnect path re-sort, so the array is in document order however the targets arrived:
+  // `SetMap` hands them back in insertion order, which only matches the document while nothing has connected out of
+  // order or disconnected.
+  private targetsInDocumentOrder(key: string): T[] {
+    return this.targetsByKey
+      .getValuesForKey(key)
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
   }
 
   private isStillReferenced(element: T, content: string): boolean {

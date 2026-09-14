@@ -69,7 +69,9 @@ console.log(event.defaultPrevented);
 Every Impulse element has an `emit()` method that dispatches from itself and prefixes the event name with the
 element's tag name, so listeners can tell your events apart from everyone else's.
 
-```ts{7}
+```ts{10}
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
+
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {
   @target() input: HTMLInputElement;

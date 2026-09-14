@@ -17,41 +17,48 @@ handlers.add('focus', onFocus);
 handlers.getValuesForKey('click'); // [onClick, onClickAgain]
 handlers.has('click', onClick); // true
 handlers.keys; // ['click', 'focus']
-```
-
-A key exists only while it holds at least one value. Deleting the last value under a key drops the key too, so `keys`
-never reports an empty bucket and a long-lived map does not accumulate an entry for every key it has ever seen.
-
-```ts
-handlers.delete('focus', onFocus);
-handlers.keys; // ['click']
-handlers.get('focus'); // undefined
-```
-
-## Reading values
-
-`getValuesForKey()` returns an array, empty when the key is absent. It is a snapshot, so it is safe to iterate while
-deleting from the map.
-
-```ts
-for (const handler of handlers.getValuesForKey('click')) {
-  handlers.delete('click', handler); // Safe: the array is not the live set.
-}
-```
-
-`get()` returns the live `Set` instead, or `undefined` when the key is absent. Mutating it bypasses the cleanup that
-`delete()` does, leaving an empty set behind under the key, so prefer the methods above unless you need the set
-itself.
-
-```ts
-handlers.get('click'); // Set { onClick, onClickAgain }
+handlers.values; // [onClick, onClickAgain, onFocus]
 ```
 
 `values` flattens every key's values into one array, in insertion order. Values are not deduplicated across keys, so
 something stored under two keys appears twice.
 
+## Keys come and go with their values
+
+A key exists only while it holds at least one value. Deleting the last value under a key drops the key with it, so a
+long-lived map does not accumulate an entry for every key it has ever seen.
+
 ```ts
-handlers.values; // [onClick, onClickAgain, onFocus]
+handlers.delete('focus', onFocus);
+
+handlers.keys; // ['click']
+handlers.get('focus'); // undefined
+```
+
+`deleteKey()` drops a key and everything under it in one go, and `clear()` empties the map.
+
+## Snapshots and the live set
+
+`getValuesForKey()` returns a new array, empty when the key is absent. Because it is a snapshot rather than the set
+itself, it is safe to iterate while deleting from the map.
+
+```ts
+for (const handler of handlers.getValuesForKey('click')) {
+  handlers.delete('click', handler);
+}
+
+handlers.keys; // []
+```
+
+`get()` returns the live `Set` instead, or `undefined` when the key is absent. Mutating it bypasses the cleanup that
+`delete()` does — which is the one way to leave a key behind with an empty set under it:
+
+```ts
+const clicks = new SetMap<string, () => void>();
+clicks.add('click', onClick);
+
+clicks.get('click')!.delete(onClick); // Bypasses the cleanup.
+clicks.keys; // ['click'] — still there, now holding nothing.
 ```
 
 ## API
