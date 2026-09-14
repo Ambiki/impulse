@@ -40,6 +40,12 @@ export default class LazyLoadElement extends ImpulseElement {
 }
 ```
 
+The callback only runs when the converted value actually changes. An attribute write that reads back as the same
+value is a no-op: `8_000` rewritten as `8000`, an `Array` or `Object` attribute reformatted (`{ "foo": "bar" }` to
+`{"foo":"bar"}`, or its keys reordered), or an attribute removed when it already read as the empty value. `Array` and
+`Object` values are compared structurally, so a server re-render that emits the same data in a different shape of JSON
+does not re-trigger downstream effects.
+
 ## Types
 
 A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, with `String` being the default.

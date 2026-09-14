@@ -3,6 +3,7 @@ import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
+import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import Property, { fromAttribute } from './property';
@@ -56,9 +57,7 @@ export class ImpulseElement extends HTMLElement {
     // -> 8_000 to 8000
     const newValue = fromAttribute(_newValue, property.type);
     const oldValue = fromAttribute(_oldValue, property.type);
-    // `Object.is` rather than `===` so a Number that transforms to `NaN` on both sides (e.g. a
-    // non-numeric value replaced with another) is treated as unchanged and does not fire the callback.
-    if (Object.is(newValue, oldValue)) return;
+    if (isUnchanged(newValue, oldValue, property.type)) return;
 
     fn.call(this, newValue, oldValue);
   }

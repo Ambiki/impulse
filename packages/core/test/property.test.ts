@@ -19,6 +19,7 @@ describe('@property', () => {
     configChanged = Sinon.fake();
     zeroConfigChanged = Sinon.fake();
     numericValueChanged = Sinon.fake();
+    overrideConfigChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
@@ -284,6 +285,58 @@ describe('@property', () => {
     el.setAttribute('config', 'nope');
     expect(el).to.have.property('config').to.deep.equal({});
     expect(el.configChanged.getCall(0).args[0]).to.deep.equal({});
+  });
+
+  it('should not fire the collection callbacks when a reformatted attribute parses to the same value', () => {
+    // `fromAttribute` parses a fresh value on every call, so the two sides are never the same reference. Only a
+    // structural comparison can tell that this write changed nothing but the whitespace.
+    el.setAttribute('config', '{"foo":"bar"}');
+    expect(el.configChanged.called).to.be.false;
+
+    el.setAttribute('fruits', '["Guava","Litchi"]');
+    expect(el.fruitsChanged.called).to.be.false;
+
+    // The case this is really for: a server re-render emitting the same nested payload, formatted differently.
+    el.setAttribute('config', '{ "foo": "bar", "nested": { "fruits": ["Guava", "Litchi"] } }');
+    el.configChanged.resetHistory();
+    el.setAttribute('config', '{"nested":{"fruits":["Guava","Litchi"]},"foo":"bar"}');
+    expect(el.configChanged.called).to.be.false;
+  });
+
+  it('should not fire the collection callbacks when the keys are written in a different order', () => {
+    el.setAttribute('override-config', '{ "property": false, "extra": 1 }');
+    expect(el.overrideConfig).to.deep.equal({ property: false, extra: 1 });
+    el.overrideConfigChanged.resetHistory();
+
+    el.setAttribute('override-config', '{ "extra": 1, "property": false }');
+    expect(el.overrideConfigChanged.called).to.be.false;
+  });
+
+  it('should not fire the collection callbacks when removing an attribute that already reads as the empty value', () => {
+    // A missing attribute and an empty collection both read as `[]`/`{}`, so removing it is not a change.
+    el.setAttribute('fruits', '[]');
+    el.fruitsChanged.resetHistory();
+    el.removeAttribute('fruits');
+    expect(el).to.have.property('fruits').to.deep.equal([]);
+    expect(el.fruitsChanged.called).to.be.false;
+
+    el.setAttribute('config', '{}');
+    el.configChanged.resetHistory();
+    el.removeAttribute('config');
+    expect(el).to.have.property('config').to.deep.equal({});
+    expect(el.configChanged.called).to.be.false;
+  });
+
+  it('should fire the collection callbacks when the parsed value differs', () => {
+    el.setAttribute('fruits', '["Guava", "Litchi", "Mango"]');
+    expect(el.fruitsChanged.calledOnce).to.be.true;
+    expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal(['Guava', 'Litchi', 'Mango']);
+    expect(el.fruitsChanged.getCall(0).args[1]).to.deep.equal(['Guava', 'Litchi']);
+
+    el.setAttribute('config', '{ "foo": "baz" }');
+    expect(el.configChanged.calledOnce).to.be.true;
+    expect(el.configChanged.getCall(0).args[0]).to.deep.equal({ foo: 'baz' });
+    expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
   });
 
   it('should not fire the Number callback when the value transforms to NaN on both sides', () => {
