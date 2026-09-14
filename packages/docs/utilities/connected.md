@@ -6,7 +6,8 @@ The `connected` function allows you to observe the DOM and invoke a callback whe
 
 This function sets up a [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) on the
 document that watches for elements matching the provided CSS selector. The callback is invoked immediately for any
-matching elements already in the DOM, and then for any elements added later.
+matching elements already in the DOM, then for any elements added later, and for any element whose attributes change
+such that it starts matching the selector.
 
 This is particularly useful for initializing third-party libraries that require a manual initialization step on a given
 element.

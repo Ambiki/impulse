@@ -32,16 +32,23 @@ The `data-action` value `click->greet-user#greet` is called an action descriptor
 - `greet-user` is the name of the custom element.
 - `greet` is the name of the function that should be invoked when the event is triggered.
 
+An action is wired up by the closest ancestor (or the element itself) whose tag name matches the identifier in the
+descriptor — `greet-user` above. A `data-action` that names an element it is not inside of is never bound to anything.
+
 ## Global events
 
 You can add `@window` or `@document` to the descriptor to listen for events on the `window` or `document` respectively.
 
 ```html
-<!-- Listen for the `resize` event on the `window`. -->
-<div data-action="resize@window->image-gallery#resizeLayout"></div>
+<image-gallery>
+  <!-- Listen for the `resize` event on the `window`. -->
+  <div data-action="resize@window->image-gallery#resizeLayout"></div>
+</image-gallery>
 
-<!-- Listen for the `mouseup` event on the `document`. -->
-<div data-action="mouseup@document->my-element#invokeAction"></div>
+<my-element>
+  <!-- Listen for the `mouseup` event on the `document`. -->
+  <div data-action="mouseup@document->my-element#invokeAction"></div>
+</my-element>
 ```
 
 ## Event modifiers
@@ -57,25 +64,29 @@ descriptor is clearer, so Impulse provides these modifiers out of the box.
 - `.passive`
 
 ```html
-<!-- Calls `event.stopPropagation()`. -->
-<button data-action="click.stop->my-element#invokeAction"></button>
+<my-element>
+  <!-- Calls `event.stopPropagation()`. -->
+  <button data-action="click.stop->my-element#invokeAction"></button>
 
-<!-- Calls `event.preventDefault()`. -->
-<form data-action="submit.prevent->my-element#invokeAction"></form>
+  <!-- Calls `event.preventDefault()`. -->
+  <form data-action="submit.prevent->my-element#invokeAction"></form>
 
-<!-- Only call the function if event.target is the element itself. -->
-<div data-action="click.self->my-element#invokeAction"></div>
+  <!-- Only call the function if event.target is the element itself. -->
+  <div data-action="click.self->my-element#invokeAction"></div>
 
-<!-- Modifiers can be chained. -->
-<a href="#" data-action="click.stop.prevent->my-element#invokeAction"></a>
+  <!-- Modifiers can be chained. -->
+  <a href="#" data-action="click.stop.prevent->my-element#invokeAction"></a>
+</my-element>
 ```
 
 The `.capture`, `.once`, and `.passive` modifiers mirror the [DOM event listener options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
 
 ```html
-<div data-action="click.capture->my-element#invokeAction"></div>
-<div data-action="click.once->my-element#invokeAction"></div>
-<div data-action="scroll.passive->my-element#invokeAction"></div>
+<my-element>
+  <div data-action="click.capture->my-element#invokeAction"></div>
+  <div data-action="click.once->my-element#invokeAction"></div>
+  <div data-action="scroll.passive->my-element#invokeAction"></div>
+</my-element>
 ```
 
 ## Naming conventions
@@ -83,6 +94,8 @@ The `.capture`, `.once`, and `.passive` modifiers mirror the [DOM event listener
 Always use camelCase to reference the action names.
 
 ```html
-<div data-action="click->greet-user#doThis"></div>
-<div data-action="click->greet-user#avoid_this"></div>
+<greet-user>
+  <div data-action="click->greet-user#doThis"></div>
+  <div data-action="click->greet-user#avoid_this"></div>
+</greet-user>
 ```

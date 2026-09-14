@@ -28,7 +28,8 @@ An element can have multiple target references.
 
 ## Single target
 
-A single target can be referenced via the `@target()` decorator. It is a syntactic sugar for `this.querySelector('...')`.
+A single target can be referenced via the `@target()` decorator. The property is the matching element, or `null`
+while none is present.
 
 ```html{2}
 <greet-user>
@@ -50,7 +51,8 @@ export default class GreetUserElement extends ImpulseElement {
 
 ## Multiple targets
 
-Multiple targets can be referenced via the `@targets()` decorator. It is a syntactic sugar for `Array.from(this.querySelectorAll('...'))`.
+Multiple targets can be referenced via the `@targets()` decorator. The property is every matching element in
+document order, and an empty array while there are none — so it is always safe to iterate.
 
 ```html{2,3}
 <greet-user>
@@ -69,6 +71,27 @@ export default class GreetUserElement extends ImpulseElement {
 
   // ...
 }
+```
+
+## How targets are resolved
+
+A target is not a one-off `querySelector()`. Impulse watches the document, so the property always points at whatever
+is in the DOM right now — a target that is replaced, moved, or rendered later is picked up without any work on your
+part, which is what makes the [connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible.
+
+A `data-target` token belongs to the closest ancestor (or the element itself) whose tag name matches the identifier in
+the token. Nested elements of the same tag therefore never claim each other's targets:
+
+```html{3,7}
+<greet-user>
+  <!-- Belongs to the outer element. -->
+  <div data-target="greet-user.result"></div>
+
+  <greet-user>
+    <!-- Belongs to the inner element. -->
+    <div data-target="greet-user.result"></div>
+  </greet-user>
+</greet-user>
 ```
 
 ## Connected and disconnected callbacks
