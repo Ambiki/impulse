@@ -1,4 +1,4 @@
-import { register, TARGETS } from '../store';
+import { register, TARGETS } from '../registry';
 
 /**
  * A single `@target()` / `@targets()` registration: the field name, and whether it collects every matching element or

@@ -6,7 +6,7 @@ import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import Property, { fromAttribute } from './property';
-import { PROPERTIES, registered, registeredFor } from './store';
+import { PROPERTIES, registered, registeredFor } from './registry';
 import Target from './target';
 
 export class ImpulseElement extends HTMLElement {

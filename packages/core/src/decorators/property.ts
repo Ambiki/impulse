@@ -1,4 +1,4 @@
-import { PROPERTIES, register } from '../store';
+import { PROPERTIES, register } from '../registry';
 
 /**
  * A single `@property()` registration: the field name and the constructor its attribute value is converted with.

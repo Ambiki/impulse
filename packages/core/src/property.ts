@@ -1,7 +1,7 @@
 import type { PropertyConstructor, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { dasherize, parseJSON } from './helpers/string';
-import { PROPERTIES, registeredFor } from './store';
+import { PROPERTIES, registeredFor } from './registry';
 
 export default class Property {
   constructor(private readonly instance: ImpulseElement) {}

@@ -1,8 +1,8 @@
 import type { PropertyType } from '../src/decorators/property';
 import { expect } from '@open-wc/testing';
-import { PROPERTIES, register, registered, TARGETS } from '../src/store';
+import { PROPERTIES, register, registered, TARGETS } from '../src/registry';
 
-describe('store', () => {
+describe('registry', () => {
   it('returns an empty set for a prototype with no registrations', () => {
     class Unregistered {}
 
@@ -48,7 +48,7 @@ describe('store', () => {
     register(Element.prototype, PROPERTIES, { key: 'src', type: String });
 
     // Symbols are skipped by `Object.keys`, so spreading and asking for the symbols is what tells a non-enumerable
-    // definition apart from a plain `proto[REGISTRY] = ...` assignment.
+    // definition apart from a plain `proto[REGISTRIES] = ...` assignment.
     expect(Object.getOwnPropertySymbols({ ...Element.prototype })).to.deep.equal([]);
   });
 

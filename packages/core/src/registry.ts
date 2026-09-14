@@ -1,7 +1,7 @@
 import type { PropertyType } from './decorators/property';
 import type { TargetType } from './decorators/target';
 
-const REGISTRY = Symbol.for('impulse');
+const REGISTRIES = Symbol.for('impulse');
 
 declare const entryType: unique symbol;
 
@@ -39,7 +39,7 @@ export function register<T extends object>(proto: object, registry: Registry<T>,
   let registries = ownRegistries<T>(proto);
   if (!registries) {
     registries = new Map();
-    Object.defineProperty(proto, REGISTRY, { value: registries, configurable: true });
+    Object.defineProperty(proto, REGISTRIES, { value: registries, configurable: true });
   }
 
   let entries = registries.get(registry.name);
@@ -74,6 +74,6 @@ export function registeredFor<T extends object>(instance: object, registry: Regi
 }
 
 function ownRegistries<T extends object>(proto: object): Map<string, Set<T>> | undefined {
-  if (!Object.hasOwn(proto, REGISTRY)) return;
-  return (proto as Record<symbol, Map<string, Set<T>>>)[REGISTRY];
+  if (!Object.hasOwn(proto, REGISTRIES)) return;
+  return (proto as Record<symbol, Map<string, Set<T>>>)[REGISTRIES];
 }

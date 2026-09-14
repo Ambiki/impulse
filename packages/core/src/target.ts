@@ -4,7 +4,7 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import SetMap from './data_structures/set_map';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
-import { registeredFor, TARGETS } from './store';
+import { registeredFor, TARGETS } from './registry';
 import { parseTargetDescriptor } from './target_descriptor';
 
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
