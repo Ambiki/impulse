@@ -1,7 +1,7 @@
 import { expect, fixture, html } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement } from '../src';
-import { fromAttribute } from '../src/property';
+import { fromAttribute, isUnchanged } from '../src/property';
 
 describe('@property', () => {
   @registerElement('property-test')
@@ -19,6 +19,7 @@ describe('@property', () => {
     configChanged = Sinon.fake();
     zeroConfigChanged = Sinon.fake();
     numericValueChanged = Sinon.fake();
+    overrideConfigChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
@@ -286,6 +287,58 @@ describe('@property', () => {
     expect(el.configChanged.getCall(0).args[0]).to.deep.equal({});
   });
 
+  it('should not fire the collection callbacks when a reformatted attribute parses to the same value', () => {
+    // `fromAttribute` parses a fresh value on every call, so the two sides are never the same reference. Only a
+    // structural comparison can tell that this write changed nothing but the whitespace.
+    el.setAttribute('config', '{"foo":"bar"}');
+    expect(el.configChanged.called).to.be.false;
+
+    el.setAttribute('fruits', '["Guava","Litchi"]');
+    expect(el.fruitsChanged.called).to.be.false;
+
+    // The case this is really for: a server re-render emitting the same nested payload, formatted differently.
+    el.setAttribute('config', '{ "foo": "bar", "nested": { "fruits": ["Guava", "Litchi"] } }');
+    el.configChanged.resetHistory();
+    el.setAttribute('config', '{"nested":{"fruits":["Guava","Litchi"]},"foo":"bar"}');
+    expect(el.configChanged.called).to.be.false;
+  });
+
+  it('should not fire the collection callbacks when the keys are written in a different order', () => {
+    el.setAttribute('override-config', '{ "property": false, "extra": 1 }');
+    expect(el.overrideConfig).to.deep.equal({ property: false, extra: 1 });
+    el.overrideConfigChanged.resetHistory();
+
+    el.setAttribute('override-config', '{ "extra": 1, "property": false }');
+    expect(el.overrideConfigChanged.called).to.be.false;
+  });
+
+  it('should not fire the collection callbacks when removing an attribute that already reads as the empty value', () => {
+    // A missing attribute and an empty collection both read as `[]`/`{}`, so removing it is not a change.
+    el.setAttribute('fruits', '[]');
+    el.fruitsChanged.resetHistory();
+    el.removeAttribute('fruits');
+    expect(el).to.have.property('fruits').to.deep.equal([]);
+    expect(el.fruitsChanged.called).to.be.false;
+
+    el.setAttribute('config', '{}');
+    el.configChanged.resetHistory();
+    el.removeAttribute('config');
+    expect(el).to.have.property('config').to.deep.equal({});
+    expect(el.configChanged.called).to.be.false;
+  });
+
+  it('should fire the collection callbacks when the parsed value differs', () => {
+    el.setAttribute('fruits', '["Guava", "Litchi", "Mango"]');
+    expect(el.fruitsChanged.calledOnce).to.be.true;
+    expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal(['Guava', 'Litchi', 'Mango']);
+    expect(el.fruitsChanged.getCall(0).args[1]).to.deep.equal(['Guava', 'Litchi']);
+
+    el.setAttribute('config', '{ "foo": "baz" }');
+    expect(el.configChanged.calledOnce).to.be.true;
+    expect(el.configChanged.getCall(0).args[0]).to.deep.equal({ foo: 'baz' });
+    expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
+  });
+
   it('should not fire the Number callback when the value transforms to NaN on both sides', () => {
     // Starts from `numeric-value="8_000"` (=> 8000).
     el.setAttribute('numeric-value', 'abc');
@@ -333,5 +386,49 @@ describe('fromAttribute', () => {
     expect(fromAttribute('{ "foo": "bar" }', Object)).to.eql({ foo: 'bar' });
     expect(fromAttribute(null, Object)).to.eql({});
     expect(fromAttribute('nope', Object)).to.eql({});
+  });
+});
+
+describe('isUnchanged', () => {
+  it('compares primitives with `Object.is`', () => {
+    expect(isUnchanged('bottom', 'bottom', String)).to.be.true;
+    expect(isUnchanged('bottom', 'top', String)).to.be.false;
+    expect(isUnchanged(8000, 8000, Number)).to.be.true;
+    expect(isUnchanged(8000, 22, Number)).to.be.false;
+    // `NaN` on both sides is unchanged, which `===` would get wrong.
+    expect(isUnchanged(Number.NaN, Number.NaN, Number)).to.be.true;
+    expect(isUnchanged(true, true, Boolean)).to.be.true;
+    expect(isUnchanged(true, false, Boolean)).to.be.false;
+  });
+
+  it('compares an Array structurally', () => {
+    expect(isUnchanged([], [], Array)).to.be.true;
+    expect(isUnchanged(['Guava'], ['Guava'], Array)).to.be.true;
+    expect(isUnchanged(['Guava'], ['Litchi'], Array)).to.be.false;
+    expect(isUnchanged(['Guava'], ['Guava', 'Litchi'], Array)).to.be.false;
+    // Order is significant in an Array, unlike the keys of an Object.
+    expect(isUnchanged(['Guava', 'Litchi'], ['Litchi', 'Guava'], Array)).to.be.false;
+    expect(isUnchanged([{ foo: ['bar'] }], [{ foo: ['bar'] }], Array)).to.be.true;
+    expect(isUnchanged([{ foo: ['bar'] }], [{ foo: ['baz'] }], Array)).to.be.false;
+  });
+
+  it('compares an Object structurally', () => {
+    expect(isUnchanged({}, {}, Object)).to.be.true;
+    expect(isUnchanged({ foo: 'bar' }, { foo: 'bar' }, Object)).to.be.true;
+    expect(isUnchanged({ foo: 'bar' }, { foo: 'baz' }, Object)).to.be.false;
+    expect(isUnchanged({ foo: 'bar' }, { foo: 'bar', extra: 1 }, Object)).to.be.false;
+    // Key order is not part of the value.
+    expect(isUnchanged({ a: 1, b: 2 }, { b: 2, a: 1 }, Object)).to.be.true;
+    // A key whose value is `undefined` is not the same as a missing key.
+    expect(isUnchanged({ foo: undefined }, {}, Object)).to.be.false;
+    expect(isUnchanged({ foo: { bar: [1, 2] } }, { foo: { bar: [1, 2] } }, Object)).to.be.true;
+    expect(isUnchanged({ foo: { bar: [1, 2] } }, { foo: { bar: [2, 1] } }, Object)).to.be.false;
+  });
+
+  it('does not confuse `null`, an Array, and an Object with each other', () => {
+    expect(isUnchanged(null, {}, Object)).to.be.false;
+    expect(isUnchanged({}, null, Object)).to.be.false;
+    expect(isUnchanged([], {}, Array)).to.be.false;
+    expect(isUnchanged({ 0: 'Guava', length: 1 }, ['Guava'], Array)).to.be.false;
   });
 });
