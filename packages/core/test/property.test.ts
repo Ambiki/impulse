@@ -1,6 +1,7 @@
 import { expect, fixture, html } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement } from '../src';
+import { fromAttribute } from '../src/property';
 
 describe('@property', () => {
   @registerElement('property-test')
@@ -234,6 +235,57 @@ describe('@property', () => {
     expect(el.numericValueChanged.calledOnceWith(9000, 8000)).to.be.true;
   });
 
+  it('should pass the change callback the same value as the property getter when an attribute is removed', () => {
+    el.removeAttribute('numeric-value');
+    expect(el).to.have.property('numericValue', 0);
+    expect(el.numericValueChanged.calledOnceWith(0, 8000)).to.be.true;
+
+    el.removeAttribute('placement');
+    expect(el).to.have.property('placement', '');
+    expect(el.placementChanged.calledOnceWith('', 'bottom')).to.be.true;
+
+    el.removeAttribute('fallback');
+    expect(el).to.have.property('fallback', false);
+    expect(el.fallbackChanged.calledOnceWith(false, true)).to.be.true;
+
+    el.removeAttribute('fruits');
+    expect(el).to.have.property('fruits').to.deep.equal([]);
+    expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal([]);
+    expect(el.fruitsChanged.getCall(0).args[1]).to.deep.equal(['Guava', 'Litchi']);
+
+    el.removeAttribute('config');
+    expect(el).to.have.property('config').to.deep.equal({});
+    expect(el.configChanged.getCall(0).args[0]).to.deep.equal({});
+    expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
+  });
+
+  it('should not fire the change callback when removing an attribute that already reads as the empty value', () => {
+    // An empty attribute and a missing one both read as `0`/`''`, so removing it is not a change.
+    el.setAttribute('numeric-value', '');
+    expect(el).to.have.property('numericValue', 0);
+    el.numericValueChanged.resetHistory();
+    el.removeAttribute('numeric-value');
+    expect(el).to.have.property('numericValue', 0);
+    expect(el.numericValueChanged.called).to.be.false;
+
+    el.setAttribute('placement', '');
+    expect(el).to.have.property('placement', '');
+    el.placementChanged.resetHistory();
+    el.removeAttribute('placement');
+    expect(el).to.have.property('placement', '');
+    expect(el.placementChanged.called).to.be.false;
+  });
+
+  it('should fall back to an empty collection rather than throw when the attribute is not valid JSON', () => {
+    el.setAttribute('fruits', '{');
+    expect(el).to.have.property('fruits').to.deep.equal([]);
+    expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal([]);
+
+    el.setAttribute('config', 'nope');
+    expect(el).to.have.property('config').to.deep.equal({});
+    expect(el.configChanged.getCall(0).args[0]).to.deep.equal({});
+  });
+
   it('should not fire the Number callback when the value transforms to NaN on both sides', () => {
     // Starts from `numeric-value="8_000"` (=> 8000).
     el.setAttribute('numeric-value', 'abc');
@@ -244,5 +296,42 @@ describe('@property', () => {
     // NaN -> NaN is unchanged, so the callback must not fire again.
     el.setAttribute('numeric-value', 'xyz');
     expect(el.numericValueChanged.calledOnce).to.be.true;
+  });
+});
+
+describe('fromAttribute', () => {
+  it('converts a String attribute', () => {
+    expect(fromAttribute('bottom', String)).to.eq('bottom');
+    expect(fromAttribute('', String)).to.eq('');
+    // A removed attribute reads as the empty string, never `null`.
+    expect(fromAttribute(null, String)).to.eq('');
+  });
+
+  it('converts a Number attribute', () => {
+    expect(fromAttribute('22', Number)).to.eq(22);
+    expect(fromAttribute('8_000', Number)).to.eq(8000);
+    expect(fromAttribute('', Number)).to.eq(0);
+    // A removed attribute reads as `0`, never `NaN`.
+    expect(fromAttribute(null, Number)).to.eq(0);
+    expect(Number.isNaN(fromAttribute('abc', Number))).to.be.true;
+  });
+
+  it('converts a Boolean attribute', () => {
+    expect(fromAttribute('', Boolean)).to.be.true;
+    expect(fromAttribute('true', Boolean)).to.be.true;
+    expect(fromAttribute('false', Boolean)).to.be.false;
+    expect(fromAttribute(null, Boolean)).to.be.false;
+  });
+
+  it('converts a Array attribute', () => {
+    expect(fromAttribute('["Guava"]', Array)).to.eql(['Guava']);
+    expect(fromAttribute(null, Array)).to.eql([]);
+    expect(fromAttribute('{', Array)).to.eql([]);
+  });
+
+  it('converts a Object attribute', () => {
+    expect(fromAttribute('{ "foo": "bar" }', Object)).to.eql({ foo: 'bar' });
+    expect(fromAttribute(null, Object)).to.eql({});
+    expect(fromAttribute('nope', Object)).to.eql({});
   });
 });
