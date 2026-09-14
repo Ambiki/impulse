@@ -3,9 +3,10 @@ import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { domReady } from './helpers/dom';
+import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
-import Property, { fromAttribute, isUnchanged } from './property';
+import Property, { fromAttribute } from './property';
 import Store from './store';
 import Target from './target';
 
