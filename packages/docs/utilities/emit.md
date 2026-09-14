@@ -63,3 +63,48 @@ dispatched, allowing you to inspect its state:
 const event = emit(element, 'my-event', { detail: { success: true } });
 console.log(event.defaultPrevented);
 ```
+
+## Emitting from an element
+
+Every Impulse element has an `emit()` method that dispatches from itself and prefixes the event name with the
+element's tag name, so listeners can tell your events apart from everyone else's.
+
+```ts{10}
+import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
+
+@registerElement('clip-board')
+export default class ClipBoardElement extends ImpulseElement {
+  @target() input: HTMLInputElement;
+
+  copy() {
+    navigator.clipboard.writeText(this.input.value);
+    // Dispatches `clip-board:copied` from `<clip-board>`.
+    this.emit('copied', { detail: { value: this.input.value } });
+  }
+}
+```
+
+```ts
+document.querySelector('clip-board').addEventListener('clip-board:copied', (event) => {
+  console.log(event.detail.value);
+});
+```
+
+It accepts the same options as the standalone function, plus two of its own:
+
+- `prefix` — the prefix to use. Defaults to the element's tag name. Pass a string to use a different one, or `false`
+  to dispatch the bare event name.
+- `target` — what to dispatch from. Defaults to the element itself.
+
+```ts
+// Dispatches `copied`.
+this.emit('copied', { prefix: false });
+
+// Dispatches `clipboard:copied`.
+this.emit('copied', { prefix: 'clipboard' });
+
+// Dispatches `clip-board:copied` from the `document`.
+this.emit('copied', { target: document });
+```
+
+Like the standalone function, it returns the dispatched `CustomEvent`.

@@ -77,6 +77,28 @@ describe('@targets', () => {
     expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel2']);
   });
 
+  it('should persist the DOM order after a target is disconnected', async () => {
+    // Insert out of document order so the insertion order the targets are remembered in cannot pass for document order.
+    const last = document.createElement('div');
+    last.setAttribute('data-target', `${el.identifier}.panels`);
+    last.id = 'panel-last';
+    last.classList.add('panel');
+    el.append(last);
+    await nextFrame();
+
+    const middle = document.createElement('div');
+    middle.setAttribute('data-target', `${el.identifier}.panels`);
+    middle.id = 'panel-mid';
+    middle.classList.add('panel');
+    document.getElementById('panel1')!.after(middle);
+    await nextFrame();
+
+    document.getElementById('panel2')!.remove();
+    await nextFrame();
+
+    expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel-last']);
+  });
+
   it('should call the lifecycle callback function when target is connected to the DOM', () => {
     const panels = Array.from(el.querySelectorAll('.panel'));
 

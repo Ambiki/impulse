@@ -73,11 +73,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.targetsByKey.add(key, element);
     this.tokensByElement.add(element, token);
 
-    const targets = this.targetsByKey
-      .getValuesForKey(key)
-      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
-
-    this.defineProperty(key, this.isKeyMultiple(key) ? targets : element);
+    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : element);
     this.invokeCallback(key, element, 'connected');
   }
 
@@ -92,7 +88,25 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.targetsByKey.delete(key, element);
     this.invokeCallback(key, element, 'disconnected');
     // Update property after invoking callback.
-    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsByKey.getValuesForKey(key) : null);
+    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : null);
+  }
+
+  /**
+   * The targets under `key`, in document order.
+   *
+   * Both the connect and the disconnect path sort through here, because `targetsByKey` itself is never ordered: the
+   * connect path sorts a throwaway array, so one target connecting out of document order leaves the underlying set
+   * unsorted for good, and an unsorted disconnect path then hands that order straight to the property.
+   *
+   * Targets removed earlier in the same mutation batch are already detached when this runs, and
+   * `compareDocumentPosition` orders nodes in different trees arbitrarily. A `[key]Disconnected` callback part-way
+   * through such a batch can therefore see the survivors out of order; the last unmatch of the batch sorts them
+   * correctly again.
+   */
+  private targetsInDocumentOrder(key: string): T[] {
+    return this.targetsByKey
+      .getValuesForKey(key)
+      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
   }
 
   private isStillReferenced(element: T, content: string): boolean {

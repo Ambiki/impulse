@@ -5,6 +5,9 @@ interface Entry<T> {
   value: T;
 }
 
+/**
+ * A candidate returned by {@link SelectorSet.matches}: the indexed selector and the value stored with it.
+ */
 export interface Match<T> {
   selector: string;
   value: T;
@@ -29,6 +32,10 @@ export default class SelectorSet<T> {
   private fallback = new Set<Entry<T>>();
   private count = 0;
 
+  /**
+   * Indexes `value` under `selector`. Adding the same pair twice stores two entries, each needing its own
+   * {@link SelectorSet.delete}.
+   */
   add(selector: string, value: T): void {
     const entry: Entry<T> = { selector, value };
     const buckets = this.bucketsFor(selector);
@@ -40,6 +47,9 @@ export default class SelectorSet<T> {
     this.count += 1;
   }
 
+  /**
+   * Removes one entry for the `selector`/`value` pair. A no-op when the pair was never added.
+   */
   delete(selector: string, value: T): void {
     const buckets = this.bucketsFor(selector);
     const entries = buckets ? buckets[0].map.get(buckets[0].key) : this.fallback;
@@ -58,6 +68,10 @@ export default class SelectorSet<T> {
     }
   }
 
+  /**
+   * Every entry whose selector could match `element`, each returned once however many buckets it sits in. These are
+   * candidates: run `element.matches(selector)` on them to get the real matches.
+   */
   matches(element: Element): Match<T>[] {
     const results: Match<T>[] = [];
     // A selector list is indexed once per part, so the same entry can live in several buckets.
@@ -82,6 +96,9 @@ export default class SelectorSet<T> {
     return results;
   }
 
+  /**
+   * How many entries are indexed.
+   */
   get size(): number {
     return this.count;
   }

@@ -8,7 +8,8 @@ import { watchSelector } from './observers/document_observer';
  *
  * This function sets up a MutationObserver on the document that watches for elements matching
  * the provided CSS selector. The callback is invoked immediately for any matching elements
- * already in the DOM, and then for any elements added later.
+ * already in the DOM, then for any elements added later, and for any element whose attributes
+ * change such that it starts matching the selector.
  *
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return

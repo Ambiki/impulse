@@ -106,7 +106,7 @@ import { ImpulseElement, registerElement, target } from '@ambiki/impulse';
 
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {
-  @target() input: HTMLInputElement; // syntactic sugar for this.querySelector('input')
+  @target() input: HTMLInputElement; // the element carrying `data-target="clip-board.input"`
 
   copy() {
     const { value } = this.input;
