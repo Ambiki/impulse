@@ -95,6 +95,14 @@ Properties and targets are declared with first-class, typed TypeScript decorator
         ],
       },
       {
+        text: 'Data structures',
+        collapsed: false,
+        items: [
+          { text: 'SelectorSet', link: '/data-structures/selector-set' },
+          { text: 'SetMap', link: '/data-structures/set-map' },
+        ],
+      },
+      {
         text: 'Examples',
         collapsed: false,
         items: [{ text: 'Clipboard element', link: '/examples/clipboard-element' }],
