@@ -1,4 +1,4 @@
-import type { TargetType } from './decorators/target';
+import type { TargetDeclaration } from './decorators/target';
 import type { ImpulseElement } from './element';
 import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import SetMap from './data_structures/set_map';
@@ -12,6 +12,7 @@ import { parseTargetDescriptor } from './target_descriptor';
 const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
 
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
+  private readonly declarations: ReadonlyMap<string, TargetDeclaration>;
   private targetsByKey: SetMap<string, T>;
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
@@ -19,6 +20,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
+    this.declarations = registeredFor(this.instance, TARGETS);
     this.targetsByKey = new SetMap();
     this.tokensByElement = new SetMap();
   }
@@ -27,8 +29,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // Initialize targets with an empty array if it references multiple targets, or with null if it references a single
     // target. Later, if we find matching targets, we set them accordingly. If we don't, we can still iterate over
     // targets because it is an array.
-    for (const key of this.keys) {
-      this.defineProperty(key, this.isKeyMultiple(key) ? [] : null);
+    for (const { key, multiple } of this.declarations.values()) {
+      this.defineProperty(key, multiple ? [] : null);
     }
 
     if (!this.stopWatching) {
@@ -116,7 +118,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   }
 
   private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {
-    if (!key || identifier !== this.identifier || !this.keys.includes(key)) {
+    if (!key || identifier !== this.identifier || !this.declarations.has(key)) {
       return false;
     }
 
@@ -131,21 +133,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   }
 
   private isKeyMultiple(key: string): boolean {
-    for (const targetKey of this.targetKeys) {
-      if (targetKey.key === key) {
-        return targetKey.multiple;
-      }
-    }
-
-    return false;
-  }
-
-  private get keys() {
-    return Array.from(this.targetKeys).map(({ key }) => key);
-  }
-
-  private get targetKeys(): ReadonlySet<TargetType> {
-    return registeredFor(this.instance, TARGETS);
+    return this.declarations.get(key)?.multiple ?? false;
   }
 
   private get identifier() {
