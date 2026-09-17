@@ -6,13 +6,30 @@ const descriptorPattern = /(?:(.+?)?(?:\.(.+?))?(?:@(window|document))?->)?(.+)#
 const validEventModifiers = ['stop', 'prevent', 'self'];
 const validEventOptions = ['capture', 'once', 'passive'];
 
-export function parseActionDescriptor(_descriptor: string) {
+export interface ActionDescriptor {
+  eventName: string;
+  eventModifiers: readonly string[];
+  eventListenerOptions: EventListenerOptions;
+  eventTarget: Window | Document | undefined;
+  methodName: string;
+  identifier: string;
+}
+
+// Every token is parsed at least twice, once by the router's `identifierFor` and again by `Action#tokenMatched`, and
+// descriptors repeat across elements, so each distinct descriptor is parsed once.
+const descriptors = new Map<string, ActionDescriptor>();
+
+export function parseActionDescriptor(_descriptor: string): ActionDescriptor {
   const descriptor = _descriptor.trim();
+  const cached = descriptors.get(descriptor);
+  if (cached) {
+    return cached;
+  }
+
   const [, eventName, modifiers, eventTarget, identifier, methodName] = descriptor.match(descriptorPattern) || [];
   const modifiersArray = modifiers?.split('.') || [];
   const eventModifiers = modifiersArray.filter((m) => validEventModifiers.includes(m));
-
-  return {
+  const parsed = {
     eventName,
     eventModifiers,
     eventListenerOptions: getEventListenerOptions(modifiersArray),
@@ -20,6 +37,8 @@ export function parseActionDescriptor(_descriptor: string) {
     methodName,
     identifier,
   };
+  descriptors.set(descriptor, parsed);
+  return parsed;
 }
 
 export const modifierGuards: Record<string, (e: Event) => boolean> = {

@@ -3,7 +3,7 @@ import { modifierGuards } from './action_descriptor';
 
 interface Options {
   eventListenerOptions: EventListenerOptions;
-  eventModifiers: string[];
+  eventModifiers: readonly string[];
   eventName: string;
   eventTarget: EventTarget;
   methodName: string;
@@ -12,7 +12,7 @@ interface Options {
 export default class EventListener implements EventListenerObject {
   private readonly instance: ImpulseElement;
   private eventListenerOptions: EventListenerOptions;
-  private eventModifiers: string[];
+  private eventModifiers: readonly string[];
   private eventName: string;
   private eventTarget: EventTarget;
   private methodName: string;
