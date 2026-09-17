@@ -22,8 +22,8 @@ export function compare(baseline: number[], candidate: number[]): Comparison {
 
 /**
  * Welch's t-interval on the difference of means, which does not assume equal variances, scaled by `reference`'s
- * mean. The scaling ignores the uncertainty in that mean; with 30 Rounds per Variant it is small next to the
- * difference itself.
+ * mean. The scaling ignores the uncertainty in that mean, which only stretches or shrinks the interval by a factor of
+ * about (1 ± CV / √n): a few percent of its width for Scenarios whose Samples vary by a few percent.
  */
 export function relativeDifference(reference: number[], subject: number[]): Difference {
   const r = sampleStatistics(reference);

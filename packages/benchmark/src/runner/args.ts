@@ -20,7 +20,7 @@ export function parseArgs(argv: string[], scenarioNames: string[]): Options {
 
   return {
     baseline: values.baseline ?? 'main',
-    rounds: parseRounds(values.rounds ?? '30'),
+    rounds: parseRounds(values.rounds ?? '10'),
     scenarios: selectScenarios(scenarioNames, values.scenario),
     json: values.json,
     help: values.help ?? false,

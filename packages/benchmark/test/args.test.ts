@@ -13,10 +13,10 @@ const SCENARIOS = [
 ];
 
 describe('parseArgs', () => {
-  it('compares against main over 30 Rounds of every Scenario by default', () => {
+  it('compares against main over 10 Rounds of every Scenario by default', () => {
     assert.deepEqual(parseArgs([], SCENARIOS), {
       baseline: 'main',
-      rounds: 30,
+      rounds: 10,
       scenarios: SCENARIOS,
       json: undefined,
       help: false,

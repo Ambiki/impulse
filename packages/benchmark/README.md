@@ -4,13 +4,19 @@ Answers one question: **is the working tree's Impulse slower or faster than a gi
 Chromium on three Variants and reports the difference with a confidence interval.
 
 ```bash
-yarn bench                                   # every Scenario, Candidate vs main, 30 Rounds
+yarn bench                                   # every Scenario, Candidate vs main, 10 Rounds
 yarn bench --scenario 'table-row-elements/*' # while iterating on a change
-yarn bench --baseline v1.1.0 --json out.json # against a tag, keeping the raw Samples
+yarn bench --rounds 30 --json out.json       # tighter intervals for a pull request, keeping the raw Samples
+yarn bench --baseline v1.1.0                 # against a tag
 yarn bench:serve                             # open the Scenario pages by hand (run `yarn build` first)
 ```
 
-Run it on a quiet machine: close other heavy programs, and plug in a laptop. A full run takes 25 to 30 minutes.
+Run it on a quiet machine: close other heavy programs, and plug in a laptop. A full run takes 10 to 15 minutes.
+
+The default 10 Rounds per Variant catch changes of roughly 5 to 8% or more, which is enough to spot a regression while
+working. They miss smaller changes and rarely reach a `no change` Verdict, whose whole interval must sit within ±2%.
+Use `--rounds 30` (30 to 40 minutes) for numbers that go in a pull request: on the table Scenarios that narrows the
+interval to about ±2 to 3.5%.
 
 ## What a run does
 

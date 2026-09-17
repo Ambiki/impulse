@@ -23,7 +23,7 @@ no-Impulse Control for Overhead.
 
 Options:
   --baseline <ref>     Git ref to build the Baseline from (default: main)
-  --rounds <n>         Rounds per Variant, per Scenario (default: 30)
+  --rounds <n>         Rounds per Variant, per Scenario (default: 10; use 30 for numbers in a pull request)
   --scenario <glob>    Only Scenarios matching the glob; repeatable, \`*\` matches anything (default: all)
   --json <path>        Also write every Sample and comparison to this file
   -h, --help           Show this message
