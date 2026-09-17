@@ -53,3 +53,28 @@ const stop = connected('div', (element) => {
 // Later, stop observing
 stop();
 ```
+
+## Performance
+
+Every selector shares a single `MutationObserver` on the document. Impulse only needs to hear about the attribute
+changes that could make an element start or stop matching, and for a **self-contained selector** it knows exactly
+which ones those are. A selector is self-contained when it is built only from tag names, `*`, `#id`, `.class`,
+attribute selectors such as `[data-toggle]`, and `:is()`, `:where()`, or `:not()` over those. Changes to any other
+attribute, such as a `style` written on every animation frame, never reach Impulse.
+
+While any registered selector uses a combinator (`.toolbar a`, `ul > li`) or another pseudo-class (`:hover`,
+`:first-child`, `:disabled`), Impulse has to look at every attribute change in the document. So does a selector with an
+escape sequence or a comment, which Impulse does not try to read. Selectors match the same either way; only the cost
+differs.
+
+```ts
+// Only changes to `data-toggle`, or to `class`, reach Impulse.
+connected('[data-toggle="tooltip"]', setUpTooltip);
+connected('button.primary', setUpButton);
+
+// While either is registered, every attribute change in the document reaches Impulse.
+connected('.toolbar [data-toggle="tooltip"]', setUpTooltip);
+connected('input:disabled', setUpDisabledInput);
+```
+
+The same applies to [`disconnected`](./disconnected) and [`lazyImport`](./lazy-import).

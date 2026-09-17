@@ -48,6 +48,7 @@ layout and paint stay out of the numbers; the pages are served cross-origin isol
 | `body-swap` | `document.body.replaceWith()` a fresh copy of a ~10,000 element page with ~200 components |
 | `attributes-plain` | Toggle a class and write a style on 1,000 elements with no tokens |
 | `attributes-tokened` | The same on 1,000 elements that each carry a `data-action` |
+| `attributes-fallback` | The same as `attributes-plain`, with a registered selector that is not self-contained |
 
 `create` inserts all rows in one `append`, `clear` removes them with `replaceChildren()`, `append` adds 1,000 rows to
 5,000, and `move` re-appends the 5,000 rows in reverse order.
@@ -58,8 +59,8 @@ A [`Scenario`](src/scenarios/scenario.ts) is `setup`, the timed `run`, `teardown
 [`src/scenarios/index.ts`](src/scenarios/index.ts), and put any components it needs in `src/components/`.
 
 - Scenarios use standard DOM APIs only and never import Impulse, so the same code runs on all three Variants.
-- Components use only the public API (`ImpulseElement`, `registerElement`, `property`, `target`, `targets`), so a
-  Baseline as old as v1.0.0 still builds.
+- Components use only the public API (`ImpulseElement`, `registerElement`, `property`, `target`, `targets`,
+  `lazyImport`), so a Baseline as old as v1.0.0 still builds.
 - `verify` (and `verifySetup` for operations on existing components) must fail when Impulse did not do the work;
   otherwise a broken fixture reports fast, stable, meaningless numbers. `yarn workspace @ambiki/benchmark test` runs
   every Scenario once on the Candidate and the Control and checks them, building into `.bench/test/` so it can run

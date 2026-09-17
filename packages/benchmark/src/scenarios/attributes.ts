@@ -79,6 +79,31 @@ export const attributesPlain = attributeScenario(
   },
 );
 
+/** Like `attributesPlain`, with a registered selector that is not self-contained, so no attribute can be filtered out. */
+export const attributesFallback = attributeScenario(
+  'attributes-fallback',
+  'Like attributes-plain, but a lazyImport whose selector has a combinator is registered and never matches, so ' +
+  'Impulse\'s observer cannot skip any attribute and receives all 2,000 changes.',
+  fixture(
+    () =>
+      `<attr-host><button type="button" data-action="click->attr-host#poke">Poke</button></attr-host>` +
+      `<fallback-host></fallback-host>` +
+      `<div class="list">${range(1, ITEMS).map((index) => item(index)).join('')}</div>`,
+  ),
+  () => {
+    const problems: string[] = [];
+    expectEqual(
+      problems,
+      '<fallback-host> started',
+      document.querySelector('fallback-host')!.hasAttribute(STARTED_ATTRIBUTE),
+      true,
+    );
+    host().querySelector('button')!.click();
+    expectEqual(problems, 'pokes after clicking the button', host().pokes, 1);
+    return problems;
+  },
+);
+
 /** The mutated elements each carry a `data-action` token, so the observer matches them and then ignores the change. */
 export const attributesTokened = attributeScenario(
   'attributes-tokened',

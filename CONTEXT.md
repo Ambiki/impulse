@@ -12,6 +12,11 @@ The component a `data-target` or `data-action` token belongs to: the nearest anc
 token's identifier.
 _Avoid_: Controller, parent, scope
 
+**Self-contained selector**:
+A selector whose match against an element depends only on that element's tag name and its own attributes, so nothing
+else in the document (ancestors, siblings, focus, user input) can make it start or stop matching.
+_Avoid_: Filterable selector, simple selector, compound selector, local selector
+
 ### Benchmarking
 
 **Baseline**:
