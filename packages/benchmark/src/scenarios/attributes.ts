@@ -20,12 +20,18 @@ function item(index: number, attributes = ''): string {
  * for Impulse's document observer, none of them on an attribute Impulse reads. `page` decides whether the elements
  * carry tokens; either way a started component is on the page, so the observer is running.
  */
-function attributeScenario(name: string, page: () => DocumentFragment, verifyItems: (items: HTMLElement[]) => string[]): Scenario {
+function attributeScenario(
+  name: string,
+  description: string,
+  page: () => DocumentFragment,
+  verifyItems: (items: HTMLElement[]) => string[],
+): Scenario {
   let items: HTMLElement[];
   let offset = 0;
 
   return {
     name,
+    description,
     warmup: 5,
     measured: 10,
     setup() {
@@ -57,6 +63,9 @@ function attributeScenario(name: string, page: () => DocumentFragment, verifyIte
 /** The mutated elements carry no tokens and sit outside the component. */
 export const attributesPlain = attributeScenario(
   'attributes-plain',
+  'Times toggling a class and writing an inline style on 1,000 elements that carry no Impulse tokens, in one task. A ' +
+  'component elsewhere on the page keeps Impulse\'s document observer running, so this is the cost Impulse adds to DOM ' +
+  'work it has nothing to do with.',
   fixture(
     () =>
       `<attr-host><button type="button" data-action="click->attr-host#poke">Poke</button></attr-host>` +
@@ -73,6 +82,8 @@ export const attributesPlain = attributeScenario(
 /** The mutated elements each carry a `data-action` token, so the observer matches them and then ignores the change. */
 export const attributesTokened = attributeScenario(
   'attributes-tokened',
+  'Like attributes-plain, but each of the 1,000 elements carries a data-action token, so Impulse\'s observer matches ' +
+  'every changed element before ignoring the class and style changes.',
   fixture(
     () =>
       `<attr-host><div class="list">` +

@@ -61,5 +61,10 @@ export function mountScenario(scenario: Scenario) {
 
   runOnce.addEventListener('click', () => run(1));
   runTen.addEventListener('click', () => run(10));
-  aside.append(back, element('h1', scenario.name), runOnce, runTen, summary, results);
+  const timing = element(
+    'p',
+    'Run times the operation until Impulse has finished reacting to it; building the starting state and cleaning up ' +
+    'afterwards are not timed.',
+  );
+  aside.append(back, element('h1', scenario.name), element('p', scenario.description), timing, runOnce, runTen, summary, results);
 }

@@ -11,6 +11,7 @@ const APPENDED_ROWS = 1_000;
  */
 interface Shape {
   family: string;
+  description: string;
   grid: () => DocumentFragment;
   row: (id: number) => string;
   /** Problems with the rows now in the grid, which should be exactly `ids`, in that order. */
@@ -57,6 +58,9 @@ function unselectedId(ids: number[]): number {
 /** One `<data-table>` owns every row's tokens: 20,000 tokens routed to a single component. */
 const singleOwner: Shape = {
   family: 'table-single-owner',
+  description:
+    'A grid of 5,000 rows owned by a single <data-table> component: every row\'s select and navigate actions and its ' +
+    'label and delete-button targets route to that one component, 20,000 tokens in all.',
   grid: fixture(() => `<data-table role="grid"><div role="rowgroup"></div></data-table>`),
   row: (id) =>
     `<div role="row" data-id="${id}" data-action="click->data-table#select keydown->data-table#navigate">` +
@@ -90,6 +94,9 @@ const singleOwner: Shape = {
 /** Every row is its own `<table-row>` component: 5,000 components each starting a property, targets and actions. */
 const rowElements: Shape = {
   family: 'table-row-elements',
+  description:
+    'A grid of 5,000 rows where each row is its own <table-row> component, with a selected property, label and ' +
+    'delete-button targets, and select and navigate actions.',
   grid: fixture(() => `<div role="grid"><div role="rowgroup"></div></div>`),
   row: (id) =>
     `<table-row role="row" data-id="${id}"${id % 10 === 0 ? ' selected' : ''} ` +
@@ -139,6 +146,7 @@ function operations(shape: Shape): Scenario[] {
   return [
     {
       name: `${shape.family}/create`,
+      description: `${shape.description} Times inserting all 5,000 rows into the empty grid with one append().`,
       ...iterations,
       setup() {
         document.body.replaceChildren(shape.grid());
@@ -150,6 +158,7 @@ function operations(shape: Shape): Scenario[] {
     },
     {
       name: `${shape.family}/clear`,
+      description: `${shape.description} Starts with every row connected and times removing them all with replaceChildren().`,
       ...iterations,
       setup() {
         insertRows();
@@ -162,6 +171,9 @@ function operations(shape: Shape): Scenario[] {
     },
     {
       name: `${shape.family}/append`,
+      description:
+        `${shape.description} Starts with every row connected and times appending ${APPENDED_ROWS.toLocaleString('en')} ` +
+        'more with one append().',
       ...iterations,
       setup() {
         insertRows();
@@ -175,6 +187,9 @@ function operations(shape: Shape): Scenario[] {
     {
       // Re-appending the rows in reverse detaches and reattaches every one of them in the same task.
       name: `${shape.family}/move`,
+      description:
+        `${shape.description} Starts with every row connected and times re-appending them in reverse order, which ` +
+        'disconnects and reconnects every row in the same task.',
       ...iterations,
       setup: insertRows,
       run: () => rowGroup().append(...Array.from(rowGroup().children).reverse()),

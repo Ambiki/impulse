@@ -8,6 +8,8 @@
 export interface Scenario {
   /** `family/operation`, or just `family` when there is a single operation. */
   name: string;
+  /** What the page holds and which operation is timed, in a sentence or two, shown on the Scenario's page. */
+  description: string;
   /** Iterations per Round discarded before measuring, so the JIT has seen the code. */
   warmup: number;
   /** Iterations per Round whose median becomes the Round's Sample. */

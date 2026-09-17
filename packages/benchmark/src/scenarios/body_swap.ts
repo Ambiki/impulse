@@ -118,6 +118,10 @@ let replaced: HTMLElement[];
 /** A Turbo-style visit: the whole `<body>` swapped for a fresh copy of the same page. */
 export const bodySwap: Scenario = {
   name: 'body-swap',
+  description:
+    'An app page of about 10,000 elements, mostly plain markup, with about 200 components of 5 kinds (some nested ' +
+    'inside others). Times document.body.replaceWith() swapping it for a fresh copy of the same page, as a Turbo visit ' +
+    'does: every old component disconnects and every new one connects.',
   warmup: 5,
   measured: 10,
   setup() {
