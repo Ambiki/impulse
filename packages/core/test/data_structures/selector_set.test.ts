@@ -182,6 +182,19 @@ describe('SelectorSet', () => {
     expect(matches.map((m) => m.value).sort()).to.deep.equal(['escaped-class', 'escaped-descendant', 'escaped-id']);
   });
 
+  it('matches selectors whose comments hide a quote from the index', async () => {
+    const set = new SelectorSet<string>();
+    // The quote inside each comment would make the combinator look quoted, filing the selector under `.fake`.
+    const selector = '.fake[data-a=x/*"*/] .real[data-b=y/*"*/]';
+    set.add(selector, 'commented');
+    const root = await fixture<HTMLElement>(html`<div class="fake" data-a="x"><span class="real" data-b="y"></span></div>`);
+    const el = root.querySelector('span')!;
+    expect(el.matches(selector)).to.be.true;
+
+    const matches = set.matches(el).filter((m) => el.matches(m.selector));
+    expect(matches.map((m) => m.value)).to.deep.equal(['commented']);
+  });
+
   it('matches camel-cased SVG elements by tag', async () => {
     const set = new SelectorSet<string>();
     set.add('svg linearGradient', 'camel');

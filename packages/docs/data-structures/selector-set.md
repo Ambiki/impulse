@@ -32,7 +32,7 @@ consulted.
 
 A selector that cannot be filed goes into a catch-all bucket that is checked against every element. That happens when
 any one of its comma-separated parts has a subject with no such token — `[data-x]`, `:is(...)`, `*` — or when the
-selector contains an escape sequence anywhere in it. One unindexable part is enough: `div, [data-x]` goes to the
+selector contains an escape sequence or a comment anywhere in it. One unindexable part is enough: `div, [data-x]` goes to the
 catch-all whole, `div` included. Those selectors still work; they are just not narrowed.
 
 ## Duplicates

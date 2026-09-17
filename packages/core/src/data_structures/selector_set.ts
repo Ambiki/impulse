@@ -115,9 +115,10 @@ export default class SelectorSet<T> {
    * the fallback bucket so no part is ever missed).
    */
   private bucketsFor(selector: string): Array<{ map: SetMap<string, Entry<T>>; key: string }> | null {
-    // Escaped identifiers (e.g. `#\31 foo` from `CSS.escape('1foo')`) would need decoding to index correctly; the
-    // fallback bucket is always correct, just unindexed.
-    if (selector.includes('\\')) return null;
+    // Escaped identifiers (e.g. `#\31 foo` from `CSS.escape('1foo')`) would need decoding to index correctly, and a
+    // comment can hide a quote, and so a combinator, from the scanner; the fallback bucket is always correct, just
+    // unindexed.
+    if (selector.includes('\\') || selector.includes('/*')) return null;
 
     const buckets: Array<{ map: SetMap<string, Entry<T>>; key: string }> = [];
     const seen = new Set<string>();
