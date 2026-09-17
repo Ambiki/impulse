@@ -29,3 +29,7 @@ const stop = disconnected('div', (element) => {
 // Later, stop observing
 stop();
 ```
+
+## Performance
+
+Prefer self-contained selectors: see [Performance](./connected#performance) under `connected`.

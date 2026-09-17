@@ -1,3 +1,10 @@
+import {
+  IDENT_PATTERN,
+  matchingClose,
+  scan,
+  splitSelectorList,
+  TAG_PATTERN,
+} from '../helpers/selector';
 import SetMap from './set_map';
 
 interface Entry<T> {
@@ -136,62 +143,12 @@ function collect<T>(set: Set<Entry<T>>, out: Match<T>[], seen: Set<Entry<T>>) {
   }
 }
 
+// Only the five CSS whitespace characters separate compounds; `\u00A0` is part of an identifier.
+const CSS_WHITESPACE = /[\t\n\f\r ]/;
+
 interface Token {
   kind: 'id' | 'class' | 'tag';
   value: string;
-}
-
-// CSS identifiers may contain any non-ASCII code point, so `\u00A0` (which `CSS.escape` leaves unescaped) is part of
-// an identifier, not whitespace. Only the five CSS whitespace characters separate compounds.
-const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
-const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
-const CSS_WHITESPACE = /[\t\n\f\r ]/;
-const CSS_TRIM = /^[\t\n\f\r ]+|[\t\n\f\r ]+$/g;
-
-/**
- * Walks `value` from index `from`, skipping over quoted strings and tracking `(...)` / `[...]` nesting. `visit` is
- * called for every unquoted character with the nesting depth *after* that character is applied (so a closing bracket
- * is visited at the depth of its opener) and may return `true` to stop early. Returns the index the walk stopped at,
- * or `-1` if it reached the end - `null` if quotes or nesting were unbalanced.
- */
-function scan(value: string, from: number, visit: (ch: string, index: number, depth: number) => boolean | void) {
-  let depth = 0;
-  let quote: string | null = null;
-
-  for (let i = from; i < value.length; i += 1) {
-    const ch = value[i];
-    if (quote) {
-      if (ch === quote) quote = null;
-      continue;
-    }
-    if (ch === '"' || ch === '\'') {
-      quote = ch;
-      continue;
-    }
-    if (ch === '(' || ch === '[') depth += 1;
-    else if (ch === ')' || ch === ']') depth -= 1;
-    if (depth < 0) return null;
-    if (visit(ch, i, depth)) return i;
-  }
-
-  return depth === 0 && quote === null ? -1 : null;
-}
-
-/**
- * Splits a selector list on top-level commas, ignoring commas inside `(...)`, `[...]`, and quoted strings.
- */
-function splitSelectorList(selector: string): string[] {
-  const parts: string[] = [];
-  let start = 0;
-  scan(selector, 0, (ch, i, depth) => {
-    if (ch === ',' && depth === 0) {
-      parts.push(selector.slice(start, i));
-      start = i + 1;
-    }
-  });
-  parts.push(selector.slice(start));
-
-  return parts.map((part) => part.replace(CSS_TRIM, '')).filter((part) => part.length > 0);
 }
 
 /**
@@ -259,13 +216,4 @@ function rightmostCompound(selector: string): string | null {
     if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || CSS_WHITESPACE.test(ch))) start = i + 1;
   });
   return end === null ? null : selector.slice(start);
-}
-
-/**
- * Index of the bracket or paren closing the one at `openIndex`, honoring nesting and quoted strings; `null` if
- * unbalanced.
- */
-function matchingClose(value: string, openIndex: number): number | null {
-  const end = scan(value, openIndex, (_ch, i, depth) => i > openIndex && depth === 0);
-  return end === null || end === -1 ? null : end;
 }

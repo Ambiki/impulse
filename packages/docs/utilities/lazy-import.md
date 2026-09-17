@@ -40,3 +40,7 @@ connected('.billing', (element) => {
   // Runs for the element that triggered the import and for every `.billing` element added afterwards.
 });
 ```
+
+## Performance
+
+Prefer self-contained selectors: see [Performance](./connected#performance) under `connected`.
