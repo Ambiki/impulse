@@ -53,3 +53,6 @@ node_modules/
 *.njsproj
 *.sln
 *.sw?
+
+# Benchmark builds, worktrees and sites
+packages/benchmark/.bench/

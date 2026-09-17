@@ -17,6 +17,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
   private tokensByElement: SetMap<T, Token<T>>;
+  // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
+  private orderedByKey = new Map<string, T[]>();
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
@@ -26,11 +28,13 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   }
 
   start() {
-    // Initialize targets with an empty array if it references multiple targets, or with null if it references a single
-    // target. Later, if we find matching targets, we set them accordingly. If we don't, we can still iterate over
-    // targets because it is an array.
+    // Each field reads the current targets when accessed: every matching element in document order (an empty array
+    // when there are none) for `@targets()`, or the element (`null` when there is none) for `@target()`.
     for (const { key, multiple } of this.declarations.values()) {
-      this.defineProperty(key, multiple ? [] : null);
+      Object.defineProperty(this.instance, key, {
+        configurable: true,
+        get: multiple ? () => this.orderedTargets(key) : () => this.targetsByKey.getValuesForKey(key)[0] ?? null,
+      });
     }
 
     if (!this.stopWatching) {
@@ -72,8 +76,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
     this.targetsByKey.add(key, element);
     this.tokensByElement.add(element, token);
-
-    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : element);
+    this.orderedByKey.delete(key);
     this.invokeCallback(key, element, 'connected');
   }
 
@@ -85,36 +88,36 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     this.tokensByElement.delete(element, token);
     if (this.isStillReferenced(element, content)) return;
 
-    this.targetsByKey.delete(key, element);
-    this.invokeCallback(key, element, 'disconnected');
-    // Update property after invoking callback.
-    this.defineProperty(key, this.isKeyMultiple(key) ? this.targetsInDocumentOrder(key) : null);
+    // The callback still sees the target in the field; it is forgotten afterwards, even if the callback throws.
+    try {
+      this.invokeCallback(key, element, 'disconnected');
+    } finally {
+      this.targetsByKey.delete(key, element);
+      this.orderedByKey.delete(key);
+    }
   }
 
   /**
-   * The targets under `key`, in document order.
+   * The targets under `key`, in document order. `targetsByKey` is kept in insertion order, so the first read after a
+   * change sorts; later reads get the same array until the next change, which never mutates it.
    *
-   * Both the connect and the disconnect path sort through here, because `targetsByKey` itself is never ordered: the
-   * connect path sorts a throwaway array, so one target connecting out of document order leaves the underlying set
-   * unsorted for good, and an unsorted disconnect path then hands that order straight to the property.
-   *
-   * Targets removed earlier in the same mutation batch are already detached when this runs, and
-   * `compareDocumentPosition` orders nodes in different trees arbitrarily. A `[key]Disconnected` callback part-way
-   * through such a batch can therefore see the survivors out of order; the last unmatch of the batch sorts them
-   * correctly again.
+   * Targets removed earlier in the same mutation batch are already detached until their unmatch is delivered, and
+   * `compareDocumentPosition` orders nodes in different trees arbitrarily. A read part-way through such a batch (from a
+   * `[key]Connected` or `[key]Disconnected` callback) can therefore see the survivors out of order.
    */
-  private targetsInDocumentOrder(key: string): T[] {
-    return this.targetsByKey
-      .getValuesForKey(key)
-      .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  private orderedTargets(key: string): T[] {
+    let ordered = this.orderedByKey.get(key);
+    if (!ordered) {
+      ordered = this.targetsByKey
+        .getValuesForKey(key)
+        .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+      this.orderedByKey.set(key, ordered);
+    }
+    return ordered;
   }
 
   private isStillReferenced(element: T, content: string): boolean {
     return this.tokensByElement.getValuesForKey(element).some((token) => token.content === content);
-  }
-
-  private defineProperty(key: string, result: T | T[] | null) {
-    Object.defineProperty(this.instance, key, { configurable: true, get: () => result });
   }
 
   private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {

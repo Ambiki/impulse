@@ -99,6 +99,25 @@ describe('@targets', () => {
     expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel-last']);
   });
 
+  it('should persist the DOM order when a target is inserted and the last one removed in the same task', async () => {
+    const last = document.createElement('div');
+    last.setAttribute('data-target', `${el.identifier}.panels`);
+    last.id = 'panel-last';
+    el.append(last);
+    await nextFrame();
+
+    // The insertion is delivered while `panel-last` is still remembered but already detached, so comparing against it
+    // says nothing about where `panel-mid` belongs.
+    const middle = document.createElement('div');
+    middle.setAttribute('data-target', `${el.identifier}.panels`);
+    middle.id = 'panel-mid';
+    document.getElementById('panel1')!.after(middle);
+    last.remove();
+    await nextFrame();
+
+    expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel2']);
+  });
+
   it('should call the lifecycle callback function when target is connected to the DOM', () => {
     const panels = Array.from(el.querySelectorAll('.panel'));
 

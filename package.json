@@ -5,6 +5,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "bench": "yarn workspace @ambiki/benchmark bench",
+    "bench:serve": "yarn workspace @ambiki/benchmark serve",
     "build": "yarn workspace @ambiki/impulse build",
     "build:watch": "yarn workspace @ambiki/impulse build --watch",
     "clean": "yarn workspace @ambiki/impulse clean",

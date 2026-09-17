@@ -44,6 +44,13 @@ export default antfu(
     },
   },
   {
+    // The benchmark's Node-side tests run on `node --test` rather than adding Vitest.
+    files: ['packages/benchmark/test/**'],
+    rules: {
+      'test/no-import-node-test': 'off',
+    },
+  },
+  {
     files: ['**/*.config.{js,mjs,ts}'],
     rules: {
       'node/prefer-global/process': 'off',

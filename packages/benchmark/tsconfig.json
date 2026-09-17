@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "dom", "dom.iterable"],
+    "types": ["node", "vite/client"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "isolatedModules": true
+  },
+  "include": ["src", "test", "vite.config.ts"]
+}
