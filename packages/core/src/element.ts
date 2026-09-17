@@ -6,7 +6,7 @@ import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import Property, { fromAttribute } from './property';
-import { PROPERTIES, registered, registeredFor } from './registry';
+import { PROPERTIES, registered } from './registry';
 import Target from './target';
 
 export class ImpulseElement extends HTMLElement {
@@ -31,7 +31,7 @@ export class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    return Array.from(registered(this.prototype, PROPERTIES)).map(({ key }) => dasherize(key));
+    return Array.from(registered(this.prototype, PROPERTIES).keys(), dasherize);
   }
 
   attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
@@ -41,8 +41,7 @@ export class ImpulseElement extends HTMLElement {
     const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
     if (typeof fn !== 'function') return;
 
-    const properties = registeredFor(this, PROPERTIES);
-    const property = Array.from(properties).find(({ key }) => key === camelizedName);
+    const property = this.property.declarations.get(camelizedName);
     if (!property) {
       throw new Error(
         `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`,

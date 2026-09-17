@@ -1,10 +1,10 @@
 import { register, TARGETS } from '../registry';
 
 /**
- * A single `@target()` / `@targets()` registration: the field name, and whether it collects every matching element or
+ * A single `@target()` / `@targets()` declaration: the field name, and whether it collects every matching element or
  * only one.
  */
-export interface TargetType {
+export interface TargetDeclaration {
   key: string;
   multiple: boolean;
 }

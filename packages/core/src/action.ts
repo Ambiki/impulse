@@ -14,9 +14,7 @@ export default class Action<T extends Element = Element> implements TokenListWat
   // passes the same `Token` instance to both callbacks, and duplicate descriptors on one element get distinct tokens.
   private eventListenerMap = new Map<Token<T>, EventListener>();
 
-  constructor(private readonly instance: ImpulseElement) {
-    this.instance = instance;
-  }
+  constructor(private readonly instance: ImpulseElement) {}
 
   start() {
     if (!this.stopWatching) {

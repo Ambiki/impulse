@@ -1,9 +1,9 @@
 import { PROPERTIES, register } from '../registry';
 
 /**
- * A single `@property()` registration: the field name and the constructor its attribute value is converted with.
+ * A single `@property()` declaration: the field name and the constructor its attribute value is converted with.
  */
-export interface PropertyType {
+export interface PropertyDeclaration {
   key: string;
   type: PropertyConstructor;
 }

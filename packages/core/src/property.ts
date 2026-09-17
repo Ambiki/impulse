@@ -1,13 +1,17 @@
-import type { PropertyConstructor, PropertyType } from './decorators/property';
+import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { dasherize, parseJSON } from './helpers/string';
 import { PROPERTIES, registeredFor } from './registry';
 
 export default class Property {
-  constructor(private readonly instance: ImpulseElement) {}
+  readonly declarations: ReadonlyMap<string, PropertyDeclaration>;
+
+  constructor(private readonly instance: ImpulseElement) {
+    this.declarations = registeredFor(this.instance, PROPERTIES);
+  }
 
   start() {
-    for (const [{ key, type }] of this.properties.entries()) {
+    for (const { key, type } of this.declarations.values()) {
       this.initializeProperty(key, type);
     }
   }
@@ -29,10 +33,6 @@ export default class Property {
     if (!this.instance.hasAttribute(attributeName)) {
       descriptor.set?.(defaultValue);
     }
-  }
-
-  private get properties(): ReadonlySet<PropertyType> {
-    return registeredFor(this.instance, PROPERTIES);
   }
 }
 
