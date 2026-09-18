@@ -7,6 +7,11 @@ covers the framework and the tooling used to develop it.
 
 ### Framework
 
+**Initialized**:
+An element whose properties, targets, and actions have started and that has not been disconnected since. Only an
+element itself can be Initialized; the `data-impulse-element` attribute reports the state rather than conferring it.
+_Avoid_: Started, mounted, booted
+
 **Owner**:
 The component a `data-target` or `data-action` token belongs to: the nearest ancestor-or-self whose tag name is the
 token's identifier.

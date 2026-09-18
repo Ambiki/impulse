@@ -1,8 +1,7 @@
 # whenInitialized
 
 The `whenInitialized` function returns a promise that resolves once an element is ready to be interacted with. For an
-Impulse element that means once its properties, targets, and actions have started and the `data-impulse-element` marker
-attribute has been set.
+Impulse element that means once its properties, targets, and actions have started.
 
 This mirrors the familiar [`customElements.whenDefined()`](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined)
 pattern, but for an Impulse element resolves on full initialization rather than mere definition.
@@ -18,10 +17,16 @@ select.doSomething();
 
 - **Standard HTML elements** (a tag name without a hyphen can never be a custom element) resolve immediately — there is
   nothing to initialize.
-- **Impulse custom elements** resolve once the marker attribute is set.
-- **Non-Impulse custom elements** never receive the marker, so they resolve as soon as their class is defined
+- **Impulse custom elements** resolve once they have initialized.
+- **Non-Impulse custom elements** never initialize, so they resolve as soon as their class is defined
   (equivalent to `customElements.whenDefined`). This makes `whenInitialized` safe to use on any target element,
   whether or not it is an Impulse element.
+
+::: tip
+An initialized Impulse element carries a `data-impulse-element` attribute, but that attribute is a consequence of
+initializing, not a substitute for it: one copied by `cloneNode` or written into your HTML by hand does not make
+`whenInitialized` resolve.
+:::
 
 ## Reading a target's properties from a connected callback
 

@@ -1,6 +1,6 @@
-import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { ImpulseElement } from './element';
 import { invokeEach } from './helpers/invoke_each';
+import { isInitialized, waitForInitialization } from './initialization';
 import { watchSelector } from './observers/document_observer';
 
 /**
@@ -118,15 +118,16 @@ export function disconnected<T extends Element = Element>(selector: string, call
 
 /**
  * Returns a promise that resolves once the element is ready to be interacted with. For an Impulse element that means
- * once its properties, targets, and actions have started and the `data-impulse-element` marker attribute has been set.
+ * once its properties, targets, and actions have started.
  *
  * This mirrors the familiar `customElements.whenDefined()` pattern, but for an Impulse element resolves on full
  * initialization rather than mere definition.
  *
  * - **Standard HTML elements** (a tag name without a hyphen can never be a custom element) resolve immediately —
  *   there is nothing to initialize.
- * - **Impulse custom elements** resolve once the `data-impulse-element` marker attribute is set.
- * - **Non-Impulse custom elements** never receive the marker, so they resolve as soon as their class is defined
+ * - **Impulse custom elements** resolve once they have initialized. A `data-impulse-element` attribute that was copied
+ *   by `cloneNode` or hand-written rather than set by the element itself does not count.
+ * - **Non-Impulse custom elements** never initialize, so they resolve as soon as their class is defined
  *   (equivalent to `customElements.whenDefined`) — making this safe to use on any target element.
  *
  * By default there is no deadline: like `customElements.whenDefined`, the promise stays pending until the element is
@@ -153,51 +154,32 @@ export function whenInitialized<T extends Element>(
   { timeout }: { timeout?: number } = {},
 ): Promise<T> {
   // Already initialized.
-  if (element.hasAttribute(IMPULSE_ELEMENT_ATTRIBUTE)) {
+  if (isInitialized(element)) {
     return Promise.resolve(element);
   }
 
-  // Standard elements never receive the marker attribute, so there is nothing to wait for.
+  // Standard elements never initialize, so there is nothing to wait for.
   if (!element.localName.includes('-')) {
     return Promise.resolve(element);
   }
 
-  let settled = false;
-  let stop: (() => void) | undefined;
-
-  // Wait for the class to be registered, then decide how "initialized" is defined for this element.
+  let stop: () => void;
   const initialized = new Promise<T>((resolve) => {
+    // Registered before the class is known to be defined: an element notifies its own waiters, so there is nothing for
+    // the definition to decide, and a registration is a `WeakMap` set rather than something worth deferring.
+    stop = waitForInitialization(element, resolve);
+
+    // A non-Impulse custom element is never notified, so being defined is as far as it gets. Resolving a promise
+    // that has already settled is a no-op, so an Impulse element that initialized while we waited needs no guard.
     customElements.whenDefined(element.localName).then(() => {
-      // The race may have already settled (e.g. timed out) before the class was defined.
-      if (settled) return;
-
-      // Non-Impulse custom elements never get the marker; being defined is as ready as they get.
-      if (!isImpulseElement(element.localName)) {
-        resolve(element);
-        return;
-      }
-
-      // The Impulse element may have finished initializing while we waited for the definition.
-      if (element.hasAttribute(IMPULSE_ELEMENT_ATTRIBUTE)) {
-        resolve(element);
-        return;
-      }
-
-      // `connected` fires when an element starts matching the selector, including when the marker attribute is added
-      // later by `_asyncConnect`. We filter to our specific element.
-      stop = connected<T>(`[${IMPULSE_ELEMENT_ATTRIBUTE}]`, (el) => {
-        if (el === element) resolve(element);
-      });
+      if (!isImpulseElement(element.localName)) resolve(element);
     });
   });
 
-  // No deadline by default: wait until the element is ready, mirroring `customElements.whenDefined`. A never-defined tag
-  // simply parks on the native `whenDefined` promise (no per-element watcher is created until the class is defined).
+  // No deadline by default: wait until the element is ready, mirroring `customElements.whenDefined`. A never-defined
+  // tag simply keeps its registration, which is dropped along with the element itself.
   if (timeout === undefined || !Number.isFinite(timeout)) {
-    return initialized.finally(() => {
-      settled = true;
-      stop?.();
-    });
+    return initialized.finally(() => stop());
   }
 
   let timer: ReturnType<typeof setTimeout>;
@@ -207,13 +189,11 @@ export function whenInitialized<T extends Element>(
     }, timeout);
   });
 
-  // Whichever settles first wins; `finally` clears the timer and stops the shared-observer watcher on both the
-  // resolve and reject paths so nothing leaks. `settled` guards against a late `whenDefined` callback registering a
-  // watcher after the race has already finished.
+  // Whichever settles first wins; `finally` clears the timer and deregisters the wait on both the resolve and reject
+  // paths, so a timed-out call leaves nothing behind on an element that initializes later.
   return Promise.race([initialized, timedOut]).finally(() => {
-    settled = true;
     clearTimeout(timer);
-    stop?.();
+    stop();
   });
 }
 

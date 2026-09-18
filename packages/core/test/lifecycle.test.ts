@@ -355,6 +355,22 @@ describe('disconnected', () => {
 describe('whenInitialized', () => {
   const CONNECTION_TIMEOUT_MS = 200;
 
+  /** Waits for `element` to advertise that it has initialized, so a test can start from a known state. */
+  function waitForMarker(element: Element) {
+    return waitUntil(() => element.hasAttribute('data-impulse-element'), 'element should initialize', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+  }
+
+  /** Asserts that `promise` is still waiting once a beat has passed, rather than having resolved or rejected. */
+  async function expectPending(promise: Promise<unknown>) {
+    const outcome = await Promise.race([
+      promise.then(() => 'settled', () => 'settled'),
+      new Promise((resolve) => setTimeout(resolve, 50, 'pending')),
+    ]);
+    expect(outcome).to.eq('pending');
+  }
+
   it('resolves with the element when it is already initialized', async () => {
     counter += 1;
     const tag = `when-initialized-${counter}`;
@@ -365,9 +381,7 @@ describe('whenInitialized', () => {
     document.body.appendChild(element);
 
     try {
-      await waitUntil(() => element.hasAttribute('data-impulse-element'), 'element should initialize', {
-        timeout: CONNECTION_TIMEOUT_MS,
-      });
+      await waitForMarker(element);
       const resolved = await whenInitialized(element);
       expect(resolved).to.eq(element);
     } finally {
@@ -471,11 +485,7 @@ describe('whenInitialized', () => {
       const promise = whenInitialized(element);
 
       // With no deadline the promise stays pending while the tag is unregistered - it does not reject.
-      const outcome = await Promise.race([
-        promise.then(() => 'settled', () => 'settled'),
-        new Promise((resolve) => setTimeout(resolve, 50, 'pending')),
-      ]);
-      expect(outcome).to.eq('pending');
+      await expectPending(promise);
 
       // Once the class is registered it resolves.
       registerElement(tag)(WhenInitializedElement);
@@ -503,5 +513,86 @@ describe('whenInitialized', () => {
     }
 
     expect(error).to.be.an.instanceOf(Error);
+  });
+
+  it('resolves when the element is removed in the same task it initializes', async () => {
+    counter += 1;
+    const tag = `same-task-removal-${counter}`;
+    class WhenInitializedElement extends ImpulseElement {
+      connected() {
+        // Initializing and disconnecting within one task must still resolve whoever was waiting on this element.
+        this.remove();
+      }
+    }
+    registerElement(tag)(WhenInitializedElement);
+
+    const element = document.createElement(tag) as WhenInitializedElement;
+    document.body.appendChild(element);
+
+    const resolved = await whenInitialized(element, { timeout: CONNECTION_TIMEOUT_MS });
+    expect(resolved).to.eq(element);
+    expect(element.isConnected).to.be.false;
+  });
+
+  it('stays pending while the marker attribute is stale', async () => {
+    counter += 1;
+    const tag = `stale-marker-${counter}`;
+    class WhenInitializedElement extends ImpulseElement {
+      initialized = false;
+
+      connected() {
+        this.initialized = true;
+      }
+    }
+    registerElement(tag)(WhenInitializedElement);
+
+    const element = document.createElement(tag) as WhenInitializedElement;
+    document.body.appendChild(element);
+
+    try {
+      await waitForMarker(element);
+
+      // A copy carries the marker attribute over, but has initialized nothing.
+      const clone = element.cloneNode(true) as WhenInitializedElement;
+      expect(clone.hasAttribute('data-impulse-element')).to.be.true;
+      const promise = whenInitialized(clone);
+
+      await expectPending(promise);
+
+      document.body.appendChild(clone);
+      try {
+        const resolved = await promise;
+        expect(resolved).to.eq(clone);
+        expect(resolved.initialized).to.be.true;
+      } finally {
+        clone.remove();
+      }
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('stays pending for a disconnected element until it is connected again', async () => {
+    counter += 1;
+    const tag = `reconnected-${counter}`;
+    class WhenInitializedElement extends ImpulseElement {}
+    registerElement(tag)(WhenInitializedElement);
+
+    const element = document.createElement(tag) as WhenInitializedElement;
+    document.body.appendChild(element);
+
+    try {
+      await waitForMarker(element);
+      element.remove();
+
+      const promise = whenInitialized(element);
+      await expectPending(promise);
+
+      document.body.appendChild(element);
+      const resolved = await promise;
+      expect(resolved).to.eq(element);
+    } finally {
+      element.remove();
+    }
   });
 });
