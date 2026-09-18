@@ -23,9 +23,10 @@ select.doSomething();
   whether or not it is an Impulse element.
 
 ::: tip
-An initialized Impulse element carries a `data-impulse-element` attribute, but that attribute is a consequence of
-initializing, not a substitute for it: one copied by `cloneNode` or written into your HTML by hand does not make
-`whenInitialized` resolve.
+An initialized Impulse element carries a `data-impulse-element` attribute, but the attribute reports the state rather
+than conferring it. An element that carries it without having initialized — a `cloneNode` copy, or an element you wrote
+the attribute onto yourself — stays pending until it really initializes. How the element reached the DOM does not
+matter: `innerHTML`, `appendChild`, and server-rendered markup all initialize normally.
 :::
 
 ## Reading a target's properties from a connected callback
