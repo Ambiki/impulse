@@ -5,6 +5,7 @@ import { domReady } from './helpers/dom';
 import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
+import { clearInitialized, notifyInitialized } from './initialization';
 import Property, { fromAttribute } from './property';
 import { PROPERTIES, registered } from './registry';
 import Target from './target';
@@ -75,6 +76,7 @@ export class ImpulseElement extends HTMLElement {
     } finally {
       this._started = false;
       this.removeAttribute(IMPULSE_ELEMENT_ATTRIBUTE);
+      clearInitialized(this);
     }
   }
 
@@ -136,6 +138,9 @@ export class ImpulseElement extends HTMLElement {
       this._started = true;
 
       this.setAttribute(IMPULSE_ELEMENT_ATTRIBUTE, '');
+      // Before `connected()`, so the marker being set and the waiters being resolved are one step: a `connected()`
+      // that throws, or that removes the element, cannot leave a `whenInitialized()` call waiting forever.
+      notifyInitialized(this);
       this.connected();
     } finally {
       this._connecting = false;
