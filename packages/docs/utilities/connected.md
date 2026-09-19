@@ -124,18 +124,27 @@ matches exactly the elements it always did — only the cost differs.
 
 ### Keeping a selector cheap
 
-Register something self-contained and narrow it down inside the callback:
+Move the part of the selector that is about *other* elements into the callback. What you register stays
+self-contained, and the narrowing still happens.
 
-```ts
+```ts [Bad]
+// A combinator, so every attribute change in the document reaches Impulse.
+connected('.toolbar [data-toggle="tooltip"]', (element) => {
+  $(element).tooltip();
+});
+```
+
+```ts [Good]
+// Self-contained, so only `data-toggle` changes reach Impulse.
 connected('[data-toggle="tooltip"]', (element) => {
   if (!element.closest('.toolbar')) return;
   $(element).tooltip();
 });
 ```
 
-You give up less than it looks. `connected('.toolbar [data-toggle="tooltip"]')` does not react to `.toolbar` appearing
-on an ancestor either: Impulse re-checks the element a change was reported for, never that element's descendants. It
-would notice only by accident, if some unrelated attribute happened to change on the tooltip afterwards. The version
-above just does not tax the rest of the page for it.
+You give up less than it looks. The first version does not react to `.toolbar` appearing on an ancestor either: Impulse
+re-checks the element a change was reported for, never that element's descendants. It would notice only by accident, if
+some unrelated attribute happened to change on the tooltip afterwards. The second just does not tax the rest of the
+page for it.
 
 The same applies to [`disconnected`](./disconnected) and [`lazyImport`](./lazy-import).
