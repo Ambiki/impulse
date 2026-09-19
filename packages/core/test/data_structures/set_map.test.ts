@@ -66,6 +66,15 @@ describe('SetMap', () => {
       expect(map.valuesForKey('a')).to.deep.equal([1]);
     });
 
+    it('does not prune a key already emptied through get', () => {
+      const map = new SetMap<string, number>();
+      map.add('a', 1);
+      map.get('a')!.delete(1);
+
+      expect(map.delete('a', 1)).to.be.false;
+      expect(map.keys).to.deep.equal(['a']);
+    });
+
     it('returns false for an absent key without creating it', () => {
       const map = new SetMap<string, number>();
 
@@ -196,6 +205,10 @@ describe('SetMap', () => {
 
       expect(map.keys).to.deep.equal(['a']);
       expect(map.valuesForKey('a')).to.deep.equal([]);
+
+      // The key is left behind for good: only deleteKey or clear takes it out.
+      expect(map.deleteKey('a')).to.be.true;
+      expect(map.keys).to.deep.equal([]);
     });
   });
 

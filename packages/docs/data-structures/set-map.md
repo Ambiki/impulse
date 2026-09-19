@@ -31,8 +31,9 @@ something stored under two keys appears twice.
 
 ## Keys come and go with their values
 
-A key exists only while it holds at least one value. Deleting the last value under a key drops the key with it, so a
-long-lived map does not accumulate an entry for every key it has ever seen.
+Go through the methods and a key exists only while it holds at least one value: deleting the last value under a key
+drops the key with it, so a long-lived map does not accumulate an entry for every key it has ever seen. The one way
+past that is to empty the live set yourself, which [the next section](#snapshots-and-the-live-set) covers.
 
 ```ts
 handlers.delete('focus', onFocus);
@@ -75,6 +76,17 @@ clicks.add('click', onClick);
 
 clicks.get('click')!.delete(onClick); // Bypasses the cleanup.
 clicks.keys; // ['click'] — still there, now holding nothing.
+```
+
+The key stays for good. `delete()` reports only on the pair you hand it, so calling it on that key does not sweep the
+leftover up; `deleteKey()` or `clear()` is what takes it out.
+
+```ts
+clicks.delete('click', onClick); // false — nothing to remove.
+clicks.keys; // ['click'] — still there.
+
+clicks.deleteKey('click');
+clicks.keys; // []
 ```
 
 ## API
