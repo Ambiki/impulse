@@ -1,11 +1,9 @@
 import {
-  ATTRIBUTE_NAME_PATTERN,
-  IDENT_PATTERN,
-  matchingClose,
+  isReadableSelector,
   rightmostCompound,
   splitSelectorList,
   subjectSelectors,
-  TAG_PATTERN,
+  tokenizeCompound,
 } from '../helpers/selector';
 import SetMap from './set_map';
 
@@ -204,10 +202,9 @@ export default class SelectorSet<T> {
    * cannot be indexed (the whole selector then goes to the fallback bucket so no part is ever missed).
    */
   private bucketsFor(selector: string): Array<{ map: SetMap<string, Entry<T>>; key: string }> | null {
-    // Escaped identifiers (e.g. `#\31 foo` from `CSS.escape('1foo')`) would need decoding to index correctly, and a
-    // comment can hide a quote, and so a combinator, from the scanner; the fallback bucket is always correct, just
-    // unindexed.
-    if (selector.includes('\\') || selector.includes('/*')) return null;
+    // An escaped identifier (`#\31 foo` from `CSS.escape('1foo')`) would also need decoding to index correctly, so an
+    // unreadable selector goes to the fallback bucket - always correct, just unindexed.
+    if (!isReadableSelector(selector)) return null;
 
     const buckets: Array<{ map: SetMap<string, Entry<T>>; key: string }> = [];
     const seen = new Set<string>();
@@ -270,49 +267,27 @@ interface Token {
 function subjectToken(selector: string): Token | null {
   const compound = rightmostCompound(selector);
   if (compound === null) return null;
+  const simpleSelectors = tokenizeCompound(compound);
+  if (simpleSelectors === null) return null;
 
   let id: string | undefined;
   let attribute: string | undefined;
   let className: string | undefined;
   let tag: string | undefined;
-  let i = 0;
 
-  const tagMatch = TAG_PATTERN.exec(compound);
-  if (tagMatch) {
-    tag = tagMatch[0].toLowerCase();
-    i = tagMatch[0].length;
-  } else if (compound[0] === '*') {
-    i = 1;
-  }
-
-  while (i < compound.length) {
-    const ch = compound[i];
-    if (ch === '#' || ch === '.') {
-      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
-      if (!match) return null;
-      if (ch === '#') id ??= match[0];
-      else className ??= match[0];
-      i += 1 + match[0].length;
-    } else if (ch === '[') {
-      const end = matchingClose(compound, i);
-      if (end === null) return null;
-      const match = ATTRIBUTE_NAME_PATTERN.exec(compound.slice(i + 1, end));
+  for (const simple of simpleSelectors) {
+    if (simple.kind === 'id') {
+      id ??= simple.name;
+    } else if (simple.kind === 'attribute') {
       // A namespaced attribute (`[xlink|href]`) is left unindexed rather than keyed on a name it does not have.
-      if (match) attribute ??= match[1];
-      i = end + 1;
-    } else if (ch === ':') {
-      i += compound[i + 1] === ':' ? 2 : 1;
-      const match = IDENT_PATTERN.exec(compound.slice(i));
-      if (!match) return null;
-      i += match[0].length;
-      if (compound[i] === '(') {
-        const end = matchingClose(compound, i);
-        if (end === null) return null;
-        i = end + 1;
-      }
-    } else {
-      return null;
+      if (simple.name !== null) attribute ??= simple.name;
+    } else if (simple.kind === 'class') {
+      className ??= simple.name;
+    } else if (simple.kind === 'tag') {
+      // Tag keys are lowercased on both sides so camel-cased SVG names (`linearGradient`) still find their bucket.
+      tag ??= simple.name.toLowerCase();
     }
+    // A universal selector and a pseudo-class are no use as a key; the compound is indexed on whatever else it holds.
   }
 
   if (id !== undefined) return { kind: 'id', value: id };

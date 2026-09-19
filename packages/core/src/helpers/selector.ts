@@ -4,7 +4,7 @@
  * is visited at the depth of its opener) and may return `true` to stop early. Returns the index the walk stopped at,
  * or `-1` if it reached the end - `null` if quotes or nesting were unbalanced.
  */
-export function scan(
+function scan(
   value: string,
   from: number,
   visit: (ch: string, index: number, depth: number) => boolean | void,
@@ -54,18 +54,118 @@ export function splitSelectorList(selector: string): string[] {
  * Index of the bracket or paren closing the one at `openIndex`, honoring nesting and quoted strings; `null` if
  * unbalanced.
  */
-export function matchingClose(value: string, openIndex: number): number | null {
+function matchingClose(value: string, openIndex: number): number | null {
   const end = scan(value, openIndex, (_ch, i, depth) => i > openIndex && depth === 0);
   return end === null || end === -1 ? null : end;
 }
 
 // CSS identifiers may contain any non-ASCII code point, so `\u00A0` (which `CSS.escape` leaves unescaped) is part of
 // an identifier, not whitespace.
-export const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
-export const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
+const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
+const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
 // The contents of `[...]` up to the operator: a plain attribute name, optionally followed by an operator. A namespace
 // prefix (`ns|attr`, `*|attr`) does not match.
-export const ATTRIBUTE_NAME_PATTERN = /^[\t\n\f\r ]*([\w\u0080-\uFFFF-]+)[\t\n\f\r ]*(?:[~|^$*]?=|$)/;
+const ATTRIBUTE_NAME_PATTERN = /^[\t\n\f\r ]*([\w\u0080-\uFFFF-]+)[\t\n\f\r ]*(?:[~|^$*]?=|$)/;
+
+/**
+ * Whether this parser will read `selector` at all.
+ *
+ * An escape can hide a quote or a bracket from the scanner, and can carry a space of its own - `CSS.escape('1foo')` is
+ * `\\31 foo`, whose trailing space would read as a descendant combinator. A comment can hide a quote too, and so a
+ * combinator. Either would be read as a selector meaning something else entirely, so neither is read at all.
+ */
+export function isReadableSelector(selector: string): boolean {
+  return !selector.includes('\\') && !selector.includes('/*');
+}
+
+/**
+ * One simple selector of a compound. Every one carries the `source` it was read from, and concatenating those in order
+ * reproduces the compound exactly, so a caller can rebuild one out of the simple selectors it keeps.
+ *
+ * Names are reported as written, except a pseudo-class's, which is lowercased because CSS matches it case-insensitively
+ * while a tag or attribute name's case can matter (an SVG element keeps `viewBox`, an HTML one lowercases it). A
+ * caller that needs a tag name folded does it itself.
+ *
+ * An attribute's `name` is `null` when the selector namespaces it (`[xlink|href]`), which this parser does not read. A
+ * pseudo's `element` marks the `::` form, and its `argument` is the text between the parens, or `null` when it has
+ * none.
+ */
+export type SimpleSelector =
+  { kind: 'tag'; source: string; name: string } |
+  { kind: 'universal'; source: string } |
+  { kind: 'id'; source: string; name: string } |
+  { kind: 'class'; source: string; name: string } |
+  { kind: 'attribute'; source: string; name: string | null } |
+  { kind: 'pseudo'; source: string; name: string; element: boolean; argument: string | null };
+
+/**
+ * The simple selectors of a single compound - a type or universal selector, `#id`, `.class`, `[attribute]` and
+ * pseudo-classes - in source order. `input.a:not(.b)` reads as a tag, a class, and a pseudo-class holding `.b`.
+ *
+ * Returns `null` when the compound is not one this parser can read: an identifier that is missing, a bracket or paren
+ * that is unbalanced, or a combinator, which belongs between compounds rather than inside one. Pass a whole complex
+ * selector through {@link rightmostCompound} first.
+ *
+ * Nothing here decides what a compound *means* - a namespaced attribute keeps its source and loses its name, and a
+ * pseudo-class is reported rather than judged. Callers differ on which of those they can accept, so each reads the
+ * list on its own terms.
+ */
+export function tokenizeCompound(compound: string): SimpleSelector[] | null {
+  const tokens: SimpleSelector[] = [];
+  let i = 0;
+
+  const tagMatch = TAG_PATTERN.exec(compound);
+  if (tagMatch) {
+    tokens.push({ kind: 'tag', source: tagMatch[0], name: tagMatch[0] });
+    i = tagMatch[0].length;
+  } else if (compound[0] === '*') {
+    tokens.push({ kind: 'universal', source: '*' });
+    i = 1;
+  }
+
+  while (i < compound.length) {
+    const ch = compound[i];
+    if (ch === '#' || ch === '.') {
+      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
+      if (!match) return null;
+      const end = i + 1 + match[0].length;
+      tokens.push({ kind: ch === '#' ? 'id' : 'class', source: compound.slice(i, end), name: match[0] });
+      i = end;
+    } else if (ch === '[') {
+      const close = matchingClose(compound, i);
+      if (close === null) return null;
+      const match = ATTRIBUTE_NAME_PATTERN.exec(compound.slice(i + 1, close));
+      tokens.push({ kind: 'attribute', source: compound.slice(i, close + 1), name: match ? match[1] : null });
+      i = close + 1;
+    } else if (ch === ':') {
+      const element = compound[i + 1] === ':';
+      const nameStart = i + (element ? 2 : 1);
+      const match = IDENT_PATTERN.exec(compound.slice(nameStart));
+      if (!match) return null;
+      let end = nameStart + match[0].length;
+      let argument: string | null = null;
+      if (compound[end] === '(') {
+        const close = matchingClose(compound, end);
+        if (close === null) return null;
+        argument = compound.slice(end + 1, close);
+        end = close + 1;
+      }
+      // Pseudo-class names are matched case-insensitively, so the name is lowercased and the source kept as written.
+      tokens.push({
+        kind: 'pseudo',
+        source: compound.slice(i, end),
+        name: match[0].toLowerCase(),
+        element,
+        argument,
+      });
+      i = end;
+    } else {
+      return null;
+    }
+  }
+
+  return tokens;
+}
 
 /**
  * The attribute names whose change on an element can make `selector` start or stop matching it, or `null` when the
@@ -73,8 +173,7 @@ export const ATTRIBUTE_NAME_PATTERN = /^[\t\n\f\r ]*([\w\u0080-\uFFFF-]+)[\t\n\f
  * element's own attributes (an ancestor, a sibling, focus, user input), or it uses syntax this parser does not read.
  */
 export function selectorAttributes(selector: string): string[] | null {
-  // An escape or a comment can hide a quote or bracket from the scanner, so neither is ever read.
-  if (selector.includes('\\') || selector.includes('/*')) return null;
+  if (!isReadableSelector(selector)) return null;
 
   const names = new Set<string>();
   return readSelectorList(selector, names) ? Array.from(names) : null;
@@ -97,40 +196,31 @@ function readSelectorList(selectorList: string, names: Set<string>): boolean {
  * or universal selector, `#id`, `.class`, attribute selectors, and `:is()`, `:where()`, or `:not()` over those.
  */
 function readCompound(compound: string, names: Set<string>): boolean {
-  let i = 0;
-  const tagMatch = TAG_PATTERN.exec(compound);
-  if (tagMatch) i = tagMatch[0].length;
-  else if (compound[0] === '*') i = 1;
+  const tokens = tokenizeCompound(compound);
+  if (tokens === null) return false;
 
-  while (i < compound.length) {
-    const ch = compound[i];
-    if (ch === '#' || ch === '.') {
-      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
-      if (!match) return false;
-      names.add(ch === '#' ? 'id' : 'class');
-      i += 1 + match[0].length;
-    } else if (ch === '[') {
-      const end = matchingClose(compound, i);
-      if (end === null) return false;
-      const match = ATTRIBUTE_NAME_PATTERN.exec(compound.slice(i + 1, end));
-      if (!match) return false;
+  for (const token of tokens) {
+    if (token.kind === 'id') {
+      names.add('id');
+    } else if (token.kind === 'class') {
+      names.add('class');
+    } else if (token.kind === 'attribute') {
+      // A namespaced attribute (`[xlink|href]`) has no name to watch, so the compound cannot be read as
+      // self-contained.
+      if (token.name === null) return false;
       // HTML elements match attribute names case-insensitively and store them lowercased; SVG and MathML elements keep
       // the case they were written in.
-      names.add(match[1]);
-      names.add(match[1].toLowerCase());
-      i = end + 1;
-    } else if (ch === ':') {
-      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
-      if (!match || !LOGICAL_PSEUDO_CLASSES.has(match[0].toLowerCase())) return false;
-      const open = i + 1 + match[0].length;
-      if (compound[open] !== '(') return false;
-      const end = matchingClose(compound, open);
-      if (end === null || !readSelectorList(compound.slice(open + 1, end), names)) return false;
-      i = end + 1;
-    } else {
-      return false;
+      names.add(token.name);
+      names.add(token.name.toLowerCase());
+    } else if (token.kind === 'pseudo') {
+      // A pseudo-element never matches an element at all, and a pseudo-class outside the logical ones can turn on
+      // something other than the element's own attributes.
+      if (token.element || token.argument === null || !LOGICAL_PSEUDO_CLASSES.has(token.name)) return false;
+      if (!readSelectorList(token.argument, names)) return false;
     }
+    // A type or universal selector depends on no attribute at all.
   }
+
   return true;
 }
 
@@ -159,13 +249,12 @@ export function rightmostCompound(selector: string): string | null {
  * anchored selector needs are out of reach and querying the selector itself would find nothing. The subject is enough
  * to enumerate the elements a watcher could have been tracking, which is all a disconnect needs.
  *
- * Returns `null` when no such selector exists - a subject of `*` or a bare `:is(...)` has nothing to query on - or when
- * the selector uses syntax this parser does not read. An escape can hide the space `CSS.escape` leaves behind, and a
- * comment can hide a quote and so a combinator, either of which would yield a subject that means something else
- * entirely rather than a superset. Callers fall back to walking every element.
+ * Returns `null` when no such selector exists - a subject of `*` or a bare `:is(...)` has nothing to query on - or for
+ * a selector {@link isReadableSelector} rejects, where the subject read out would mean something else entirely rather
+ * than a superset. Callers fall back to walking every element.
  */
 export function subjectSelectors(selector: string): string[] | null {
-  if (selector.includes('\\') || selector.includes('/*')) return null;
+  if (!isReadableSelector(selector)) return null;
 
   const subjects: string[] = [];
   for (const part of splitSelectorList(selector)) {
@@ -184,44 +273,15 @@ export function subjectSelectors(selector: string): string[] | null {
 function subjectCompound(part: string): string | null {
   const compound = rightmostCompound(part);
   if (compound === null) return null;
+  const tokens = tokenizeCompound(compound);
+  if (tokens === null) return null;
 
   let subject = '';
-  let i = 0;
-
-  const tagMatch = TAG_PATTERN.exec(compound);
-  if (tagMatch) {
-    subject += tagMatch[0];
-    i = tagMatch[0].length;
-  } else if (compound[0] === '*') {
-    i = 1;
-  }
-
-  while (i < compound.length) {
-    const ch = compound[i];
-    if (ch === '#' || ch === '.') {
-      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
-      if (!match) return null;
-      subject += ch + match[0];
-      i += 1 + match[0].length;
-    } else if (ch === '[') {
-      const end = matchingClose(compound, i);
-      if (end === null) return null;
-      subject += compound.slice(i, end + 1);
-      i = end + 1;
-    } else if (ch === ':') {
-      // Dropped: a pseudo-class only ever narrows the compound, so leaving it out keeps the result a superset.
-      i += compound[i + 1] === ':' ? 2 : 1;
-      const match = IDENT_PATTERN.exec(compound.slice(i));
-      if (!match) return null;
-      i += match[0].length;
-      if (compound[i] === '(') {
-        const end = matchingClose(compound, i);
-        if (end === null) return null;
-        i = end + 1;
-      }
-    } else {
-      return null;
-    }
+  for (const token of tokens) {
+    // A pseudo-class only narrows the compound, so dropping it keeps the result a superset, and the universal selector
+    // narrows nothing - neither leaves anything to query on.
+    if (token.kind === 'pseudo' || token.kind === 'universal') continue;
+    subject += token.source;
   }
 
   return subject.length > 0 ? subject : null;

@@ -7,6 +7,11 @@ covers the framework and the tooling used to develop it.
 
 ### Framework
 
+**Compound**:
+A run of Simple selectors with no combinator between them, all of which must match the same element. `a.link[href]` is
+one Compound of three; `.open a.link` is two.
+_Avoid_: Compound selector, segment, clause
+
 **Initialized**:
 An element whose properties, targets, and actions have started and that has not been disconnected since. Only an
 element itself can be Initialized; the `data-impulse-element` attribute reports the state rather than conferring it.
@@ -19,8 +24,14 @@ _Avoid_: Controller, parent, scope
 
 **Self-contained selector**:
 A selector whose match against an element depends only on that element's tag name and its own attributes, so nothing
-else in the document (ancestors, siblings, focus, user input) can make it start or stop matching.
-_Avoid_: Filterable selector, simple selector, compound selector, local selector
+else in the document (ancestors, siblings, focus, user input) can make it start or stop matching. A Simple selector is
+usually one, but the two are different ideas: `:hover` is a Simple selector and is not self-contained.
+_Avoid_: Filterable selector, local selector
+
+**Simple selector**:
+The smallest piece a selector can be cut into: a tag name, `*`, one `#id`, one `.class`, one `[attribute]`, or one
+pseudo-class. `a.link[href]` holds three.
+_Avoid_: Simple, token, atom, part
 
 **Subject**:
 The element a selector is about: the rightmost compound of each comma-separated part. `.button > a[data-x]` has the

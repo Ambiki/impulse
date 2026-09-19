@@ -1,5 +1,10 @@
 import { expect } from '@open-wc/testing';
-import { selectorAttributes, subjectSelectors } from '../../src/helpers/selector';
+import {
+  isReadableSelector,
+  selectorAttributes,
+  subjectSelectors,
+  tokenizeCompound,
+} from '../../src/helpers/selector';
 
 describe('selectorAttributes', () => {
   it('returns the attribute an attribute selector names', () => {
@@ -169,5 +174,105 @@ describe('subjectSelectors', () => {
   it('ignores combinators inside brackets, parens, and quotes', () => {
     expect(subjectSelectors('[data-list="a, b > c"]')).to.deep.equal(['[data-list="a, b > c"]']);
     expect(subjectSelectors(':is(a, b) > .foo')).to.deep.equal(['.foo']);
+  });
+});
+
+describe('tokenizeCompound', () => {
+  it('reads each kind of simple selector, keeping its source', () => {
+    expect(tokenizeCompound('div')).to.deep.equal([{ kind: 'tag', source: 'div', name: 'div' }]);
+    expect(tokenizeCompound('*')).to.deep.equal([{ kind: 'universal', source: '*' }]);
+    expect(tokenizeCompound('#main')).to.deep.equal([{ kind: 'id', source: '#main', name: 'main' }]);
+    expect(tokenizeCompound('.foo')).to.deep.equal([{ kind: 'class', source: '.foo', name: 'foo' }]);
+    expect(tokenizeCompound('[data-x]')).to.deep.equal([
+      { kind: 'attribute', source: '[data-x]', name: 'data-x' },
+    ]);
+  });
+
+  it('keeps the simple selectors of a compound in source order', () => {
+    expect(tokenizeCompound('input.a#b[type=checkbox]')).to.deep.equal([
+      { kind: 'tag', source: 'input', name: 'input' },
+      { kind: 'class', source: '.a', name: 'a' },
+      { kind: 'id', source: '#b', name: 'b' },
+      { kind: 'attribute', source: '[type=checkbox]', name: 'type' },
+    ]);
+  });
+
+  it('keeps a tag name in the case it was written, so a caller can decide', () => {
+    expect(tokenizeCompound('linearGradient')).to.deep.equal([
+      { kind: 'tag', source: 'linearGradient', name: 'linearGradient' },
+    ]);
+  });
+
+  it('reads the name out of an attribute selector, whatever follows it', () => {
+    expect(tokenizeCompound('[data-x="a, b > c"]')).to.deep.equal([
+      { kind: 'attribute', source: '[data-x="a, b > c"]', name: 'data-x' },
+    ]);
+    expect(tokenizeCompound('[data-x~="y" i]')).to.deep.equal([
+      { kind: 'attribute', source: '[data-x~="y" i]', name: 'data-x' },
+    ]);
+  });
+
+  it('reports a namespaced attribute without a name rather than failing, since its source is still usable', () => {
+    expect(tokenizeCompound('[xlink|href]')).to.deep.equal([
+      { kind: 'attribute', source: '[xlink|href]', name: null },
+    ]);
+  });
+
+  it('distinguishes a pseudo-class from a pseudo-element and carries the argument', () => {
+    expect(tokenizeCompound(':hover')).to.deep.equal([
+      { kind: 'pseudo', source: ':hover', name: 'hover', element: false, argument: null },
+    ]);
+    expect(tokenizeCompound('::before')).to.deep.equal([
+      { kind: 'pseudo', source: '::before', name: 'before', element: true, argument: null },
+    ]);
+    expect(tokenizeCompound(':is(a, b)')).to.deep.equal([
+      { kind: 'pseudo', source: ':is(a, b)', name: 'is', element: false, argument: 'a, b' },
+    ]);
+    expect(tokenizeCompound(':not(.x)')).to.deep.equal([
+      { kind: 'pseudo', source: ':not(.x)', name: 'not', element: false, argument: '.x' },
+    ]);
+  });
+
+  it('lowercases a pseudo-class name, which is matched case-insensitively', () => {
+    expect(tokenizeCompound(':IS(a)')).to.deep.equal([
+      { kind: 'pseudo', source: ':IS(a)', name: 'is', element: false, argument: 'a' },
+    ]);
+  });
+
+  it('carries a source for every simple selector, which together reproduce the compound', () => {
+    for (const compound of ['div', '*', '.foo', '[data-x="a, b"]', 'input.a#b[type=checkbox]:not(.c)::before']) {
+      const simpleSelectors = tokenizeCompound(compound)!;
+      expect(simpleSelectors.map((simple) => simple.source).join('')).to.equal(compound);
+    }
+  });
+
+  it('returns an empty list for an empty compound', () => {
+    expect(tokenizeCompound('')).to.deep.equal([]);
+  });
+
+  it('returns null for syntax it cannot read', () => {
+    expect(tokenizeCompound('.')).to.equal(null);
+    expect(tokenizeCompound('#')).to.equal(null);
+    expect(tokenizeCompound('[data-x')).to.equal(null);
+    expect(tokenizeCompound(':is(a')).to.equal(null);
+    expect(tokenizeCompound(':')).to.equal(null);
+    expect(tokenizeCompound('>')).to.equal(null);
+    expect(tokenizeCompound('div span')).to.equal(null);
+  });
+});
+
+describe('isReadableSelector', () => {
+  it('accepts a selector with neither an escape nor a comment', () => {
+    expect(isReadableSelector('.foo')).to.be.true;
+    expect(isReadableSelector('[data-x="a/b"]')).to.be.true;
+  });
+
+  it('rejects an escape, which can carry a space of its own', () => {
+    // `CSS.escape('1foo')` is `\31 foo`; that trailing space would read as a descendant combinator.
+    expect(isReadableSelector(`.${CSS.escape('1foo')}`)).to.be.false;
+  });
+
+  it('rejects a comment, which can hide a quote and so a combinator', () => {
+    expect(isReadableSelector('.fake[data-a=x/*"*/] .real')).to.be.false;
   });
 });
