@@ -2,40 +2,51 @@
  * A `Map` whose values are `Set`s, so a key holds many values without a caller ever having to create the inner set or
  * clean it up. Deleting a key's last value through {@link SetMap.delete} drops the key with it, so a long-lived map
  * does not accumulate one entry per key it has ever seen. Emptying the live set from {@link SetMap.get} is the one way
- * to leave a key behind with nothing in it.
+ * to leave a key behind with nothing in it, and it stays until something deletes the key outright.
  */
 export default class SetMap<K, V> {
   private map = new Map<K, Set<V>>();
 
   /**
-   * Adds `value` under `key`, creating the set on first use.
+   * Adds `value` under `key`, creating the set on first use. Returns the map so calls chain, the way
+   * `Map.prototype.set` does.
    */
-  add(key: K, value: V) {
-    findOrCreate(this.map, key).add(value);
-  }
-
-  /**
-   * Removes `value` from `key`, dropping the key itself when that was its last value.
-   */
-  delete(key: K, value: V) {
-    findOrCreate(this.map, key).delete(value);
-    // Delete map item
-    if (this.get(key)?.size === 0) {
-      this.deleteKey(key);
+  add(key: K, value: V): this {
+    let values = this.map.get(key);
+    if (!values) {
+      values = new Set();
+      this.map.set(key, values);
     }
+    values.add(value);
+    return this;
   }
 
   /**
-   * Drops the key and every value under it at once.
+   * Removes `value` from `key`, dropping the key itself when that was its last value. Returns whether it removed
+   * anything, the way `Set.prototype.delete` does: `false` when the key is absent or does not hold `value`, and the
+   * map is left untouched in both cases. It reports only on the pair it was asked about, so a key already emptied
+   * through {@link SetMap.get} is not pruned here either.
    */
-  deleteKey(key: K) {
-    this.map.delete(key);
+  delete(key: K, value: V): boolean {
+    const values = this.map.get(key);
+    if (!values) return false;
+    const deleted = values.delete(value);
+    if (deleted && values.size === 0) this.map.delete(key);
+    return deleted;
+  }
+
+  /**
+   * Drops the key and every value under it at once. Returns whether the key was there, the way `Map.prototype.delete`
+   * does.
+   */
+  deleteKey(key: K): boolean {
+    return this.map.delete(key);
   }
 
   /**
    * Empties the map.
    */
-  clear() {
+  clear(): void {
     this.map.clear();
   }
 
@@ -43,7 +54,7 @@ export default class SetMap<K, V> {
    * The values under `key` as an array, empty when the key is absent. A snapshot, so it is safe to iterate while
    * deleting from the map - unlike the live set {@link SetMap.get} returns.
    */
-  getValuesForKey(key: K): V[] {
+  valuesForKey(key: K): V[] {
     const values = this.map.get(key);
     return values ? Array.from(values) : [];
   }
@@ -51,7 +62,7 @@ export default class SetMap<K, V> {
   /**
    * Every key the map is holding. A key emptied through {@link SetMap.get} stays until it is deleted.
    */
-  get keys() {
+  get keys(): K[] {
     return Array.from(this.map.keys());
   }
 
@@ -59,8 +70,11 @@ export default class SetMap<K, V> {
    * Every value across every key, flattened in insertion order. Values are not deduplicated across keys.
    */
   get values(): V[] {
-    const sets = Array.from(this.map.values());
-    return sets.reduce((values, set) => values.concat(Array.from(set)), <V[]>[]);
+    const values: V[] = [];
+    for (const set of this.map.values()) {
+      for (const value of set) values.push(value);
+    }
+    return values;
   }
 
   /**
@@ -77,14 +91,4 @@ export default class SetMap<K, V> {
   has(key: K, value: V): boolean {
     return !!this.get(key)?.has(value);
   }
-}
-
-function findOrCreate<K, V>(map: Map<K, Set<V>>, key: K): Set<V> {
-  let values = map.get(key);
-  if (!values) {
-    values = new Set();
-    map.set(key, values);
-  }
-
-  return values;
 }
