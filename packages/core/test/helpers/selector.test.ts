@@ -1,5 +1,5 @@
 import { expect } from '@open-wc/testing';
-import { selectorAttributes } from '../../src/helpers/selector';
+import { selectorAttributes, subjectSelectors } from '../../src/helpers/selector';
 
 describe('selectorAttributes', () => {
   it('returns the attribute an attribute selector names', () => {
@@ -117,5 +117,57 @@ describe('selectorAttributes', () => {
         expect(selectorAttributes(selector), JSON.stringify(selector)).to.be.null;
       }
     });
+  });
+});
+
+describe('subjectSelectors', () => {
+  it('returns a single compound selector unchanged', () => {
+    expect(subjectSelectors('[data-action]')).to.deep.equal(['[data-action]']);
+    expect(subjectSelectors('.menu')).to.deep.equal(['.menu']);
+    expect(subjectSelectors('#main')).to.deep.equal(['#main']);
+    expect(subjectSelectors('my-element')).to.deep.equal(['my-element']);
+  });
+
+  it('returns only the rightmost compound of a complex selector', () => {
+    expect(subjectSelectors('.button > a')).to.deep.equal(['a']);
+    expect(subjectSelectors('.open .item')).to.deep.equal(['.item']);
+    expect(subjectSelectors('label + button')).to.deep.equal(['button']);
+    expect(subjectSelectors('label ~ button')).to.deep.equal(['button']);
+  });
+
+  it('keeps every simple selector of the subject compound', () => {
+    expect(subjectSelectors('form input.a#b[type=checkbox]')).to.deep.equal(['input.a#b[type=checkbox]']);
+  });
+
+  it('drops pseudo-classes and pseudo-elements, since the result only has to be a superset', () => {
+    expect(subjectSelectors('.open .item:hover')).to.deep.equal(['.item']);
+    expect(subjectSelectors('a:has(img)')).to.deep.equal(['a']);
+    expect(subjectSelectors('li:nth-child(2)')).to.deep.equal(['li']);
+    expect(subjectSelectors('.foo:not(.bar, .baz)')).to.deep.equal(['.foo']);
+    expect(subjectSelectors('p::before')).to.deep.equal(['p']);
+  });
+
+  it('maps every part of a selector list', () => {
+    expect(subjectSelectors('.a, .b .c')).to.deep.equal(['.a', '.c']);
+    expect(subjectSelectors('div, span')).to.deep.equal(['div', 'span']);
+  });
+
+  it('returns null when a subject has nothing to query on', () => {
+    expect(subjectSelectors('*')).to.equal(null);
+    expect(subjectSelectors('.open *')).to.equal(null);
+    expect(subjectSelectors(':is(a, button)')).to.equal(null);
+    expect(subjectSelectors('.a, *')).to.equal(null);
+  });
+
+  it('returns null for syntax the scanner cannot read, rather than a selector that means something else', () => {
+    // `CSS.escape('1foo')` ends in a space, which the scanner would read as a descendant combinator.
+    expect(subjectSelectors(`.${CSS.escape('1foo')}`)).to.equal(null);
+    expect(subjectSelectors('.fake[data-a=x/*"*/] .real')).to.equal(null);
+    expect(subjectSelectors('[data-x="unclosed')).to.equal(null);
+  });
+
+  it('ignores combinators inside brackets, parens, and quotes', () => {
+    expect(subjectSelectors('[data-list="a, b > c"]')).to.deep.equal(['[data-list="a, b > c"]']);
+    expect(subjectSelectors(':is(a, b) > .foo')).to.deep.equal(['.foo']);
   });
 });

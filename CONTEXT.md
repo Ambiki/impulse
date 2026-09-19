@@ -22,6 +22,16 @@ A selector whose match against an element depends only on that element's tag nam
 else in the document (ancestors, siblings, focus, user input) can make it start or stop matching.
 _Avoid_: Filterable selector, simple selector, compound selector, local selector
 
+**Subject**:
+The element a selector is about: the rightmost compound of each comma-separated part. `.button > a[data-x]` has the
+subject `a[data-x]`. Everything to its left constrains where that element may sit, without describing it.
+_Avoid_: Key, rightmost part, target, leaf
+
+**Watcher**:
+A selector registered with the shared document observer, together with the callbacks run as elements start and stop
+matching it. One Watcher serves every caller that registered it, however many components are live.
+_Avoid_: Observer, listener, subscription, handler
+
 ### Benchmarking
 
 **Baseline**:

@@ -84,7 +84,10 @@ describe('TokenRouter', () => {
     const matches = Sinon.spy(Element.prototype, 'matches');
     try {
       const added = document.createElement('span');
+      added.setAttribute('data-test', 'x-inner.added');
       inner.append(added);
+      // A node carrying no token is never matched against the selector at all.
+      inner.append(document.createElement('span'));
       await nextFrame();
       expect(matches.args.filter(([selector]) => selector === '[data-test]').length).to.eq(1);
     } finally {
