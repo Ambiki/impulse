@@ -10,48 +10,45 @@ export default class SetMap<K, V> {
   /**
    * Adds `value` under `key`, creating the set on first use.
    */
-  add(key: K, value: V) {
-    findOrCreate(this.map, key).add(value);
+  add(key: K, value: V): this {
+    let values = this.map.get(key);
+    if (!values) {
+      values = new Set();
+      this.map.set(key, values);
+    }
+    values.add(value);
+    return this;
   }
 
   /**
    * Removes `value` from `key`, dropping the key itself when that was its last value.
    */
-  delete(key: K, value: V) {
-    findOrCreate(this.map, key).delete(value);
-    // Delete map item
-    if (this.get(key)?.size === 0) {
-      this.deleteKey(key);
-    }
+  delete(key: K, value: V): boolean {
+    const values = this.map.get(key);
+    if (!values) return false;
+    const deleted = values.delete(value);
+    if (deleted && values.size === 0) this.map.delete(key);
+    return deleted;
   }
 
   /**
    * Drops the key and every value under it at once.
    */
-  deleteKey(key: K) {
-    this.map.delete(key);
+  deleteKey(key: K): boolean {
+    return this.map.delete(key);
   }
 
   /**
    * Empties the map.
    */
-  clear() {
+  clear(): void {
     this.map.clear();
-  }
-
-  /**
-   * The values under `key` as an array, empty when the key is absent. A snapshot, so it is safe to iterate while
-   * deleting from the map - unlike the live set {@link SetMap.get} returns.
-   */
-  getValuesForKey(key: K): V[] {
-    const values = this.map.get(key);
-    return values ? Array.from(values) : [];
   }
 
   /**
    * Every key the map is holding. A key emptied through {@link SetMap.get} stays until it is deleted.
    */
-  get keys() {
+  get keys(): K[] {
     return Array.from(this.map.keys());
   }
 
@@ -59,8 +56,20 @@ export default class SetMap<K, V> {
    * Every value across every key, flattened in insertion order. Values are not deduplicated across keys.
    */
   get values(): V[] {
-    const sets = Array.from(this.map.values());
-    return sets.reduce((values, set) => values.concat(Array.from(set)), <V[]>[]);
+    const values: V[] = [];
+    for (const set of this.map.values()) {
+      for (const v of set) values.push(v);
+    }
+    return values;
+  }
+
+  /**
+   * The values under `key` as an array, empty when the key is absent. A snapshot, so it is safe to iterate while
+   * deleting from the map - unlike the live set {@link SetMap.get} returns.
+   */
+  valuesForKey(key: K): V[] {
+    const values = this.map.get(key);
+    return values ? Array.from(values) : [];
   }
 
   /**
@@ -77,14 +86,4 @@ export default class SetMap<K, V> {
   has(key: K, value: V): boolean {
     return !!this.get(key)?.has(value);
   }
-}
-
-function findOrCreate<K, V>(map: Map<K, Set<V>>, key: K): Set<V> {
-  let values = map.get(key);
-  if (!values) {
-    values = new Set();
-    map.set(key, values);
-  }
-
-  return values;
 }

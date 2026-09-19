@@ -33,7 +33,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     for (const { key, multiple } of this.declarations.values()) {
       Object.defineProperty(this.instance, key, {
         configurable: true,
-        get: multiple ? () => this.orderedTargets(key) : () => this.targetsByKey.getValuesForKey(key)[0] ?? null,
+        get: multiple ? () => this.orderedTargets(key) : () => this.targetsByKey.valuesForKey(key)[0] ?? null,
       });
     }
 
@@ -64,7 +64,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 
     // Validate before mutating `targetsByKey` so a rejected duplicate does not leave the map in an
     // inconsistent state.
-    if (!this.isKeyMultiple(key) && this.targetsByKey.getValuesForKey(key).length > 0) {
+    if (!this.isKeyMultiple(key) && this.targetsByKey.valuesForKey(key).length > 0) {
       throw new Error(
         `
 Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
@@ -109,7 +109,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     let ordered = this.orderedByKey.get(key);
     if (!ordered) {
       ordered = this.targetsByKey
-        .getValuesForKey(key)
+        .valuesForKey(key)
         .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
       this.orderedByKey.set(key, ordered);
     }
@@ -117,7 +117,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   }
 
   private isStillReferenced(element: T, content: string): boolean {
-    return this.tokensByElement.getValuesForKey(element).some((token) => token.content === content);
+    return this.tokensByElement.valuesForKey(element).some((token) => token.content === content);
   }
 
   private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {

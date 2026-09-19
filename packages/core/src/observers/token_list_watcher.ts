@@ -50,12 +50,12 @@ export function watchTokenList<T extends Element = Element>(
       for (const token of parseTokens(element, attributeName)) invokeReporting(() => track(element, token));
     },
     elementDisconnected(element) {
-      for (const token of elementTokens.getValuesForKey(element)) invokeReporting(() => untrack(element, token));
+      for (const token of elementTokens.valuesForKey(element)) invokeReporting(() => untrack(element, token));
     },
     elementAttributeChanged(element, name) {
       if (name !== attributeName) return;
       if (!scope.contains(element)) return;
-      const oldTokens = elementTokens.getValuesForKey(element);
+      const oldTokens = elementTokens.valuesForKey(element);
       const newTokens = parseTokens(element, attributeName);
       const [added, removed] = diffTokens(newTokens, oldTokens);
       for (const token of removed) invokeReporting(() => untrack(element, token));
@@ -99,7 +99,7 @@ function diffTokens<T>(newTokens: Token<T>[], oldTokens: Token<T>[]): [Token<T>[
 
   const added: Token<T>[] = [];
   for (const token of newTokens) {
-    const [match] = unmatchedOld.getValuesForKey(token.content);
+    const [match] = unmatchedOld.valuesForKey(token.content);
     if (match) {
       unmatchedOld.delete(token.content, match);
     } else {
