@@ -248,6 +248,109 @@ describe('attribute changes', () => {
   });
 });
 
+describe('subtree enumeration', () => {
+  it('connects an element whose anchoring ancestor is outside the added subtree', async () => {
+    const root = await fixture(html`<div class="open"><section></section></div>`);
+    const section = root.querySelector('section')!;
+    const elementConnected = Sinon.spy();
+    const stop = watchSelector('.open .item', { elementConnected });
+    try {
+      // The added subtree is already in the document when the record is delivered, so `.open` resolves from outside it.
+      const item = document.createElement('b');
+      item.className = 'item';
+      const wrapper = document.createElement('div');
+      wrapper.append(item);
+      section.append(wrapper);
+      await nextFrame();
+
+      expect(elementConnected.calledOnceWith(item)).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects an element inside a removed subtree that its selector can no longer match', async () => {
+    const root = await fixture(html`<div class="open"><section><b class="item"></b></section></div>`);
+    const section = root.querySelector('section')!;
+    const item = root.querySelector('b')!;
+    const elementDisconnected = Sinon.spy();
+    const stop = watchSelector('.open .item', { elementDisconnected });
+    try {
+      // Detached, `.open .item` matches nothing inside the subtree; the subject `.item` still finds the element.
+      section.remove();
+      await nextFrame();
+
+      expect(elementDisconnected.calledOnceWith(item)).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects an element whose subject stopped matching in the same task as its removal', async () => {
+    const root = await fixture(html`<div><section><b class="item"></b></section></div>`);
+    const section = root.querySelector('section')!;
+    const item = root.querySelector('b')!;
+    const elementDisconnected = Sinon.spy();
+    const stop = watchSelector('.item', { elementDisconnected });
+    try {
+      // The attribute record is delivered first and the element is already detached by then. The removal walk
+      // enumerates by subject, which this change just made the element stop matching, so the disconnect happens on
+      // the attribute record instead.
+      item.classList.remove('item');
+      section.remove();
+      await nextFrame();
+
+      expect(elementDisconnected.calledOnceWith(item)).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects an element removed in the same task as an unrelated attribute change', async () => {
+    const root = await fixture(html`<div><section><b class="item"></b></section></div>`);
+    const section = root.querySelector('section')!;
+    const item = root.querySelector('b')!;
+    const elementDisconnected = Sinon.spy();
+    const elementAttributeChanged = Sinon.spy();
+    const stop = watchSelector('.item', { elementDisconnected, elementAttributeChanged });
+    try {
+      section.remove();
+      item.classList.add('other');
+      await nextFrame();
+
+      expect(elementDisconnected.calledOnceWith(item)).to.be.true;
+      // A detached element is gone, not changed, however the records happen to be ordered.
+      expect(elementAttributeChanged.called).to.be.false;
+    } finally {
+      stop();
+    }
+  });
+
+  it('walks every element when a registered selector has no queryable subject', async () => {
+    const root = await fixture(html`<div class="open"></div>`);
+    const elementConnected = Sinon.spy();
+    const stop = watchSelector('.item', { elementConnected });
+    const stopUniversal = watchSelector('.open *', {});
+    try {
+      const item = document.createElement('b');
+      item.className = 'item';
+      root.append(item);
+      await nextFrame();
+      expect(elementConnected.calledOnceWith(item)).to.be.true;
+
+      const elementDisconnected = Sinon.spy();
+      const stopDisconnect = watchSelector('.item', { elementDisconnected });
+      item.remove();
+      await nextFrame();
+      expect(elementDisconnected.calledOnceWith(item)).to.be.true;
+      stopDisconnect();
+    } finally {
+      stopUniversal();
+      stop();
+    }
+  });
+});
+
 describe('flushMutations', () => {
   it('delivers pending mutation records synchronously', async () => {
     const root = await fixture(html`<div></div>`);

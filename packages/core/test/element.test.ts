@@ -417,7 +417,7 @@ describe('ImpulseElement init races', () => {
 });
 
 describe('ImpulseElement watcher sharing', () => {
-  it('matches an inserted node against [data-target] and [data-action] once, however many instances are live', async () => {
+  it('matches an inserted node against a shared watcher once, however many instances are live', async () => {
     counter += 1;
     const tag = `shared-watcher-${counter}`;
     class SharedWatcherElement extends ImpulseElement {
@@ -446,11 +446,14 @@ describe('ImpulseElement watcher sharing', () => {
     try {
       const inserted = document.createElement('div');
       inserted.setAttribute('data-action', `click->${tag}#toggle`);
+      instances[2].append(document.createElement('span'));
       instances[2].append(inserted);
       await nextFrame();
       const selectors = matches.args.map(([selector]) => selector);
-      expect(selectors.filter((selector) => selector === '[data-target]').length).to.eq(1);
       expect(selectors.filter((selector) => selector === '[data-action]').length).to.eq(1);
+      // The index keys each watcher on the attribute its selector names, so a node without that attribute - the
+      // inserted div for `[data-target]`, the bare span for both - is never tested against it at all.
+      expect(selectors.filter((selector) => selector === '[data-target]').length).to.eq(0);
     } finally {
       matches.restore();
     }

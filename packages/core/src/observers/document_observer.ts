@@ -179,18 +179,22 @@ function processMutations(mutations: MutationRecord[]) {
   }
 }
 
+// An added subtree is already in the document, so a selector anchored on an ancestor outside it still resolves and the
+// index can be asked for the selectors themselves.
 function walkAdded(node: Node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const root = node as Element;
   visitConnect(root);
-  for (const element of root.querySelectorAll('*')) visitConnect(element);
+  for (const element of watcherIndex.queryAll(root)) visitConnect(element);
 }
 
+// A removed subtree is detached by the time its record is delivered, so the selectors cannot match inside it. Their
+// subjects can, and every tracked element still matches the subject it was found by, which is all a disconnect needs.
 function walkRemoved(node: Node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const root = node as Element;
   visitDisconnect(root);
-  for (const element of root.querySelectorAll('*')) visitDisconnect(element);
+  for (const element of watcherIndex.querySubjects(root)) visitDisconnect(element);
 }
 
 function visitConnect(element: Element) {
@@ -209,30 +213,32 @@ function visitDisconnect(element: Element) {
 function processAttributeChange(element: Element, attributeName: string | null) {
   // A node removed in the same task as an attribute change still delivers that record through its transient registered
   // observer, and `isConnected` reflects the tree at delivery time. The `childList` record for the removal is in the
-  // same batch (before or after this one) and `walkRemoved` handles the disconnect, so there is nothing to do here;
-  // matching now would fire `elementConnected` for an element that will never be disconnected.
-  if (!element.isConnected) return;
-
-  const previouslyMatching = watchersByElement.get(element);
-  const candidates = new Set<RegisteredWatcher>();
-  for (const { value: watcher } of watcherIndex.matches(element)) candidates.add(watcher);
-
-  const all = new Set<RegisteredWatcher>(candidates);
-  if (previouslyMatching) {
-    for (const watcher of previouslyMatching) all.add(watcher);
+  // same batch, but `walkRemoved` enumerates by subject and this very change may have just made the element stop
+  // matching its own, so the disconnect happens here rather than there. Matching instead would fire `elementConnected`
+  // for an element that will never be disconnected.
+  if (!element.isConnected) {
+    visitDisconnect(element);
+    return;
   }
 
-  for (const watcher of all) {
-    const wasMatching = previouslyMatching?.has(watcher) === true;
-    const matchesNow = element.matches(watcher.selector);
-    if (matchesNow && !wasMatching) {
-      connect(element, watcher);
-    } else if (!matchesNow && wasMatching) {
-      disconnect(element, watcher);
-    } else if (matchesNow && wasMatching) {
-      invokeReporting(() => watcher.elementAttributeChanged?.(element, attributeName ?? ''));
+  // Watchers that were already matching: each either still matches, and hears about the change, or stops matching.
+  // Snapshotted first, so a callback that registers a watcher does not have it visited as though it had been matching
+  // all along, and one that disconnects the element does not cut the iteration short.
+  const tracked = watchersByElement.get(element);
+  if (tracked) {
+    for (const watcher of Array.from(tracked)) {
+      if (element.matches(watcher.selector)) {
+        invokeReporting(() => watcher.elementAttributeChanged?.(element, attributeName ?? ''));
+      } else {
+        disconnect(element, watcher);
+      }
     }
   }
+
+  // Whatever the index offers beyond those. A watcher still tracking the element is skipped, and one that stopped
+  // matching above no longer does - unless its own `elementDisconnected` put the element back into matching, which
+  // connects it again on this same record.
+  visitConnect(element);
 }
 
 // The index is updated before the callback runs, so a throwing callback can only affect its own work: it is reported

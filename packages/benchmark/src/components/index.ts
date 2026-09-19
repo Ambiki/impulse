@@ -4,5 +4,6 @@ import './app_page.ts';
 import './attr_host.ts';
 import './data_table.ts';
 import './table_row.ts';
+import './watcher_host.ts';
 
 export const loadsImpulse = true;

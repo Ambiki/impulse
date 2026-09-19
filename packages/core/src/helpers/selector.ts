@@ -65,7 +65,7 @@ export const IDENT_PATTERN = /^[\w\u0080-\uFFFF-]+/;
 export const TAG_PATTERN = /^[a-z][\w\u0080-\uFFFF-]*/i;
 // The contents of `[...]` up to the operator: a plain attribute name, optionally followed by an operator. A namespace
 // prefix (`ns|attr`, `*|attr`) does not match.
-const ATTRIBUTE_NAME_PATTERN = /^[\t\n\f\r ]*([\w\u0080-\uFFFF-]+)[\t\n\f\r ]*(?:[~|^$*]?=|$)/;
+export const ATTRIBUTE_NAME_PATTERN = /^[\t\n\f\r ]*([\w\u0080-\uFFFF-]+)[\t\n\f\r ]*(?:[~|^$*]?=|$)/;
 
 /**
  * The attribute names whose change on an element can make `selector` start or stop matching it, or `null` when the
@@ -132,4 +132,97 @@ function readCompound(compound: string, names: Set<string>): boolean {
     }
   }
   return true;
+}
+
+// Only the five CSS whitespace characters separate compounds; `\u00A0` is part of an identifier.
+const CSS_WHITESPACE = /[\t\n\f\r ]/;
+
+/**
+ * Returns the substring after the last top-level combinator (descendant whitespace, `>`, `+`, `~`), or `null` if the
+ * selector is malformed (unbalanced brackets/parens/quotes).
+ */
+export function rightmostCompound(selector: string): string | null {
+  let start = 0;
+  const end = scan(selector, 0, (ch, i, depth) => {
+    if (depth === 0 && (ch === '>' || ch === '+' || ch === '~' || CSS_WHITESPACE.test(ch))) start = i + 1;
+  });
+  return end === null ? null : selector.slice(start);
+}
+
+/**
+ * One selector per part of `selector`, each matching a superset of that part by depending only on its subject: the
+ * rightmost compound, with pseudo-classes and pseudo-elements dropped. `.open .item:hover, a` becomes
+ * `['.item', 'a']`. Returned as parts rather than one joined selector so a caller combining several selectors can drop
+ * the duplicates between them - the cost of querying with the result grows with the number of parts in it.
+ *
+ * A removed subtree is detached by the time its mutation record is delivered, so the ancestors and siblings an
+ * anchored selector needs are out of reach and querying the selector itself would find nothing. The subject is enough
+ * to enumerate the elements a watcher could have been tracking, which is all a disconnect needs.
+ *
+ * Returns `null` when no such selector exists - a subject of `*` or a bare `:is(...)` has nothing to query on - or when
+ * the selector uses syntax this parser does not read. An escape can hide the space `CSS.escape` leaves behind, and a
+ * comment can hide a quote and so a combinator, either of which would yield a subject that means something else
+ * entirely rather than a superset. Callers fall back to walking every element.
+ */
+export function subjectSelectors(selector: string): string[] | null {
+  if (selector.includes('\\') || selector.includes('/*')) return null;
+
+  const subjects: string[] = [];
+  for (const part of splitSelectorList(selector)) {
+    const subject = subjectCompound(part);
+    if (subject === null) return null;
+    subjects.push(subject);
+  }
+
+  return subjects.length > 0 ? subjects : null;
+}
+
+/**
+ * The simple selectors of `part`'s subject compound in source order, with pseudo-classes and pseudo-elements dropped.
+ * Returns `null` when nothing is left to query on, or when the compound uses syntax this parser does not read.
+ */
+function subjectCompound(part: string): string | null {
+  const compound = rightmostCompound(part);
+  if (compound === null) return null;
+
+  let subject = '';
+  let i = 0;
+
+  const tagMatch = TAG_PATTERN.exec(compound);
+  if (tagMatch) {
+    subject += tagMatch[0];
+    i = tagMatch[0].length;
+  } else if (compound[0] === '*') {
+    i = 1;
+  }
+
+  while (i < compound.length) {
+    const ch = compound[i];
+    if (ch === '#' || ch === '.') {
+      const match = IDENT_PATTERN.exec(compound.slice(i + 1));
+      if (!match) return null;
+      subject += ch + match[0];
+      i += 1 + match[0].length;
+    } else if (ch === '[') {
+      const end = matchingClose(compound, i);
+      if (end === null) return null;
+      subject += compound.slice(i, end + 1);
+      i = end + 1;
+    } else if (ch === ':') {
+      // Dropped: a pseudo-class only ever narrows the compound, so leaving it out keeps the result a superset.
+      i += compound[i + 1] === ':' ? 2 : 1;
+      const match = IDENT_PATTERN.exec(compound.slice(i));
+      if (!match) return null;
+      i += match[0].length;
+      if (compound[i] === '(') {
+        const end = matchingClose(compound, i);
+        if (end === null) return null;
+        i = end + 1;
+      }
+    } else {
+      return null;
+    }
+  }
+
+  return subject.length > 0 ? subject : null;
 }
