@@ -2,6 +2,7 @@ import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, target } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
+import { simulateParsing } from './support/parsing';
 
 let counter = 0;
 const CONNECTION_TIMEOUT_MS = 200;
@@ -112,7 +113,7 @@ describe('ImpulseElement connection order', () => {
     }
   });
 
-  it('makes @property accessors live synchronously on connect, before yielding to domReady', () => {
+  it('makes @property accessors live synchronously on connect, before yielding to whenParsed', () => {
     counter += 1;
     const tag = `sync-property-${counter}`;
 
@@ -128,7 +129,7 @@ describe('ImpulseElement connection order', () => {
 
     try {
       // `connectedCallback` runs synchronously inside `appendChild` (a [CEReactions] operation), and
-      // `property.start()` is the first statement of `_asyncConnect`, before `await domReady()`. So the
+      // `property.start()` is the first statement of `_asyncConnect`, before `await whenParsed()`. So the
       // attribute-backed getter must already be live here, with no `await`. This guards against a future
       // refactor moving `property.start()` back below the await, where this would read the raw field
       // default (`'default'`) because the accessor would not yet be defined.
@@ -200,6 +201,39 @@ describe('ImpulseElement connection order', () => {
       element.remove();
       expect(element.hasAttribute('data-impulse-element')).to.be.false;
     } finally {
+      element.remove();
+    }
+  });
+});
+
+describe('ImpulseElement before the document is Parsed', () => {
+  it('does not initialize until the document is Parsed', async () => {
+    counter += 1;
+    const tag = `parsing-element-${counter}`;
+    const connectedSpy = Sinon.spy();
+
+    class Element extends ImpulseElement {
+      connected() {
+        connectedSpy();
+      }
+    }
+
+    registerElement(tag)(Element);
+    const finishParsing = simulateParsing();
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    try {
+      await nextFrame();
+      expect(connectedSpy.called).to.be.false;
+
+      finishParsing();
+      await waitUntil(() => connectedSpy.called, 'connected() should run once the document is Parsed', {
+        timeout: CONNECTION_TIMEOUT_MS,
+      });
+      expect(connectedSpy.calledOnce).to.be.true;
+    } finally {
+      finishParsing();
       element.remove();
     }
   });

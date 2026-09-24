@@ -22,6 +22,11 @@ The component a `data-target` or `data-action` token belongs to: the nearest anc
 token's identifier.
 _Avoid_: Controller, parent, scope
 
+**Parsed**:
+A document is Parsed once the parser has inserted its last element (`readyState` is no longer `loading`). Before that,
+an element can be in the document while its children are not.
+_Avoid_: Ready, DOM ready, loaded (the `load` event comes later), complete
+
 **Self-contained selector**:
 A selector whose match against an element depends only on that element's tag name and its own attributes, so nothing
 else in the document (ancestors, siblings, focus, user input) can make it start or stop matching. A Simple selector is
@@ -40,7 +45,8 @@ _Avoid_: Key, rightmost part, target, leaf
 
 **Watcher**:
 A selector registered with the shared document observer, together with the callbacks run as elements start and stop
-matching it. One Watcher serves every caller that registered it, however many components are live.
+matching it once the document is Parsed. One Watcher serves every caller that registered it, however many components
+are live.
 _Avoid_: Observer, listener, subscription, handler
 
 ### Benchmarking

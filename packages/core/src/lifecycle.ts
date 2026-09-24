@@ -7,9 +7,14 @@ import { watchSelector } from './observers/document_observer';
  * Observes the DOM and invokes a callback whenever elements matching the selector are added to the DOM.
  *
  * This function sets up a MutationObserver on the document that watches for elements matching
- * the provided CSS selector. The callback is invoked immediately for any matching elements
- * already in the DOM, then for any elements added later, and for any element whose attributes
- * change such that it starts matching the selector.
+ * the provided CSS selector. The callback is invoked for any matching elements already in the DOM,
+ * then for any elements added later, and for any element whose attributes change such that it
+ * starts matching the selector.
+ *
+ * Nothing is matched before the document is Parsed: while `document.readyState` is `loading`, an element can be in the
+ * document before its children are. Once the document is Parsed, elements already in the DOM are matched before this
+ * function returns; called from a blocking `<head>` script, the callback first runs on `DOMContentLoaded`, for every
+ * matching element in the finished document.
  *
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is mounted. Can optionally return
@@ -88,6 +93,9 @@ export function connected<T extends Element = Element>(
  * This function sets up a MutationObserver on the document that watches for elements matching
  * the provided CSS selector being disconnected. The callback is invoked when matching elements
  * are removed from the DOM or when their attributes change such that they no longer match the selector.
+ *
+ * Like {@link connected}, it matches nothing before the document is Parsed, so an element inserted and removed while
+ * `document.readyState` is `loading` is never reported.
  *
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is disconnected
