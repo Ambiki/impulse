@@ -2,6 +2,7 @@ import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { connected, disconnected, ImpulseElement, registerElement, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
+import { simulateParsing } from './support/parsing';
 
 let counter = 0;
 
@@ -13,6 +14,16 @@ describe('connected', () => {
 
     await nextFrame();
     expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('invokes synchronously for an element already present once the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsed-present"></div>`);
+    const stop = connected('.parsed-present', callback);
+    const invokedSynchronously = callback.calledOnceWith(root);
+    stop();
+
+    expect(invokedSynchronously).to.be.true;
   });
 
   it('invokes when element is added', async () => {
@@ -295,6 +306,83 @@ describe('shared observer', () => {
   });
 });
 
+describe('connected before the document is Parsed', () => {
+  let finishParsing: () => void;
+
+  beforeEach(() => {
+    finishParsing = simulateParsing();
+  });
+
+  afterEach(() => {
+    finishParsing();
+  });
+
+  it('waits until the document is Parsed to invoke for an element already present', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-present"></div>`);
+    const stop = connected('.parsing-present', callback);
+
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    finishParsing();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('waits until the document is Parsed to invoke for an element inserted while parsing', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = connected('.parsing-inserted', callback);
+
+    const element = document.createElement('div');
+    element.className = 'parsing-inserted';
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    finishParsing();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('stops invoking once a callback stops its own watcher during the scan on Parsed', async () => {
+    const callback = Sinon.spy();
+    await fixture(html`
+      <div>
+        <div class="parsing-self-stop"></div>
+        <div class="parsing-self-stop"></div>
+        <div class="parsing-self-stop"></div>
+      </div>
+    `);
+    const stop = connected('.parsing-self-stop', () => {
+      callback();
+      stop();
+    });
+
+    finishParsing();
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('never invokes when stopped before the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-stopped"></div>`);
+    const stop = connected('.parsing-stopped', callback);
+    stop();
+
+    finishParsing();
+    await nextFrame();
+    const element = document.createElement('div');
+    element.className = 'parsing-stopped';
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+});
+
 describe('disconnected', () => {
   it('invokes when element is removed', async () => {
     const callback = Sinon.spy();
@@ -348,6 +436,49 @@ describe('disconnected', () => {
 
     root.removeAttribute('title');
     await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+});
+
+describe('disconnected before the document is Parsed', () => {
+  let finishParsing: () => void;
+
+  beforeEach(() => {
+    finishParsing = simulateParsing();
+  });
+
+  afterEach(() => {
+    finishParsing();
+  });
+
+  it('invokes for an element present while parsing once it is removed after the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-removed-later"></div>`);
+    const stop = disconnected('.parsing-removed-later', callback);
+
+    finishParsing();
+    await nextFrame();
+    root.remove();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('never invokes for an element inserted and removed before the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = disconnected('.parsing-transient', callback);
+
+    const element = document.createElement('div');
+    element.className = 'parsing-transient';
+    root.append(element);
+    await nextFrame();
+    element.remove();
+    await nextFrame();
+
+    finishParsing();
+    await nextFrame();
+    stop();
     expect(callback.called).to.be.false;
   });
 });

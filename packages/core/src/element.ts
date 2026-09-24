@@ -1,7 +1,7 @@
 import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
-import { domReady } from './helpers/dom';
+import { whenParsed } from './helpers/dom';
 import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
@@ -116,11 +116,11 @@ export class ImpulseElement extends HTMLElement {
     // clears synchronously on every exit; a reconnect in the next microtask must see it cleared and start a fresh init.
     this._connecting = true;
     try {
-      // Define property accessors synchronously, before yielding to `domReady`, so a defined element's properties are
+      // Define property accessors synchronously, before yielding to `whenParsed`, so a defined element's properties are
       // live as soon as it connects. Property setup only reads the element's own attributes/defaults, so it does not
       // need to wait for the document or for descendants (unlike `target`/`action`, which scan children).
       this.property.start();
-      await domReady();
+      await whenParsed();
       // Removed while waiting: no watcher has been registered yet, so there is nothing to tear down and a later
       // reconnect starts over. The same applies after the second await below.
       if (!this.isConnected) return;

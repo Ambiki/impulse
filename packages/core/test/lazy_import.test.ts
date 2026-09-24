@@ -1,6 +1,8 @@
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { lazyImport } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
+import { simulateParsing } from './support/parsing';
 
 describe('lazy import', () => {
   it('calls the callback immediately if the element is present in the DOM', async () => {
@@ -67,5 +69,65 @@ describe('lazy import', () => {
 
     await nextFrame();
     expect(callback.calledOnce).to.be.true;
+  });
+
+  it('reports a callback that throws and still calls the others for the selector', async () => {
+    const { reported, release } = captureReportedErrors('lazy callback failed');
+    const callback = Sinon.spy();
+    try {
+      lazyImport('.lazy-throwing', () => {
+        throw new Error('lazy callback failed');
+      });
+      lazyImport('.lazy-throwing', callback);
+      await fixture(html`<div class="lazy-throwing"></div>`);
+
+      await nextFrame();
+      expect(reported).to.have.length(1);
+      expect(callback.calledOnce).to.be.true;
+    } finally {
+      release();
+    }
+  });
+});
+
+describe('lazy import before the document is Parsed', () => {
+  let finishParsing: () => void;
+
+  beforeEach(() => {
+    finishParsing = simulateParsing();
+  });
+
+  afterEach(() => {
+    finishParsing();
+  });
+
+  it('waits until the document is Parsed to call the callback', async () => {
+    const callback = Sinon.spy();
+    lazyImport('.lazy-parsing-present', callback);
+    await fixture(html`<div class="lazy-parsing-present"></div>`);
+
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    finishParsing();
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('never calls the callback for an element inserted and removed while parsing', async () => {
+    const callback = Sinon.spy();
+    lazyImport('.lazy-parsing-transient', callback);
+    const root = await fixture(html`<div></div>`);
+
+    const element = document.createElement('div');
+    element.className = 'lazy-parsing-transient';
+    root.append(element);
+    await nextFrame();
+    element.remove();
+    await nextFrame();
+
+    finishParsing();
+    await nextFrame();
+    expect(callback.called).to.be.false;
   });
 });

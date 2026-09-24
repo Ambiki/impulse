@@ -1,4 +1,5 @@
 import SelectorSet from '../data_structures/selector_set';
+import { whenParsed } from '../helpers/dom';
 import { invokeReporting } from '../helpers/errors';
 import { selectorAttributes } from '../helpers/selector';
 
@@ -36,11 +37,17 @@ let anyAttributeWatchers = 0;
 // The attributes the observer currently delivers, or `null` while it delivers every attribute.
 let attributeFilter: Set<string> | null = null;
 let attributeFilterTooWide = false;
+// Watchers registered while the document is loading. They join the index together once it is Parsed.
+let pendingWatchers: Set<RegisteredWatcher> | null = null;
 
 /**
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
  * registration and torn down once the last watcher is removed. A callback that throws is reported like an uncaught
  * error and never unwinds the observer or this function, so other watchers and later mutation records still run.
+ *
+ * Nothing is matched before the document is Parsed (docs/adr/0003). A watcher registered while `readyState` is
+ * `loading` joins the index on `DOMContentLoaded`. One registered later scans the document before this function
+ * returns, which the token routers rely on to replay tokens already on the page.
  *
  * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
  * `elementDisconnected` for them; callers that need teardown must handle it themselves.
@@ -57,17 +64,20 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     attributes: selectorAttributes(selector),
   };
 
-  watcherIndex.add(selector, registered);
-  countAttributes(registered.attributes, 1);
-  ensureObserving(registered.attributes);
-
-  for (const element of document.querySelectorAll(selector)) connect(element, registered);
+  if (document.readyState === 'loading') {
+    addPending(registered);
+  } else {
+    addToIndex(registered);
+    for (const element of document.querySelectorAll(selector)) connect(element, registered);
+  }
 
   let stopped = false;
   return () => {
     // The attribute counts are not idempotent the way the index is, so a second call must not reach them.
     if (stopped) return;
     stopped = true;
+    // A watcher stopped before the document is Parsed never joined the index, so it has nothing there to undo.
+    if (pendingWatchers?.delete(registered)) return;
     watcherIndex.delete(selector, registered);
     if (countAttributes(registered.attributes, -1)) attributeFilterTooWide = true;
     for (const element of registered.elements) {
@@ -76,6 +86,31 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     registered.elements.clear();
     if (watcherIndex.size === 0) stopObserving();
   };
+}
+
+function addToIndex(watcher: RegisteredWatcher) {
+  watcherIndex.add(watcher.selector, watcher);
+  countAttributes(watcher.attributes, 1);
+  ensureObserving(watcher.attributes);
+}
+
+function addPending(watcher: RegisteredWatcher) {
+  if (!pendingWatchers) {
+    pendingWatchers = new Set();
+    whenParsed().then(addPendingToIndex);
+  }
+  pendingWatchers.add(watcher);
+}
+
+// Every watcher registered during the parse joins the index before any of them is matched, so the document is walked
+// once for all of them rather than once each. The walk asks the index, so a watcher a callback stops is not matched
+// again.
+function addPendingToIndex() {
+  const watchers = pendingWatchers;
+  pendingWatchers = null;
+  if (!watchers || watchers.size === 0) return;
+  for (const watcher of watchers) addToIndex(watcher);
+  walkAdded(document.documentElement);
 }
 
 /**
