@@ -2,7 +2,7 @@ import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { connected, disconnected, ImpulseElement, registerElement, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
-import { simulateParsing } from './support/parsing';
+import { simulateInteractive, simulateParsing } from './support/parsing';
 
 let counter = 0;
 
@@ -365,6 +365,21 @@ describe('connected before the document is Parsed', () => {
     finishParsing();
     await nextFrame();
     expect(callback.calledOnce).to.be.true;
+  });
+
+  it('invokes once for a watcher registered after the parse but before DOMContentLoaded', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-interactive"></div>`);
+    // A watcher still waiting from the parse, so DOMContentLoaded walks the document.
+    const stopPending = connected('.parsing-interactive-pending', () => {});
+
+    simulateInteractive();
+    const stop = connected('.parsing-interactive', callback);
+    finishParsing();
+    await nextFrame();
+    stop();
+    stopPending();
+    expect(callback.calledOnceWith(root)).to.be.true;
   });
 
   it('never invokes when stopped before the document is Parsed', async () => {

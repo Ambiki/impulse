@@ -15,3 +15,11 @@ export function simulateParsing(): () => void {
     document.dispatchEvent(new Event('DOMContentLoaded', { bubbles: true }));
   };
 }
+
+/**
+ * Moves a simulated parse on to `interactive`: the document is Parsed but `DOMContentLoaded` has not fired yet, the
+ * window in which `defer` and module scripts run. Only call it between `simulateParsing()` and finishing the parse.
+ */
+export function simulateInteractive(): void {
+  Object.defineProperty(document, 'readyState', { configurable: true, get: () => 'interactive' });
+}
