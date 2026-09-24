@@ -71,6 +71,18 @@ describe('lazy import', () => {
     expect(callback.calledOnce).to.be.true;
   });
 
+  it('calls only the callback whose selector matches an element on the page', async () => {
+    const callbackA = Sinon.spy();
+    const callbackB = Sinon.spy();
+    lazyImport('.lazy-only-a', callbackA);
+    lazyImport('.lazy-only-b', callbackB);
+    await fixture(html`<div class="lazy-only-a"></div>`);
+
+    await nextFrame();
+    expect(callbackA.calledOnce).to.be.true;
+    expect(callbackB.called).to.be.false;
+  });
+
   it('reports a callback that throws and still calls the others for the selector', async () => {
     const { reported, release } = captureReportedErrors('lazy callback failed');
     const callback = Sinon.spy();
@@ -112,6 +124,19 @@ describe('lazy import before the document is Parsed', () => {
     finishParsing();
     await nextFrame();
     expect(callback.calledOnce).to.be.true;
+  });
+
+  it('calls only the callback whose selector matches an element on the page once the document is Parsed', async () => {
+    const callbackA = Sinon.spy();
+    const callbackB = Sinon.spy();
+    lazyImport('.lazy-parsing-only-a', callbackA);
+    lazyImport('.lazy-parsing-only-b', callbackB);
+    await fixture(html`<div class="lazy-parsing-only-a"></div>`);
+
+    finishParsing();
+    await nextFrame();
+    expect(callbackA.calledOnce).to.be.true;
+    expect(callbackB.called).to.be.false;
   });
 
   it('never calls the callback for an element inserted and removed while parsing', async () => {
