@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, property, registerElement, target } from '../src';
+import { ImpulseElement, property, registerElement, target, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
 import { simulateParsing } from './support/parsing';
 
@@ -446,6 +446,94 @@ describe('ImpulseElement init races', () => {
     await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
 
     expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+  });
+
+  it('re-initializes at the new position when connected() moves the element', async () => {
+    counter += 1;
+    const tag = `race-teleport-${counter}`;
+    const toastsId = `toasts-${counter}`;
+    const inlineId = `inline-${counter}`;
+    const handled = Sinon.spy();
+    const connectedParents: Array<string | undefined> = [];
+    const disconnectedSpy = Sinon.spy();
+
+    class TeleportElement extends ImpulseElement {
+      @target() button!: HTMLButtonElement;
+
+      connected() {
+        connectedParents.push(this.parentElement?.id);
+        const region = document.getElementById(toastsId)!;
+        if (this.parentElement !== region) region.append(this);
+      }
+
+      disconnected() {
+        disconnectedSpy();
+      }
+
+      handle() {
+        handled();
+      }
+    }
+    registerElement(tag)(TeleportElement);
+
+    const root = await fixture(html`<div><div id="${toastsId}"></div><div id="${inlineId}"></div></div>`);
+    const element = document.createElement(tag) as TeleportElement;
+    element.innerHTML = `<button data-target="${tag}.button" data-action="click->${tag}#handle"></button>`;
+    root.querySelector(`#${inlineId}`)!.append(element);
+    await waitUntil(() => connectedParents.length === 2, 'element should re-initialize after moving', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+
+    expect(connectedParents).to.deep.eq([inlineId, toastsId]);
+    expect(disconnectedSpy.calledOnce).to.be.true;
+    expect(element.parentElement!.id).to.eq(toastsId);
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    expect(await whenInitialized(element)).to.eq(element);
+    expect(element.button).to.eq(element.querySelector('button'));
+    element.button.click();
+    expect(handled.calledOnce).to.be.true;
+  });
+
+  it('initializes once when moved again while the init started by a move in connected() is pending', async () => {
+    counter += 1;
+    const tag = `race-teleport-pending-${counter}`;
+    const pendingTag = `race-teleport-pending-child-${counter}`;
+    const toastsId = `toasts-${counter}`;
+    const inlineId = `inline-${counter}`;
+    const otherId = `other-${counter}`;
+    const connectedSpy = Sinon.spy();
+
+    class TeleportElement extends ImpulseElement {
+      // Relies on the deprecated implicit wait for descendant definitions to hold the second init pending; the flag
+      // only silences its warning. Once that wait is removed, hold the init some other way.
+      static migratedToWhenInitialized = true;
+
+      connected() {
+        connectedSpy();
+        if (connectedSpy.calledOnce) {
+          // An undefined descendant holds the init started by the move below until the test defines it.
+          this.append(document.createElement(pendingTag));
+          document.getElementById(toastsId)!.append(this);
+        }
+      }
+    }
+    registerElement(tag)(TeleportElement);
+
+    const root = await fixture(
+      html`<div><div id="${toastsId}"></div><div id="${inlineId}"></div><div id="${otherId}"></div></div>`,
+    );
+    const element = document.createElement(tag) as TeleportElement;
+    root.querySelector(`#${inlineId}`)!.append(element);
+    await waitUntil(() => connectedSpy.calledOnce, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    root.querySelector(`#${otherId}`)!.append(element);
+    customElements.define(pendingTag, class extends HTMLElement {});
+    await waitUntil(() => connectedSpy.callCount >= 2, 'element should re-initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    await nextFrame();
+
+    expect(connectedSpy.callCount).to.eq(2);
+    expect(element.parentElement!.id).to.eq(otherId);
     expect(element.hasAttribute('data-impulse-element')).to.be.true;
   });
 });
