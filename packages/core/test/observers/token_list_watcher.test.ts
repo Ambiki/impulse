@@ -215,7 +215,7 @@ describe('watchTokenList', () => {
 
   it('fires each tokenUnmatched once and stops observing when a delegate calls stop again during stop', async () => {
     let stopReentrant: () => void = () => {};
-    const reentrant = { tokenMatched: Sinon.spy(), tokenUnmatched: Sinon.spy(() => stopReentrant()) };
+    const reentrant = { tokenMatched: Sinon.spy(), tokenUnmatched: Sinon.spy((_token: { content: string }) => stopReentrant()) };
     stopReentrant = watchTokenList(scope, 'data-test', reentrant);
     reentrant.tokenMatched.resetHistory();
 
