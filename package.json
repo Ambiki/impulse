@@ -21,10 +21,10 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",
-    "@rollup/plugin-typescript": "^11.1.2",
+    "@rollup/plugin-typescript": "^12.3.0",
     "concurrently": "^8.2.0",
     "eslint": "^10.2.0",
-    "rollup": "^3.30.0",
+    "rollup": "^4.63.5",
     "typescript": "^6.0.2"
   },
   "resolutions": {
