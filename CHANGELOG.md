@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An `on` handler that throws no longer stops the other delegated handlers for the same event, on the same element or on its ancestors. The error is reported through `window.onerror` as if uncaught, and dispatch continues, as it does for native listeners ([#200](https://github.com/Ambiki/impulse/issues/200))
 - An `ImpulseElement` that moves itself in `connected()` is no longer left torn down. It now disconnects and re-initializes at the new position, so `connected()` runs again: guard the move to avoid a loop ([#198](https://github.com/Ambiki/impulse/issues/198))
 - Removing one of two duplicate `data-target` tokens (`x.a x.a` to `x.a`) no longer unregisters the target or fires its disconnected callback while the attribute still references it ([#157](https://github.com/Ambiki/impulse/pull/157))
 - Removing one token from a multi-token `data-action` attribute no longer stops every listener on that element. Each `@action` listener is now keyed by its own token, and the token list watcher diffs duplicate tokens as a multiset, so only the removed descriptor is unbound ([#157](https://github.com/Ambiki/impulse/pull/157))

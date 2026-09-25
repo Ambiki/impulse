@@ -231,6 +231,57 @@ describe('on', () => {
     }
   });
 
+  it('keeps running later handlers when one handler throws', async () => {
+    const root = await fixture<HTMLDivElement>(
+      html`<div class="throws-outer"><button class="throws-button"></button></div>`,
+    );
+    const sameNode = Sinon.spy();
+    const ancestor = Sinon.spy();
+    const errors = captureReportedErrors('throws-button failed');
+    const stops = [
+      on('click', '.throws-button', () => {
+        throw new Error('throws-button failed');
+      }),
+      on('click', '.throws-button', sameNode),
+      on('click', '.throws-outer', ancestor),
+    ];
+    try {
+      root.querySelector('button')!.click();
+      expect(errors.reported.length).to.eq(1);
+      expect(sameNode.calledOnce).to.be.true;
+      expect(ancestor.calledOnce).to.be.true;
+    } finally {
+      stops.forEach((stop) => stop());
+      errors.release();
+    }
+  });
+
+  it('honors stopPropagation from a handler that then throws', async () => {
+    const root = await fixture<HTMLDivElement>(
+      html`<div class="throws-stop-outer"><button class="throws-stop-button"></button></div>`,
+    );
+    const sameNode = Sinon.spy();
+    const ancestor = Sinon.spy();
+    const errors = captureReportedErrors('throws-stop failed');
+    const stops = [
+      on('click', '.throws-stop-button', (event) => {
+        event.stopPropagation();
+        throw new Error('throws-stop failed');
+      }),
+      on('click', '.throws-stop-button', sameNode),
+      on('click', '.throws-stop-outer', ancestor),
+    ];
+    try {
+      root.querySelector('button')!.click();
+      expect(errors.reported.length).to.eq(1);
+      expect(sameNode.calledOnce).to.be.true;
+      expect(ancestor.called).to.be.false;
+    } finally {
+      stops.forEach((stop) => stop());
+      errors.release();
+    }
+  });
+
   it('fires a once handler only once when its callback re-dispatches the same event', async () => {
     const root = await fixture<HTMLDivElement>(html`<div class="once-redispatch"></div>`);
     let calls = 0;
