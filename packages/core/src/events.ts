@@ -1,4 +1,5 @@
 import SelectorSet from './data_structures/selector_set';
+import { invokeReporting } from './helpers/errors';
 
 interface Handler {
   selector: string;
@@ -278,7 +279,9 @@ function dispatch(event: Event, selectorSet: SelectorSet<Handler>, capture: bool
         selectorSet.delete(handler.selector, handler);
       }
 
-      handler.callback.call(node, event);
+      // Report a throwing callback instead of letting it unwind the loop, so one handler's bug
+      // cannot skip the handlers after it, as the browser isolates native listeners.
+      invokeReporting(() => handler.callback.call(node, event));
     }
   } finally {
     if (propagationStopped) stoppedEvents.add(event);
