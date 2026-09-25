@@ -22,12 +22,13 @@ export class ImpulseElement extends HTMLElement {
   private target = new Target(this);
   private action = new Action(this);
   private _started = false;
-  private _connecting = false;
+  // The token of the `_asyncConnect` call that is still initializing, or `null` when none is.
+  private _pendingInit: object | null = null;
 
   connectedCallback() {
     // A reconnect while an init is still pending must not start a second one; the pending init re-checks
     // `isConnected` after each await and finishes on its own.
-    if (this._started || this._connecting) return;
+    if (this._started || this._pendingInit) return;
     this._asyncConnect();
   }
 
@@ -112,9 +113,13 @@ export class ImpulseElement extends HTMLElement {
   }
 
   private async _asyncConnect() {
-    // `_connecting` is cleared in the `finally` of this method rather than from a `.finally()` on its promise so it
-    // clears synchronously on every exit; a reconnect in the next microtask must see it cleared and start a fresh init.
-    this._connecting = true;
+    // `_pendingInit` is cleared inside this method (before `connected()`, and in the `finally` on every other exit)
+    // rather than from a `.finally()` on its promise so it clears synchronously; a reconnect in the next microtask must
+    // see it cleared and start a fresh init. Each call clears only its own token: a move inside `connected()` starts a
+    // new init that is still pending when this one returns, and clearing that one would let a further reconnect start
+    // a second init alongside it.
+    const token = {};
+    this._pendingInit = token;
     try {
       // Define property accessors synchronously, before yielding to `whenParsed`, so a defined element's properties are
       // live as soon as it connects. Property setup only reads the element's own attributes/defaults, so it does not
@@ -136,6 +141,10 @@ export class ImpulseElement extends HTMLElement {
       this.target.start();
       this.action.start();
       this._started = true;
+      // Nothing is pending once targets and actions have started, so a move inside `connected()` below takes the
+      // normal disconnect and reconnect path: `disconnected()`, then a fresh init at the new position. Still pending,
+      // the reconnect would be dropped and the element left in the DOM torn down.
+      this._pendingInit = null;
 
       this.setAttribute(IMPULSE_ELEMENT_ATTRIBUTE, '');
       // Before `connected()`, so the marker being set and the waiters being resolved are one step: a `connected()`
@@ -143,7 +152,7 @@ export class ImpulseElement extends HTMLElement {
       notifyInitialized(this);
       this.connected();
     } finally {
-      this._connecting = false;
+      if (this._pendingInit === token) this._pendingInit = null;
     }
   }
 

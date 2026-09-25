@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An `ImpulseElement` that moves itself in `connected()` is no longer left torn down. It now disconnects and re-initializes at the new position, so `connected()` runs again: guard the move to avoid a loop ([#198](https://github.com/Ambiki/impulse/issues/198))
 - Removing one of two duplicate `data-target` tokens (`x.a x.a` to `x.a`) no longer unregisters the target or fires its disconnected callback while the attribute still references it ([#157](https://github.com/Ambiki/impulse/pull/157))
 - Removing one token from a multi-token `data-action` attribute no longer stops every listener on that element. Each `@action` listener is now keyed by its own token, and the token list watcher diffs duplicate tokens as a multiset, so only the removed descriptor is unbound ([#157](https://github.com/Ambiki/impulse/pull/157))
 - `ImpulseElement` no longer initializes twice when moved synchronously, and no longer finishes initializing (running `connected()`, setting the marker attribute and registering its watchers) after being removed while its async init was pending. A reconnect during that window is picked up by the pending init; a reconnect after it bailed out starts a fresh one ([#169](https://github.com/Ambiki/impulse/pull/169))
