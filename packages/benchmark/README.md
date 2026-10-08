@@ -45,6 +45,8 @@ layout and paint stay out of the numbers; the pages are served cross-origin isol
 | --- | --- |
 | `table-single-owner/{create,clear,append,move}` | A `<data-table>` owning 5,000 rows' tokens (20,000 in all) |
 | `table-row-elements/{create,clear,append,move}` | 5,000 `<table-row>` components, each with a property, 2 targets, 2 actions |
+| `watchers-few/{create,clear}` | A `<data-table>` owning 1,000 rows' tokens (4,000 in all), with only Impulse's own two Watchers registered |
+| `watchers-many/{create,clear}` | The same, plus 25 `lazyImport` Watchers that never match |
 | `body-swap` | `document.body.replaceWith()` a fresh copy of a ~10,000 element page with ~200 components |
 | `attributes-plain` | Toggle a class and write a style on 1,000 elements with no tokens |
 | `attributes-tokened` | The same on 1,000 elements that each carry a `data-action` |

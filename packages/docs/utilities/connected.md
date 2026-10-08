@@ -5,9 +5,9 @@ The `connected` function allows you to observe the DOM and invoke a callback whe
 ## Usage
 
 This function sets up a [MutationObserver](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) on the
-document that watches for elements matching the provided CSS selector. The callback is invoked immediately for any
-matching elements already in the DOM, then for any elements added later, and for any element whose attributes change
-such that it starts matching the selector.
+document that watches for elements matching the provided CSS selector. The callback is invoked for any matching
+elements already in the DOM, then for any elements added later, and for any element whose attributes change such that
+it starts matching the selector. Nothing is matched [before the document is parsed](#before-the-document-is-parsed).
 
 This is particularly useful for initializing third-party libraries that require a manual initialization step on a given
 element.
@@ -53,6 +53,26 @@ const stop = connected('div', (element) => {
 // Later, stop observing
 stop();
 ```
+
+## Before the document is parsed
+
+While the browser is still parsing the page (`document.readyState` is `loading`), an element is in the document before
+its children are, so a callback could run on a half-built element. Impulse therefore matches nothing until the document
+is parsed.
+
+- Called during the parse — from a blocking `<script>` in the `<head>`, for example — `connected` returns without
+  matching anything. The callback first runs on `DOMContentLoaded`, for every matching element in the parsed document.
+- Called after the parse, it matches the elements already in the DOM before it returns. A `defer` script, or a
+  `type="module"` one without `async`, runs after the parse, so it is not affected. An `async` script can run on either
+  side of it.
+
+On a long page, whatever the callback does, such as hiding or enhancing an element, waits for the whole parse, so the
+unenhanced content can show briefly.
+
+## Errors
+
+A callback that throws is reported like an uncaught error, so it reaches `window.onerror`, and does not stop the
+callbacks for other elements or other selectors.
 
 ## Performance
 
