@@ -27,10 +27,11 @@ lazyImport('.billing', () => import('../components/billing'));
 
 ## Inside the imported module
 
-The import callback runs once per selector, the first time a matching element is seen. The module it loads should not
-look the element up with `document.querySelector`: the import resolves asynchronously, so the element may already be
-gone by then, and any matching element added later (for example after a Turbo navigation) would be missed. Register
-with [`connected`](./connected) instead so the module sees every matching element, now and in the future.
+The import callback runs once per selector, the first time a matching element is seen. Like `connected`, it matches
+nothing [before the document is parsed](./connected#before-the-document-is-parsed). The module it loads should not look
+the element up with `document.querySelector`: the import resolves asynchronously, so the element may already be gone by
+then, and any matching element added later (for example after a Turbo navigation) would be missed. Register with
+[`connected`](./connected) instead so the module sees every matching element, now and in the future.
 
 ```ts
 // components/billing.ts
@@ -40,6 +41,12 @@ connected('.billing', (element) => {
   // Runs for the element that triggered the import and for every `.billing` element added afterwards.
 });
 ```
+
+## Errors
+
+An import callback that throws is [reported like an uncaught error](./connected#errors) and does not stop the other
+callbacks registered for the same selector. A failed `import()` does not throw, it rejects: the promise the callback
+returns is not awaited, so the failure surfaces as an unhandled promise rejection.
 
 ## Performance
 

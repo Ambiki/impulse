@@ -72,6 +72,19 @@ connected() {
 }
 ```
 
+::: warning Moving the element
+Moving the element from inside `connected()`, such as a toast appending itself to a shared region, disconnects and
+reconnects it. `disconnected()` runs, the element initializes again at its new position, and `connected()` is called a
+second time. Guard the move: left unguarded, it loops without a pause and freezes the page.
+
+```ts
+connected() {
+  const region = document.getElementById('toasts')!;
+  if (this.parentElement !== region) region.append(this);
+}
+```
+:::
+
 ### `disconnected()`
 
 This function is called when the element itself is disconnected from the DOM. Within this function, you can clean up

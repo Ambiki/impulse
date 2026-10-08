@@ -70,6 +70,11 @@ Calling `event.stopPropagation()` inside a handler halts further delegated dispa
 registered against ancestor selectors will not fire. `event.stopImmediatePropagation()` additionally blocks any
 remaining handlers registered against the same element.
 
+## Errors
+
+A handler that throws is reported like an uncaught error, so it reaches `window.onerror`, and does not stop the handlers
+after it - the same way the browser isolates native listeners from one another.
+
 ## Stopping observation
 
 The `on` function returns a cleanup function that detaches the handler. The same detachment happens when a `once`

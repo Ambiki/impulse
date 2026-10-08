@@ -49,6 +49,11 @@ export default class GreetUserElement extends ImpulseElement {
 }
 ```
 
+A `@target()` property points at one element. A second element carrying the same target name is ignored, and the mistake
+is [reported like an uncaught error](/utilities/connected#errors). It is not picked up later either: once the first
+element is removed, the property reads `null` even though the other is still in the DOM. Use
+[`@targets()`](#multiple-targets) when several elements share a name.
+
 ## Multiple targets
 
 Multiple targets can be referenced via the `@targets()` decorator. The property is every matching element in
