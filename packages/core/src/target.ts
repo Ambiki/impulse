@@ -2,6 +2,7 @@ import type { TargetDeclaration } from './decorators/target';
 import type { ImpulseElement } from './element';
 import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import SetMap from './data_structures/set_map';
+import { invokeReporting, reportUncaught } from './helpers/errors';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
 import { registeredFor, TARGETS } from './registry';
@@ -11,12 +12,22 @@ import { parseTargetDescriptor } from './target_descriptor';
 // `identifier.key` descriptor.
 const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
 
+// Two waiting tokens can sit on one element, and a comparator has to call a node equal to itself.
+function byDocumentOrder(a: Node, b: Node): number {
+  if (a === b) return 0;
+  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+}
+
 export default class Target<T extends Element> implements TokenListWatcherDelegate<T> {
   private readonly declarations: ReadonlyMap<string, TargetDeclaration>;
   private targetsByKey: SetMap<string, T>;
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
   private tokensByElement: SetMap<T, Token<T>>;
+  // The tokens naming a `@target()` key that already has a target. Their elements are not in the field and have had
+  // no `[key]Connected`; one of them is adopted when the target goes away, so a replacement inserted before the element
+  // it replaces is removed is not lost.
+  private waitingByKey: SetMap<string, Token<T>>;
   // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
   private orderedByKey = new Map<string, T[]>();
   private stopWatching?: () => void;
@@ -25,6 +36,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     this.declarations = registeredFor(this.instance, TARGETS);
     this.targetsByKey = new SetMap();
     this.tokensByElement = new SetMap();
+    this.waitingByKey = new SetMap();
   }
 
   start() {
@@ -45,7 +57,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   stop() {
     const stopWatching = this.stopWatching;
     if (!stopWatching) return;
-    // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect.
+    // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect, and so
+    // `adoptWaiting` can tell the unmatches that follow are a teardown.
     this.stopWatching = undefined;
     stopWatching();
   }
@@ -62,28 +75,25 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
       return;
     }
 
-    // Validate before mutating `targetsByKey` so a rejected duplicate does not leave the map in an
-    // inconsistent state.
+    // A `@target()` key holds one element. A second one is kept waiting rather than dropped; `targetsByKey` is left
+    // alone, so the field and the callbacks only ever see the target.
     if (!this.isKeyMultiple(key) && this.targetsByKey.valuesForKey(key).length > 0) {
-      throw new Error(
-        `
-Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
-Please use the @targets() decorator instead if you want to define multiple targets for the same key.
-Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
-        `.trim(),
-      );
+      this.waitingByKey.add(key, token);
+      this.reportIfLeftWaiting(key, token);
+      return;
     }
 
-    this.targetsByKey.add(key, element);
     this.tokensByElement.add(element, token);
-    this.orderedByKey.delete(key);
-    this.invokeCallback(key, element, 'connected');
+    this.connect(key, element);
   }
 
   tokenUnmatched(token: Token<T>) {
     const { content, element } = token;
     const { identifier, key } = parseTargetDescriptor(content);
-    if (!this.isValidIdKeyPair(identifier, key) || !this.targetsByKey.has(key, element)) return;
+    if (!this.isValidIdKeyPair(identifier, key)) return;
+    // A waiting token's element never had a `[key]Connected`, so it goes without a `[key]Disconnected`.
+    if (this.waitingByKey.delete(key, token)) return;
+    if (!this.targetsByKey.has(key, element)) return;
 
     this.tokensByElement.delete(element, token);
     if (this.isStillReferenced(element, content)) return;
@@ -94,7 +104,80 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     } finally {
       this.targetsByKey.delete(key, element);
       this.orderedByKey.delete(key);
+      this.adoptWaiting(key, token);
     }
+  }
+
+  /**
+   * Reports a second element for a `@target()` key, unless it has stopped waiting by the time every token delivered
+   * along with it has been processed. Replacing a target by inserting the new element before removing the old one
+   * passes through two elements without being a mistake. Two that are both still there afterwards are one.
+   *
+   * Tokens arrive in synchronous runs: a mutation batch, or the replay when the instance starts. A microtask queued
+   * from inside a run is therefore invoked once every token in it has been delivered.
+   */
+  private reportIfLeftWaiting(key: string, token: Token<T>) {
+    Promise.resolve().then(() => {
+      if (!this.waitingByKey.has(key, token)) return;
+
+      reportUncaught(
+        new Error(
+          `
+Multiple "${key}" targets in the "${this.identifier}" element were defined using the @target() decorator.
+Please use the @targets() decorator instead if you want to define multiple targets for the same key.
+Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
+          `.trim(),
+        ),
+      );
+    });
+  }
+
+  private connect(key: string, element: T) {
+    this.targetsByKey.add(key, element);
+    this.orderedByKey.delete(key);
+    this.invokeCallback(key, element, 'connected');
+  }
+
+  /**
+   * Adopts the first waiting element in document order as the target of a `@target()` key that has just lost its own,
+   * invoking `[key]Connected` for it. `departed` is the token whose unmatch freed the key.
+   *
+   * A token is only dropped when its own unmatch is delivered, and a mutation batch delivers them one record at a
+   * time, so what has been delivered can be behind the document. The router is asked what the document says now:
+   *
+   * - The target may have been moved rather than removed. Its token is unmatched here and matched again by the record
+   *   that follows, so it is left to come back rather than replaced.
+   * - A waiting element may already be detached, sit under another owner, or have had the descriptor rewritten out of
+   *   its attribute, with the unmatch saying so queued behind this one. Adopting it would invoke `[key]Connected` for
+   *   an element that is about to be forgotten.
+   */
+  private adoptWaiting(key: string, departed?: Token<T>) {
+    // Nothing is waiting behind almost every target that goes away, `@targets()` ones included. While stopping,
+    // `stop()` has cleared `stopWatching` and is unmatching every token, the waiting ones too, so there is nobody to
+    // adopt. And on the second look below, the key may have a target again.
+    if (!this.stopWatching || !this.waitingByKey.get(key) || this.targetsByKey.get(key)) return;
+    if (departed && router.stillRoutesTo(this.instance, departed)) return;
+
+    const current = this.waitingByKey.valuesForKey(key).filter((token) => router.stillRoutesTo(this.instance, token));
+    const [next] = current.sort((a, b) => byDocumentOrder(a.element, b.element));
+    if (!next) {
+      // Every waiting token is stale and normally about to be unmatched. A callback invoked later in this batch can
+      // put the descriptor back first, though: the attribute then ends where it began, no record reports a change, and
+      // the token stays waiting behind nobody. One more look once the batch is done finds it.
+      if (departed) Promise.resolve().then(() => this.adoptWaiting(key));
+      return;
+    }
+
+    // Every current token the element holds for the key moves with it, so a descriptor listed twice is counted the way
+    // it is for any other target. A stale one stays behind for its unmatch to drop.
+    for (const token of current) {
+      if (token.element !== next.element) continue;
+      this.waitingByKey.delete(key, token);
+      this.tokensByElement.add(token.element, token);
+    }
+    // Reported rather than thrown: this can run while a `[key]Disconnected` that has itself thrown is unwinding, and an
+    // error raised here would replace that one instead of joining it.
+    invokeReporting(() => this.connect(key, next.element));
   }
 
   /**
@@ -108,9 +191,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   private orderedTargets(key: string): T[] {
     let ordered = this.orderedByKey.get(key);
     if (!ordered) {
-      ordered = this.targetsByKey
-        .valuesForKey(key)
-        .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+      ordered = this.targetsByKey.valuesForKey(key).sort(byDocumentOrder);
       this.orderedByKey.set(key, ordered);
     }
     return ordered;
