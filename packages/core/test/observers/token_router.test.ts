@@ -258,7 +258,7 @@ describe('TokenRouter', () => {
     expect(innerDelegate.tokenUnmatched.calledOnce).to.be.true;
   });
 
-  describe('owns', () => {
+  describe('stillRoutesTo', () => {
     let a: Element;
     let outerDelegate: Delegate;
     let token: Token<Element>;
@@ -272,14 +272,14 @@ describe('TokenRouter', () => {
 
     it('holds for the owner a token was routed to, and for no other', () => {
       expect(token.content).to.eq('x-outer.a');
-      expect(router.owns(outer, token)).to.be.true;
-      expect(router.owns(inner, token)).to.be.false;
+      expect(router.stillRoutesTo(outer, token)).to.be.true;
+      expect(router.stillRoutesTo(inner, token)).to.be.false;
     });
 
     it('stops holding as soon as the element leaves the owner, before the removal is delivered', () => {
       a.remove();
 
-      expect(router.owns(outer, token)).to.be.false;
+      expect(router.stillRoutesTo(outer, token)).to.be.false;
       expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
     });
 
@@ -287,13 +287,13 @@ describe('TokenRouter', () => {
       root.append(a);
 
       expect(a.isConnected).to.be.true;
-      expect(router.owns(outer, token)).to.be.false;
+      expect(router.stillRoutesTo(outer, token)).to.be.false;
     });
 
     it('stops holding as soon as the attribute no longer lists the token, before the change is delivered', () => {
       a.setAttribute('data-test', 'x-inner.stray');
 
-      expect(router.owns(outer, token)).to.be.false;
+      expect(router.stillRoutesTo(outer, token)).to.be.false;
       expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
     });
   });

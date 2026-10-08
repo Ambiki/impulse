@@ -75,9 +75,10 @@ export default class TokenRouter {
   /**
    * Whether a scan of the document as it stands would still route `token` to `owner`. The index only catches up when
    * the record that moved or removed the token's element, or rewrote its attribute, is delivered. Part-way through a
-   * mutation batch an owner can therefore be holding a token that has already left it.
+   * mutation batch a token can therefore still be indexed under an owner it has already left, or already be unmatched
+   * for one it is about to come back to.
    */
-  owns(owner: Element, token: Token<Element>): boolean {
+  stillRoutesTo(owner: Element, token: Token<Element>): boolean {
     return isListed(token) && this.ownerOf(token) === owner;
   }
 

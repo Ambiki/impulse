@@ -12,6 +12,7 @@ import { parseTargetDescriptor } from './target_descriptor';
 // `identifier.key` descriptor.
 const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
 
+// Two waiting tokens can sit on one element, and a comparator has to call a node equal to itself.
 function byDocumentOrder(a: Node, b: Node): number {
   if (a === b) return 0;
   return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
@@ -23,9 +24,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // Every matched token per element, so duplicate descriptors (`x.a x.a`) are counted and the target is only
   // unregistered once the last token referencing it goes away.
   private tokensByElement: SetMap<T, Token<T>>;
-  // The tokens claiming a `@target()` key that already has a target. Their elements are not in the field and were
-  // never announced with `[key]Connected`; one of them takes over when the target goes away, so a replacement inserted
-  // before the element it replaces is removed is not lost.
+  // The tokens naming a `@target()` key that already has a target. Their elements are not in the field and have had
+  // no `[key]Connected`; one of them is adopted when the target goes away, so a replacement inserted before the element
+  // it replaces is removed is not lost.
   private waitingByKey: SetMap<string, Token<T>>;
   // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
   private orderedByKey = new Map<string, T[]>();
@@ -56,7 +57,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   stop() {
     const stopWatching = this.stopWatching;
     if (!stopWatching) return;
-    // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect.
+    // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect, and so
+    // `adoptWaiting` can tell the unmatches that follow are a teardown.
     this.stopWatching = undefined;
     stopWatching();
   }
@@ -89,7 +91,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     const { content, element } = token;
     const { identifier, key } = parseTargetDescriptor(content);
     if (!this.isValidIdKeyPair(identifier, key)) return;
-    // A waiting token's element was never announced, so it goes without a `[key]Disconnected`.
+    // A waiting token's element never had a `[key]Connected`, so it goes without a `[key]Disconnected`.
     if (this.waitingByKey.delete(key, token)) return;
     if (!this.targetsByKey.has(key, element)) return;
 
@@ -102,17 +104,17 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     } finally {
       this.targetsByKey.delete(key, element);
       this.orderedByKey.delete(key);
-      this.promote(key);
+      this.adoptWaiting(key, token);
     }
   }
 
   /**
-   * Reports a second element for a `@target()` key, unless it is no longer waiting once the mutation batch that
-   * brought it in has been processed. Replacing a target by inserting the new element before removing the old one
-   * passes through two of them without being a mistake; two that outlive the batch are one.
+   * Reports a second element for a `@target()` key, unless it has stopped waiting by the time every token delivered
+   * along with it has been processed. Replacing a target by inserting the new element before removing the old one
+   * passes through two elements without being a mistake. Two that are both still there afterwards are one.
    *
-   * A batch is processed synchronously, so a microtask queued from inside it runs once every record in it has been
-   * delivered.
+   * Tokens arrive in synchronous runs: a mutation batch, or the replay when the instance starts. A microtask queued
+   * from inside a run is therefore invoked once every token in it has been delivered.
    */
   private reportIfLeftWaiting(key: string, token: Token<T>) {
     Promise.resolve().then(() => {
@@ -137,36 +139,44 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   }
 
   /**
-   * Hands a `@target()` key that has just lost its target to the first waiting element in document order, the one a
-   * fresh scan would have picked, and announces it with `[key]Connected`.
+   * Adopts the first waiting element in document order as the target of a `@target()` key that has just lost its own,
+   * invoking `[key]Connected` for it. `departed` is the token whose unmatch freed the key.
    *
-   * A waiting token is only dropped when its own unmatch is delivered, and that can be queued behind the unmatch that
-   * frees the key: both in one mutation batch, the target's first. By then its element may already be detached, sit
-   * under another owner, or have had the descriptor rewritten out of its attribute. Announcing it would fire
-   * `[key]Connected` for an element that is about to be forgotten, so only tokens the router still routes here are
-   * considered.
+   * A token is only dropped when its own unmatch is delivered, and a mutation batch delivers them one record at a
+   * time, so what has been delivered can be behind the document. The router is asked what the document says now:
+   *
+   * - The target may have been moved rather than removed. Its token is unmatched here and matched again by the record
+   *   that follows, so it is left to come back rather than replaced.
+   * - A waiting element may already be detached, sit under another owner, or have had the descriptor rewritten out of
+   *   its attribute, with the unmatch saying so queued behind this one. Adopting it would invoke `[key]Connected` for
+   *   an element that is about to be forgotten.
    */
-  private promote(key: string) {
-    // Nothing is waiting behind almost every target that goes away, `@targets()` ones included. And while stopping,
-    // `stop()` has cleared `stopWatching` and is unmatching every token, the waiting ones too, so nobody is left to
-    // hand the key to.
-    if (!this.stopWatching || !this.waitingByKey.get(key)) return;
+  private adoptWaiting(key: string, departed?: Token<T>) {
+    // Nothing is waiting behind almost every target that goes away, `@targets()` ones included. While stopping,
+    // `stop()` has cleared `stopWatching` and is unmatching every token, the waiting ones too, so there is nobody to
+    // adopt. And on the second look below, the key may have a target again.
+    if (!this.stopWatching || !this.waitingByKey.get(key) || this.targetsByKey.get(key)) return;
+    if (departed && router.stillRoutesTo(this.instance, departed)) return;
 
-    const waiting = this.waitingByKey.valuesForKey(key);
-    const [next] = waiting
-      .filter((token) => router.owns(this.instance, token))
-      .sort((a, b) => byDocumentOrder(a.element, b.element));
-    if (!next) return;
+    const current = this.waitingByKey.valuesForKey(key).filter((token) => router.stillRoutesTo(this.instance, token));
+    const [next] = current.sort((a, b) => byDocumentOrder(a.element, b.element));
+    if (!next) {
+      // Every waiting token is stale and normally about to be unmatched. A callback invoked later in this batch can
+      // put the descriptor back first, though: the attribute then ends where it began, no record reports a change, and
+      // the token stays waiting behind nobody. One more look once the batch is done finds it.
+      if (departed) Promise.resolve().then(() => this.adoptWaiting(key));
+      return;
+    }
 
-    // Every token the element holds for the key moves with it, so a descriptor listed twice is counted the way it is
-    // for any other target.
-    for (const token of waiting) {
+    // Every current token the element holds for the key moves with it, so a descriptor listed twice is counted the way
+    // it is for any other target. A stale one stays behind for its unmatch to drop.
+    for (const token of current) {
       if (token.element !== next.element) continue;
       this.waitingByKey.delete(key, token);
       this.tokensByElement.add(token.element, token);
     }
-    // Reported rather than thrown: this runs while a `[key]Disconnected` that may itself have thrown is unwinding, and
-    // an error raised here would replace that one instead of joining it.
+    // Reported rather than thrown: this can run while a `[key]Disconnected` that has itself thrown is unwinding, and an
+    // error raised here would replace that one instead of joining it.
     invokeReporting(() => this.connect(key, next.element));
   }
 
@@ -181,9 +191,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   private orderedTargets(key: string): T[] {
     let ordered = this.orderedByKey.get(key);
     if (!ordered) {
-      ordered = this.targetsByKey
-        .valuesForKey(key)
-        .sort(byDocumentOrder);
+      ordered = this.targetsByKey.valuesForKey(key).sort(byDocumentOrder);
       this.orderedByKey.set(key, ordered);
     }
     return ordered;

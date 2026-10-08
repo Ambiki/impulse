@@ -254,23 +254,30 @@ describe('@target', () => {
   });
 
   describe('when a second element carries the same target', () => {
+    let old: Element;
     let errors: ReturnType<typeof captureReportedErrors>;
     beforeEach(() => {
+      old = el.querySelector('#panel')!;
       errors = captureReportedErrors('Multiple "panel" targets');
     });
     afterEach(() => errors.release());
 
-    function createPanel() {
+    function createPanel(descriptors = `${el.identifier}.panel`) {
       const panel = document.createElement('div');
-      panel.setAttribute('data-target', `${el.identifier}.panel`);
+      panel.setAttribute('data-target', descriptors);
       return panel;
     }
 
-    it('adopts a replacement inserted before the old target is removed', async () => {
-      const old = el.querySelector('#panel')!;
-      const fresh = createPanel();
-      el.append(fresh);
+    // Appends a second panel and lets it be delivered, which leaves it waiting behind `old`.
+    async function addWaitingPanel(descriptors?: string) {
+      const panel = createPanel(descriptors);
+      el.append(panel);
       await nextFrame();
+      return panel;
+    }
+
+    it('should adopt a replacement inserted before the old target is removed', async () => {
+      const fresh = await addWaitingPanel();
       expect(el.panel).to.eq(old);
 
       old.remove();
@@ -283,17 +290,14 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.secondCall.calledAfter(el.panelDisconnectedSpy.firstCall)).to.be.true;
     });
 
-    it('reports a second element that is still there once the changes that added it are processed', async () => {
-      const old = el.querySelector('#panel')!;
-      el.append(createPanel());
-      await nextFrame();
+    it('should report a second element that is still there once the changes that added it are processed', async () => {
+      await addWaitingPanel();
 
       expect(errors.reported.length).to.eq(1);
       expect(el.panel).to.eq(old);
     });
 
-    it('reports nothing when the replacement is inserted and the old target removed in one task', async () => {
-      const old = el.querySelector('#panel')!;
+    it('should report nothing when the replacement is inserted and the old target removed in one task', async () => {
       const fresh = createPanel();
       old.after(fresh);
       old.remove();
@@ -303,11 +307,18 @@ describe('@target', () => {
       expect(errors.reported).to.be.empty;
     });
 
-    it('forgets a waiting element that is removed before the target', async () => {
-      const old = el.querySelector('#panel')!;
-      const extra = createPanel();
-      el.append(extra);
+    it('should report nothing when a replacement listing the target twice is swapped in within one task', async () => {
+      const fresh = createPanel(`${el.identifier}.panel ${el.identifier}.panel`);
+      old.after(fresh);
+      old.remove();
       await nextFrame();
+
+      expect(el.panel).to.eq(fresh);
+      expect(errors.reported).to.be.empty;
+    });
+
+    it('should forget a waiting element that is removed before the target', async () => {
+      const extra = await addWaitingPanel();
 
       extra.remove();
       await nextFrame();
@@ -320,11 +331,21 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.calledOnce).to.be.true;
     });
 
-    it('does not adopt a waiting element removed in the same task as the target', async () => {
-      const old = el.querySelector('#panel')!;
-      const extra = createPanel();
-      el.append(extra);
+    it('should keep the target when it is moved while another element waits', async () => {
+      await addWaitingPanel();
+
+      // Now the last of the two in document order. Its removal is delivered before its insertion.
+      el.append(old);
       await nextFrame();
+
+      expect(el.panel).to.eq(old);
+      expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
+      expect(el.panelConnectedSpy.calledTwice).to.be.true;
+      expect(el.panelConnectedSpy.secondCall.calledWith(old, old)).to.be.true;
+    });
+
+    it('should not adopt a waiting element removed in the same task as the target', async () => {
+      const extra = await addWaitingPanel();
 
       // Two records in one batch, the target's first: the waiting element is already detached when the target's
       // removal is processed, and its own removal has not been delivered yet.
@@ -337,11 +358,8 @@ describe('@target', () => {
       expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
     });
 
-    it('does not adopt a waiting element whose data-target was rewritten in the same task as the target left', async () => {
-      const old = el.querySelector('#panel')!;
-      const extra = createPanel();
-      el.append(extra);
-      await nextFrame();
+    it('should not adopt a waiting element that drops the target in the same task as the old one leaves', async () => {
+      const extra = await addWaitingPanel();
 
       // The waiting element is still in place when the target's removal is processed; only its attribute has moved on.
       old.remove();
@@ -353,11 +371,43 @@ describe('@target', () => {
       expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
     });
 
-    it('does not adopt a waiting element while the owner is disconnecting', async () => {
-      const old = el.querySelector('#panel')!;
-      const extra = createPanel();
-      el.append(extra);
+    it('should keep an adopted element that drops a second spelling of the target in the same task', async () => {
+      // Any segment past the key is ignored, so both tokens name `panel`.
+      const fresh = await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel.alias`);
+
+      // Only the first token is still listed when the old target's removal is processed.
+      old.remove();
+      fresh.setAttribute('data-target', `${el.identifier}.panel`);
       await nextFrame();
+
+      expect(el.panel).to.eq(fresh);
+      expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
+    });
+
+    it('should adopt a waiting element whose target a callback restores while the batch is processed', async () => {
+      const extra = createPanel();
+      const sheet = document.createElement('div');
+      sheet.setAttribute('data-target', `${el.identifier}.sheet`);
+      el.append(extra, sheet);
+      await nextFrame();
+      el.sheetDisconnectedSpy = Sinon.stub().callsFake(() => {
+        extra.setAttribute('data-target', `${el.identifier}.panel`);
+      });
+
+      // The waiting element no longer lists the target when the old one's removal is processed, and has it back before
+      // its own attribute record is: the attribute ends where it began, so no record reports a change.
+      old.remove();
+      sheet.remove();
+      extra.setAttribute('data-target', `${el.identifier}.other`);
+      await nextFrame();
+
+      expect(el.panel).to.eq(extra);
+      expect(el.panelConnectedSpy.calledTwice).to.be.true;
+      expect(el.panelConnectedSpy.secondCall.calledWith(extra, extra)).to.be.true;
+    });
+
+    it('should not adopt a waiting element while the owner is disconnecting', async () => {
+      await addWaitingPanel();
 
       el.remove();
 
@@ -365,11 +415,8 @@ describe('@target', () => {
       expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
     });
 
-    it('adopts the first waiting element in document order', async () => {
-      const old = el.querySelector('#panel')!;
-      const later = createPanel();
-      el.append(later);
-      await nextFrame();
+    it('should adopt the first waiting element in document order', async () => {
+      await addWaitingPanel();
       const earlier = createPanel();
       el.prepend(earlier);
       await nextFrame();
@@ -381,12 +428,8 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.calledTwice).to.be.true;
     });
 
-    it('adopts an element that lists the target twice as one target', async () => {
-      const old = el.querySelector('#panel')!;
-      const fresh = createPanel();
-      fresh.setAttribute('data-target', `${el.identifier}.panel ${el.identifier}.panel`);
-      el.append(fresh);
-      await nextFrame();
+    it('should adopt an element that lists the target twice as one target', async () => {
+      const fresh = await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel`);
 
       old.remove();
       await nextFrame();
@@ -401,11 +444,8 @@ describe('@target', () => {
       expect(el.panelDisconnectedSpy.secondCall.calledWith(fresh, fresh)).to.be.true;
     });
 
-    it('reports both errors when the callbacks on either side of an adoption throw', async () => {
-      const old = el.querySelector('#panel')!;
-      const fresh = createPanel();
-      el.append(fresh);
-      await nextFrame();
+    it('should report both errors when the callbacks on either side of an adoption throw', async () => {
+      const fresh = await addWaitingPanel();
 
       el.panelDisconnectedSpy = Sinon.stub().throws(new Error('panel disconnected failed'));
       el.panelConnectedSpy = Sinon.stub().throws(new Error('panel connected failed'));
