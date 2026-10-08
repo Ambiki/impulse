@@ -1,3 +1,4 @@
+import type { Token } from '../../src/observers/token_list_watcher';
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
 import TokenRouter from '../../src/observers/token_router';
@@ -255,5 +256,45 @@ describe('TokenRouter', () => {
     stopInner();
     stopInner();
     expect(innerDelegate.tokenUnmatched.calledOnce).to.be.true;
+  });
+
+  describe('owns', () => {
+    let a: Element;
+    let outerDelegate: Delegate;
+    let token: Token<Element>;
+
+    beforeEach(() => {
+      a = root.querySelector('#a')!;
+      outerDelegate = makeDelegate();
+      subscribe(outer, outerDelegate);
+      [token] = outerDelegate.tokenMatched.args[0];
+    });
+
+    it('holds for the owner a token was routed to, and for no other', () => {
+      expect(token.content).to.eq('x-outer.a');
+      expect(router.owns(outer, token)).to.be.true;
+      expect(router.owns(inner, token)).to.be.false;
+    });
+
+    it('stops holding as soon as the element leaves the owner, before the removal is delivered', () => {
+      a.remove();
+
+      expect(router.owns(outer, token)).to.be.false;
+      expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
+    });
+
+    it('stops holding as soon as the element moves out of the owner while staying in the document', () => {
+      root.append(a);
+
+      expect(a.isConnected).to.be.true;
+      expect(router.owns(outer, token)).to.be.false;
+    });
+
+    it('stops holding as soon as the attribute no longer lists the token, before the change is delivered', () => {
+      a.setAttribute('data-test', 'x-inner.stray');
+
+      expect(router.owns(outer, token)).to.be.false;
+      expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
+    });
   });
 });

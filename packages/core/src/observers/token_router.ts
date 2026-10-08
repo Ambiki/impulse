@@ -2,7 +2,7 @@ import type { Token, TokenListWatcherDelegate } from './token_list_watcher';
 import { invokeReporting } from '../helpers/errors';
 import { invokeEach } from '../helpers/invoke_each';
 import { flushMutations } from './document_observer';
-import { watchTokenList } from './token_list_watcher';
+import { isListed, watchTokenList } from './token_list_watcher';
 
 /**
  * One document-wide `[attributeName]` token watcher shared by every subscribing element, so the per-mutation cost of
@@ -70,6 +70,15 @@ export default class TokenRouter {
       stopped = true;
       this.unsubscribe(owner, routed);
     };
+  }
+
+  /**
+   * Whether a scan of the document as it stands would still route `token` to `owner`. The index only catches up when
+   * the record that moved or removed the token's element, or rewrote its attribute, is delivered. Part-way through a
+   * mutation batch an owner can therefore be holding a token that has already left it.
+   */
+  owns(owner: Element, token: Token<Element>): boolean {
+    return isListed(token) && this.ownerOf(token) === owner;
   }
 
   private unsubscribe(owner: Element, delegate: TokenListWatcherDelegate<Element>) {
