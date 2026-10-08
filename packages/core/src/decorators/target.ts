@@ -15,8 +15,10 @@ export interface TargetDeclaration {
  * `[field]Disconnected(element)` method is invoked as the target comes and goes.
  *
  * A token belongs to the closest ancestor matching its identifier, or to the element itself when it carries both, so
- * nested elements of the same tag do not claim each other's targets. A second element claiming a single-target key
- * throws, pointing at {@link targets} instead.
+ * nested elements of the same tag do not claim each other's targets. A second element carrying a single-target key
+ * waits: it stays out of the field and takes over, with its own `[field]Connected`, when the first goes away. If both
+ * are still there once the DOM changes that added it have been processed, an error pointing at {@link targets} is
+ * reported.
  *
  * @example
  * ```ts

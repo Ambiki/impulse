@@ -49,6 +49,15 @@ export default class GreetUserElement extends ImpulseElement {
 }
 ```
 
+A `@target()` property points at one element. A second element carrying the same target name waits: it stays out of the
+property until the first one is removed or stops carrying the name, then takes over and gets its own
+[connected callback](#connected-and-disconnected-callbacks). Replacing a target by inserting the new element before
+removing the old one therefore works.
+
+If both are still there once the DOM changes that added the second have been processed, Impulse reports an error like
+an uncaught one, so it reaches `window.onerror`. Use [`@targets()`](#multiple-targets) when several elements share a
+name.
+
 ## Multiple targets
 
 Multiple targets can be referenced via the `@targets()` decorator. The property is every matching element in
