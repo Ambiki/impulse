@@ -283,6 +283,26 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.secondCall.calledAfter(el.panelDisconnectedSpy.firstCall)).to.be.true;
     });
 
+    it('reports a second element that is still there once the changes that added it are processed', async () => {
+      const old = el.querySelector('#panel')!;
+      el.append(createPanel());
+      await nextFrame();
+
+      expect(errors.reported.length).to.eq(1);
+      expect(el.panel).to.eq(old);
+    });
+
+    it('reports nothing when the replacement is inserted and the old target removed in one task', async () => {
+      const old = el.querySelector('#panel')!;
+      const fresh = createPanel();
+      old.after(fresh);
+      old.remove();
+      await nextFrame();
+
+      expect(el.panel).to.eq(fresh);
+      expect(errors.reported).to.be.empty;
+    });
+
     it('forgets a waiting element that is removed before the target', async () => {
       const old = el.querySelector('#panel')!;
       const extra = createPanel();

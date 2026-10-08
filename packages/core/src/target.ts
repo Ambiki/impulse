@@ -2,7 +2,7 @@ import type { TargetDeclaration } from './decorators/target';
 import type { ImpulseElement } from './element';
 import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
 import SetMap from './data_structures/set_map';
-import { invokeReporting } from './helpers/errors';
+import { invokeReporting, reportUncaught } from './helpers/errors';
 import { capitalize } from './helpers/string';
 import TokenRouter from './observers/token_router';
 import { registeredFor, TARGETS } from './registry';
@@ -73,17 +73,12 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
       return;
     }
 
-    // A `@target()` key holds one element. A second one is an error, but it is kept waiting rather than dropped, and
-    // recorded before the throw: `targetsByKey` is left alone, so the field and the callbacks only ever see the target.
+    // A `@target()` key holds one element. A second one is kept waiting rather than dropped; `targetsByKey` is left
+    // alone, so the field and the callbacks only ever see the target.
     if (!this.isKeyMultiple(key) && this.targetsByKey.valuesForKey(key).length > 0) {
       this.waitingByKey.add(key, token);
-      throw new Error(
-        `
-Multiple "${key}" targets in the "${identifier}" element were defined using the @target() decorator.
-Please use the @targets() decorator instead if you want to define multiple targets for the same key.
-Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
-        `.trim(),
-      );
+      this.reportIfLeftWaiting(key, token);
+      return;
     }
 
     this.tokensByElement.add(element, token);
@@ -109,6 +104,30 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       this.orderedByKey.delete(key);
       this.promote(key);
     }
+  }
+
+  /**
+   * Reports a second element for a `@target()` key, unless it is no longer waiting once the mutation batch that
+   * brought it in has been processed. Replacing a target by inserting the new element before removing the old one
+   * passes through two of them without being a mistake; two that outlive the batch are one.
+   *
+   * A batch is processed synchronously, so a microtask queued from inside it runs once every record in it has been
+   * delivered.
+   */
+  private reportIfLeftWaiting(key: string, token: Token<T>) {
+    Promise.resolve().then(() => {
+      if (!this.waitingByKey.has(key, token)) return;
+
+      reportUncaught(
+        new Error(
+          `
+Multiple "${key}" targets in the "${this.identifier}" element were defined using the @target() decorator.
+Please use the @targets() decorator instead if you want to define multiple targets for the same key.
+Learn more about the @targets() decorator: https://ambiki.github.io/impulse/reference/targets.html#multiple-targets
+          `.trim(),
+        ),
+      );
+    });
   }
 
   private connect(key: string, element: T) {
