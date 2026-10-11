@@ -641,6 +641,37 @@ describe('on', () => {
     expect(shouldNotFire.called).to.be.false;
     stops.forEach((s) => s());
   });
+
+  it('throws for an invalid selector without stopping other handlers', async () => {
+    const root = await fixture(html`<div><button class="invalid-button"></button></div>`);
+    const callback = Sinon.spy();
+    const stop = on('click', '.invalid-button', callback);
+    expect(() => on('click', 'div:nope', () => {})).to.throw();
+
+    root.querySelector('button')!.click();
+    stop();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('adds no document listener for an invalid selector', () => {
+    const addSpy = Sinon.spy(document, 'addEventListener');
+    try {
+      expect(() => on('invalid-listener:test', 'div:nope', () => {})).to.throw();
+      expect(addSpy.getCalls().filter((c) => c.args[0] === 'invalid-listener:test').length).to.eq(0);
+    } finally {
+      addSpy.restore();
+    }
+  });
+
+  it('throws for an invalid selector even when the signal is already aborted', () => {
+    const controller = new AbortController();
+    controller.abort();
+    expect(() => on('click', 'div:nope', () => {}, { signal: controller.signal })).to.throw();
+  });
+
+  it('throws for a selector with an unclosed bracket, as connected does', () => {
+    expect(() => on('click', '[data-invalid-open', () => {})).to.throw();
+  });
 });
 
 describe('emit', () => {

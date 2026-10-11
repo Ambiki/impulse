@@ -41,6 +41,11 @@ connected('.billing', (element) => {
 });
 ```
 
+## Invalid selectors
+
+`lazyImport` throws for a selector it cannot register: see [Invalid selectors](./connected#invalid-selectors) under
+`connected`.
+
 ## Performance
 
 Prefer self-contained selectors: see [Performance](./connected#performance) under `connected`.

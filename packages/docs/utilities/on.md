@@ -70,6 +70,11 @@ Calling `event.stopPropagation()` inside a handler halts further delegated dispa
 registered against ancestor selectors will not fire. `event.stopImmediatePropagation()` additionally blocks any
 remaining handlers registered against the same element.
 
+## Invalid selectors
+
+`on` accepts the same selectors as `connected` and throws for any other, registering nothing: see
+[Invalid selectors](./connected#invalid-selectors) under `connected`.
+
 ## Stopping observation
 
 The `on` function returns a cleanup function that detaches the handler. The same detachment happens when a `once`

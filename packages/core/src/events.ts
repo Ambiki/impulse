@@ -1,5 +1,6 @@
 import SelectorSet from './data_structures/selector_set';
 import { invokeReporting } from './helpers/errors';
+import { assertValidSelector } from './helpers/selector';
 
 interface Handler {
   selector: string;
@@ -41,6 +42,7 @@ const stoppedEvents = new WeakSet<Event>();
  * `passive` is forwarded to the shared document listener (so passive and non-passive registrations use separate
  * listeners), and aborting `signal` removes the registration just like calling the returned cleanup.
  * @returns A cleanup function that removes the registration
+ * @throws A `SyntaxError` for a selector that is invalid or left unclosed, as {@link connected} does.
  *
  * @example
  * ```ts
@@ -81,6 +83,10 @@ export function on(
   callback: (event: Event) => void,
   options?: boolean | AddEventListenerOptions,
 ): () => void {
+  // Before anything else, so a bad selector is an error on every path and leaves no shared listener behind. Nothing
+  // here joins selectors the way the watchers' are, but one rule for both means a selector works in either or neither.
+  assertValidSelector(selector);
+
   const opts: AddEventListenerOptions = typeof options === 'boolean' ? { capture: options } : (options ?? {});
   const capture = !!opts.capture;
   const once = !!opts.once;

@@ -1,7 +1,7 @@
 import SelectorSet from '../data_structures/selector_set';
 import { replaceChildrenDropsRemoval, whenParsed } from '../helpers/dom';
 import { invokeReporting } from '../helpers/errors';
-import { selectorAttributes } from '../helpers/selector';
+import { assertValidSelector, selectorAttributes } from '../helpers/selector';
 
 export interface Watcher<T extends Element = Element> {
   elementConnected?: (element: T) => void;
@@ -59,8 +59,13 @@ let processing = false;
  *
  * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
  * `elementDisconnected` for them; callers that need teardown must handle it themselves.
+ *
+ * Throws for a selector {@link assertValidSelector} rejects, whether or not the document is Parsed, before anything is
+ * registered: every watcher's selector is queried in one list, so one that is invalid there fails for all of them.
  */
 export function watchSelector<T extends Element = Element>(selector: string, watcher: Watcher<T>): () => void {
+  assertValidSelector(selector);
+
   const registered: RegisteredWatcher = {
     selector,
     elementConnected: watcher.elementConnected as ((element: Element) => void) | undefined,

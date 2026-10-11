@@ -519,6 +519,86 @@ describe('disconnected before the document is Parsed', () => {
   });
 });
 
+describe('a selector that cannot be registered', () => {
+  it('throws for an invalid selector without stopping other watchers', async () => {
+    const root = await fixture(html`<div></div>`);
+    const callback = Sinon.spy();
+    const stop = connected('.invalid-good', callback);
+    expect(() => connected('div:nope', () => {})).to.throw();
+
+    const element = document.createElement('div');
+    element.className = 'invalid-good';
+    root.append(element);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('throws while the document is loading, and still matches the watchers waiting with it', async () => {
+    const root = await fixture(html`<div class="invalid-waiting"></div>`);
+    const finishParsing = simulateParsing();
+    const callback = Sinon.spy();
+    let stop = () => {};
+    try {
+      stop = connected('.invalid-waiting', callback);
+      expect(() => connected('div:nope', () => {})).to.throw();
+    } finally {
+      finishParsing();
+    }
+
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('throws for a selector with an unclosed bracket, which the browser accepts on its own', async () => {
+    const root = await fixture(html`<div><i data-invalid-open></i></div>`);
+    expect(root.querySelector('[data-invalid-open')).to.equal(root.firstElementChild);
+    const typo = Sinon.spy();
+    expect(() => connected('[data-invalid-open', typo)).to.throw();
+    expect(typo.called).to.be.false;
+
+    const callback = Sinon.spy();
+    const stop = connected('.invalid-open-good', callback);
+    const element = document.createElement('div');
+    element.className = 'invalid-open-good';
+    root.append(element);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('throws from disconnected as it does from connected', () => {
+    expect(() => disconnected('div:nope', () => {})).to.throw();
+    expect(() => disconnected('[data-invalid-open', () => {})).to.throw();
+  });
+
+  it('still matches a selector with an escape or a comment alongside other watchers', async () => {
+    const root = await fixture(html`<div></div>`);
+    const escaped = Sinon.spy();
+    const commented = Sinon.spy();
+    const plain = Sinon.spy();
+    const stops = [
+      connected(`#${CSS.escape('1valid')}`, escaped),
+      connected('.valid-commented /* [ */', commented),
+      connected('.valid-plain', plain),
+    ];
+
+    const first = document.createElement('div');
+    first.id = '1valid';
+    const second = document.createElement('div');
+    second.className = 'valid-commented';
+    const third = document.createElement('div');
+    third.className = 'valid-plain';
+    root.append(first, second, third);
+    await nextFrame();
+    stops.forEach((stop) => stop());
+    expect(escaped.calledOnceWith(first)).to.be.true;
+    expect(commented.calledOnceWith(second)).to.be.true;
+    expect(plain.calledOnceWith(third)).to.be.true;
+  });
+});
+
 describe('whenInitialized', () => {
   const CONNECTION_TIMEOUT_MS = 200;
 

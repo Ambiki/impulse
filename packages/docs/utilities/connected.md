@@ -54,6 +54,19 @@ const stop = connected('div', (element) => {
 stop();
 ```
 
+## Invalid selectors
+
+`connected` throws a `SyntaxError` for a selector it cannot register, and registers nothing. That covers any selector
+the browser rejects, such as a typo or a pseudo-class the current browser does not support, and also one that leaves a
+bracket, parenthesis, string or comment unclosed:
+
+```ts
+connected('[data-toggle', callback); // SyntaxError: the bracket is never closed
+```
+
+The browser accepts that second kind on its own, by closing whatever is open at the end of the selector. Impulse
+matches every registered selector as one list, where the open bracket would run on into the selectors after it.
+
 ## Performance
 
 Impulse watches the whole document with one `MutationObserver`, shared by every selector you register. That sharing has

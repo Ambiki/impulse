@@ -1,5 +1,6 @@
 import SetMap from './data_structures/set_map';
 import { invokeReporting } from './helpers/errors';
+import { assertValidSelector } from './helpers/selector';
 import { watchSelector } from './observers/document_observer';
 
 const lazyElements = new SetMap<string, () => void>();
@@ -18,12 +19,15 @@ const lazyElements = new SetMap<string, () => void>();
  *
  * @param selector - The selector to match the elements.
  * @param callback - The callback to execute when the element is present in the DOM.
+ * @throws A `SyntaxError` for a selector that is invalid or left unclosed, as {@link connected} does.
  *
  * @example
  * lazyImport('my-element', () => import('./my_element'));
  * lazyImport('[data-cc-form]', () => import('./billing/credit_card_form'));
  */
 export function lazyImport(selector: string, callback: () => void) {
+  // `watchSelector` checks the selector too, but only after the callback is stored, where it would stay.
+  assertValidSelector(selector);
   lazyElements.add(selector, callback);
 
   // Once the document is Parsed, `watchSelector` scans it synchronously, so `elementConnected` can run before `stop` is
