@@ -1,5 +1,5 @@
 import SelectorSet from '../data_structures/selector_set';
-import { whenParsed } from '../helpers/dom';
+import { replaceChildrenDropsRemoval, whenParsed } from '../helpers/dom';
 import { invokeReporting } from '../helpers/errors';
 import { selectorAttributes } from '../helpers/selector';
 
@@ -22,7 +22,8 @@ interface RegisteredWatcher {
   elementConnected?: (element: Element) => void;
   elementDisconnected?: (element: Element) => void;
   elementAttributeChanged?: (element: Element, attributeName: string) => void;
-  elements: Set<Element>;
+  // Each tracked element, with the number of the batch that was current when it was matched.
+  elements: Map<Element, number>;
   attributes: string[] | null;
 }
 
@@ -39,6 +40,12 @@ let attributeFilter: Set<string> | null = null;
 let attributeFilterTooWide = false;
 // Watchers registered while the document is loading. They join the index together once it is Parsed.
 let pendingWatchers: Set<RegisteredWatcher> | null = null;
+// How many batches of records have been taken from the observer, and so the number of the latest. Every record in a
+// batch was queued before the batch was taken, so a match made under its number or a later one has seen the tree as
+// those records left it.
+let batches = 0;
+// Whether a batch is being processed, and so whether a watcher callback may be on the stack.
+let processing = false;
 
 /**
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
@@ -47,7 +54,8 @@ let pendingWatchers: Set<RegisteredWatcher> | null = null;
  *
  * Nothing is matched before the document is Parsed (docs/adr/0003). A watcher registered while `readyState` is
  * `loading` joins the index on `DOMContentLoaded`. One registered later scans the document before this function
- * returns, which the token routers rely on to replay tokens already on the page.
+ * returns, which the token routers rely on to replay tokens already on the page. Records still queued are delivered
+ * first, to every watcher, unless it is registered from a watcher callback.
  *
  * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
  * `elementDisconnected` for them; callers that need teardown must handle it themselves.
@@ -60,13 +68,17 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     elementAttributeChanged: watcher.elementAttributeChanged as
       | ((element: Element, attributeName: string) => void) |
       undefined,
-    elements: new Set(),
+    elements: new Map(),
     attributes: selectorAttributes(selector),
   };
 
   if (document.readyState === 'loading') {
     addPending(registered);
   } else {
+    // The scan sees the changes behind every record still queued. Those are delivered first, so a match made here is
+    // older than any record taken later, which is how `walkMoved` tells that a node has moved since. Not from a
+    // callback, though: the rest of the batch it is running in has to come before anything queued after it.
+    if (!processing) flushMutations();
     addToIndex(registered);
     for (const element of document.querySelectorAll(selector)) connect(element, registered);
   }
@@ -80,7 +92,7 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     if (pendingWatchers?.delete(registered)) return;
     watcherIndex.delete(selector, registered);
     if (countAttributes(registered.attributes, -1)) attributeFilterTooWide = true;
-    for (const element of registered.elements) {
+    for (const element of registered.elements.keys()) {
       removeFromReverseIndex(element, registered);
     }
     registered.elements.clear();
@@ -115,11 +127,13 @@ function addPendingToIndex() {
 
 /**
  * Delivers every mutation record the shared observer has queued but not yet dispatched, so callers that need the index
- * to reflect the DOM as of now (rather than as of the last microtask checkpoint) can read it synchronously.
+ * to reflect the DOM as of now (rather than as of the last microtask checkpoint) can read it synchronously. That
+ * includes the records the callbacks queue while it runs.
  */
 export function flushMutations(): void {
-  if (!mutationObserver) return;
-  processMutations(mutationObserver.takeRecords());
+  for (let records = mutationObserver?.takeRecords(); records?.length; records = mutationObserver?.takeRecords()) {
+    processMutations(records);
+  }
 }
 
 /**
@@ -204,23 +218,42 @@ function processMutations(mutations: MutationRecord[]) {
   // are dropped, as they were never recorded before. Checked once per batch: a record from the original root is for an
   // element no longer in the document, which `processAttributeChange` skips anyway.
   const rootReplaced = document.documentElement !== observedRoot;
-  for (const mutation of mutations) {
-    if (mutation.type === 'childList') {
-      mutation.removedNodes.forEach(walkRemoved);
-      mutation.addedNodes.forEach(walkAdded);
-    } else if (mutation.type === 'attributes' && !rootReplaced && mutation.target instanceof Element) {
-      processAttributeChange(mutation.target, mutation.attributeName);
+  // Kept for the whole loop: a callback can have a later batch delivered from inside this one (`flushMutations`).
+  batches += 1;
+  const batch = batches;
+  const nested = processing;
+  processing = true;
+  try {
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        if (movedWithoutRemoval(mutation)) walkMoved(mutation.addedNodes[0], batch);
+        mutation.removedNodes.forEach(walkRemoved);
+        mutation.addedNodes.forEach(walkAdded);
+      } else if (mutation.type === 'attributes' && !rootReplaced && mutation.target instanceof Element) {
+        processAttributeChange(mutation.target, mutation.attributeName);
+      }
     }
+  } finally {
+    processing = nested;
   }
 }
 
+// Whether the added node may have left its old parent without a record. `container.replaceChildren(node)` leaves one
+// record that removes children and adds a single node, and when the node came from inside one of those children
+// Firefox has no other. `replaceWith()` and `replaceChild()` leave the same record after the one for the removal.
+function movedWithoutRemoval(mutation: MutationRecord) {
+  return mutation.removedNodes.length > 0 && mutation.addedNodes.length === 1 && replaceChildrenDropsRemoval();
+}
+
 // An added subtree is already in the document, so a selector anchored on an ancestor outside it still resolves and the
-// index can be asked for the selectors themselves.
+// index can be asked for the selectors themselves. It is asked before any callback runs: what a callback inserts has a
+// record of its own, and matching it here would leave that record finding a match older than itself (`walkMoved`).
 function walkAdded(node: Node) {
   if (node.nodeType !== Node.ELEMENT_NODE) return;
   const root = node as Element;
+  const descendants = watcherIndex.queryAll(root);
   visitConnect(root);
-  for (const element of watcherIndex.queryAll(root)) visitConnect(element);
+  for (const element of descendants) visitConnect(element);
 }
 
 // A removed subtree is detached by the time its record is delivered, so the selectors cannot match inside it. Their
@@ -230,6 +263,16 @@ function walkRemoved(node: Node) {
   const root = node as Element;
   visitDisconnect(root);
   for (const element of watcherIndex.querySubjects(root)) visitDisconnect(element);
+}
+
+// Stands in for the removal record a moved node should have had. A match older than the batch may have been made where
+// the node used to be. One made since has already seen the node where it is now, and disconnecting it would only
+// connect it again.
+function walkMoved(node: Node, batch: number) {
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const root = node as Element;
+  visitDisconnectOlder(root, batch);
+  for (const element of watcherIndex.querySubjects(root)) visitDisconnectOlder(element, batch);
 }
 
 function visitConnect(element: Element) {
@@ -243,6 +286,14 @@ function visitDisconnect(element: Element) {
   const watchers = watchersByElement.get(element);
   if (!watchers) return;
   for (const watcher of Array.from(watchers)) disconnect(element, watcher);
+}
+
+function visitDisconnectOlder(element: Element, batch: number) {
+  const watchers = watchersByElement.get(element);
+  if (!watchers) return;
+  for (const watcher of Array.from(watchers)) {
+    if (watcher.elements.get(element)! < batch) disconnect(element, watcher);
+  }
 }
 
 function processAttributeChange(element: Element, attributeName: string | null) {
@@ -289,7 +340,7 @@ function disconnect(element: Element, watcher: RegisteredWatcher) {
 }
 
 function addMatch(element: Element, watcher: RegisteredWatcher) {
-  watcher.elements.add(element);
+  watcher.elements.set(element, batches);
   let set = watchersByElement.get(element);
   if (!set) {
     set = new Set();

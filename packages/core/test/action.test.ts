@@ -189,4 +189,16 @@ describe('action', () => {
     expect(el2.foo.calledOnce).to.be.true;
     expect(el.foo.notCalled).to.be.true;
   });
+
+  // Firefox has no mutation record for a node leaving a child that the same `replaceChildren` call removes.
+  it('should call the action on its new owner once replaceChildren lifts the element out of a nested element it removes', async () => {
+    const el2 = el.querySelector<ActionTest>('action-test')!;
+    const button = el2.querySelector<HTMLButtonElement>('#nested-button1')!;
+    el.replaceChildren(button);
+    await nextFrame();
+    button.click();
+
+    expect(el.toggle.calledOnce).to.be.true;
+    expect(el2.toggle.notCalled).to.be.true;
+  });
 });

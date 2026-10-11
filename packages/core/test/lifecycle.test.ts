@@ -282,6 +282,27 @@ describe('connected', () => {
 
     expect(disconnectedCallback.calledTwice).to.be.true;
   });
+
+  // Firefox has no mutation record for a node leaving a child that the same `replaceChildren` call removes.
+  it('invokes the cleanup function when replaceChildren lifts an element out from under the ancestor it matched by', async () => {
+    const root = await fixture(html`
+      <div>
+        <section class="lifted-open"><span class="lifted-item"></span></section>
+      </div>
+    `);
+    const item = root.querySelector('span')!;
+    const disconnectedCallback = Sinon.spy();
+    const stop = connected('.lifted-open .lifted-item', (element) => () => disconnectedCallback(element));
+    try {
+      await nextFrame();
+      root.replaceChildren(item);
+      await nextFrame();
+
+      expect(disconnectedCallback.calledOnceWith(item)).to.be.true;
+    } finally {
+      stop();
+    }
+  });
 });
 
 describe('shared observer', () => {
