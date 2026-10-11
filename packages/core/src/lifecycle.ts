@@ -21,6 +21,7 @@ import { watchSelector } from './observers/document_observer';
  *                   a cleanup function that will be called when the element is disconnected. If it
  *                   throws, the error is reported like an uncaught error and other watchers still run.
  * @returns A cleanup function that stops observing and runs the pending cleanup of every element still connected
+ * @throws A `SyntaxError`, with nothing registered, for a selector the browser rejects.
  *
  * @example
  * ```ts
@@ -100,6 +101,7 @@ export function connected<T extends Element = Element>(
  * @param selector - CSS selector to match elements against
  * @param callback - Function to invoke when a matching element is disconnected
  * @returns A cleanup function that stops observing
+ * @throws A `SyntaxError`, with nothing registered, for a selector the browser rejects.
  *
  * @example
  * ```ts

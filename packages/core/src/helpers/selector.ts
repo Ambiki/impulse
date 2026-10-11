@@ -79,6 +79,18 @@ export function isReadableSelector(selector: string): boolean {
 }
 
 /**
+ * Throws a `SyntaxError` unless `selector` is one the browser accepts.
+ *
+ * Registered selectors are queried joined into one list, and a list with one invalid part is invalid as a whole, so a
+ * selector is checked before it joins the others. One the browser accepts only by closing what it leaves open
+ * (`[data-x`) passes, and still breaks the list it joins.
+ */
+export function assertValidSelector(selector: string): void {
+  // Queried against nothing, so parsing the selector is the only thing that can fail.
+  document.createDocumentFragment().querySelector(selector);
+}
+
+/**
  * One simple selector of a compound. Every one carries the `source` it was read from, and concatenating those in order
  * reproduces the compound exactly, so a caller can rebuild one out of the simple selectors it keeps.
  *
