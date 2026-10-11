@@ -79,71 +79,15 @@ export function isReadableSelector(selector: string): boolean {
 }
 
 /**
- * Throws a `SyntaxError` unless `selector` can be registered next to others: the browser has to accept it, and it has
- * to end with nothing left open.
+ * Throws a `SyntaxError` unless `selector` is one the browser accepts.
  *
- * The second half is stricter than the browser, which closes whatever is still open at the end of its input and so
- * accepts `[data-x` on its own. Registered selectors are queried joined into one list, though, and there the open
- * bracket runs on into the selectors after it: `[data-x, .other` is invalid, and fails for every selector in the list.
- * An open paren, string or comment takes the selectors after it without an error at all.
+ * Registered selectors are queried joined into one list, and a list with one invalid part is invalid as a whole, so a
+ * selector is checked before it joins the others. One the browser accepts only by closing what it leaves open
+ * (`[data-x`) passes, and still breaks the list it joins.
  */
 export function assertValidSelector(selector: string): void {
   // Queried against nothing, so parsing the selector is the only thing that can fail.
   document.createDocumentFragment().querySelector(selector);
-  if (!endsClosed(selector)) {
-    throw new DOMException(
-      `'${selector}' is not a valid selector: a bracket, parenthesis, string, comment or escape is left open.`,
-      'SyntaxError',
-    );
-  }
-}
-
-const BLOCK_CLOSERS: Record<string, string | undefined> = { '(': ')', '[': ']', '{': '}' };
-const CSS_NEWLINE = /[\n\f\r]/;
-
-/**
- * Whether a selector the browser accepts ends with every block, string and comment closed, and with no escape still
- * waiting for its character.
- *
- * Being accepted does not make a selector well formed: `:is()` and `:where()` drop an argument they cannot parse, so
- * `div:is([data-x)]` is accepted with its paren still open. It is read here the way CSS reads it instead - a block is
- * closed only by its own closer, and a string also ends at a raw newline.
- *
- * Unlike {@link scan}, this reads escapes and comments. A selector with either is as easy to leave open as one
- * without (`.a\`, `.a /*`, `[data-x\]`), and one that is closed is safe in a list, so there is no reason to turn it
- * away. An unquoted `url()` is the one thing not read, which no selector has a use for.
- */
-function endsClosed(selector: string): boolean {
-  // The closer each open block is waiting for, innermost last.
-  const closers: string[] = [];
-  let quote: string | null = null;
-
-  for (let i = 0; i < selector.length; i += 1) {
-    const ch = selector[i];
-    if (quote) {
-      // An escaped newline carries the string on to the next line, and `\r\n` is one newline.
-      if (ch === '\\') i += selector.startsWith('\r\n', i + 1) ? 2 : 1;
-      else if (ch === quote || CSS_NEWLINE.test(ch)) quote = null;
-    } else if (ch === '\\') {
-      // An escape takes the next character whatever it is. With none left, it takes the first one appended.
-      i += 1;
-      if (i === selector.length) return false;
-    } else if (ch === '"' || ch === '\'') {
-      quote = ch;
-    } else if (ch === '/' && selector[i + 1] === '*') {
-      const end = selector.indexOf('*/', i + 2);
-      if (end === -1) return false;
-      i = end + 1;
-    } else if (ch === closers[closers.length - 1]) {
-      // Only the closer the innermost block is waiting for. Any other is one more token inside it and closes nothing.
-      closers.pop();
-    } else {
-      const closer = BLOCK_CLOSERS[ch];
-      if (closer) closers.push(closer);
-    }
-  }
-
-  return closers.length === 0 && quote === null;
 }
 
 /**

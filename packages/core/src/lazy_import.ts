@@ -19,7 +19,7 @@ const lazyElements = new SetMap<string, () => void>();
  *
  * @param selector - The selector to match the elements.
  * @param callback - The callback to execute when the element is present in the DOM.
- * @throws A `SyntaxError` for a selector that is invalid or left unclosed, as {@link connected} does.
+ * @throws A `SyntaxError`, with nothing registered, for a selector the browser rejects.
  *
  * @example
  * lazyImport('my-element', () => import('./my_element'));

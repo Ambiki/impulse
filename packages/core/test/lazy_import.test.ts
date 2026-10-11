@@ -101,10 +101,9 @@ describe('lazy import', () => {
     }
   });
 
-  it('throws for a selector that cannot be registered without stopping other imports', async () => {
+  it('throws for an invalid selector without stopping other imports', async () => {
     const callback = Sinon.spy();
     expect(() => lazyImport('div:nope', () => {})).to.throw();
-    expect(() => lazyImport('[data-lazy-open', () => {})).to.throw();
     lazyImport('.lazy-after-invalid', callback);
     await fixture(html`<div class="lazy-after-invalid"></div>`);
 

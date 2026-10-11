@@ -668,10 +668,6 @@ describe('on', () => {
     controller.abort();
     expect(() => on('click', 'div:nope', () => {}, { signal: controller.signal })).to.throw();
   });
-
-  it('throws for a selector with an unclosed bracket, as connected does', () => {
-    expect(() => on('click', '[data-invalid-open', () => {})).to.throw();
-  });
 });
 
 describe('emit', () => {

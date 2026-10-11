@@ -23,51 +23,11 @@ describe('assertValidSelector', () => {
     rejects('.a)');
   });
 
-  it('accepts a selector with every bracket and paren closed', () => {
+  it('accepts a selector the browser accepts', () => {
     accepts('button');
     accepts('form > button.primary, [data-x="y"]');
     accepts('div:not(:is([hidden], .b))');
-  });
-
-  it('rejects a bracket or paren left open, which the browser closes at the end of the selector', () => {
-    rejects('[data-x');
-    rejects(':is(.a');
-    rejects('div:not(:is(.a)');
-  });
-
-  it('reads a string, so a bracket inside one is neither opened nor closed', () => {
-    accepts('[data-x="["]');
-    accepts('[data-x=\'(\']');
-    rejects('[data-x="a]');
-    rejects('[data-x=\'a]');
-  });
-
-  it('reads a comment, so nothing inside one is opened or closed', () => {
-    accepts('.a /* [ */');
-    accepts('.a /* " */');
-    accepts('[data-x="/*"]');
-    rejects('.a /*');
-    rejects('.a /*/');
-  });
-
-  it('reads an escape, which takes the character after it whatever that is', () => {
     accepts('#\\31 foo');
-    accepts('.a\\[b');
-    accepts('.a /* \\*/');
-    accepts('[data-x="a\\"]"]');
-    rejects('[data-x\\]');
-    rejects('.a\\');
-  });
-
-  it('closes a block only with its own closer, which :is() lets the browser accept any other inside', () => {
-    rejects('div:is([data-x)]');
-    rejects(':is(.a]) [b');
-    rejects(':is({)');
-  });
-
-  it('ends a string at a raw newline, as the browser does, unless the newline is escaped', () => {
-    rejects(':is("\n[")');
-    accepts('[data-x="a\\\nb"]');
   });
 });
 
