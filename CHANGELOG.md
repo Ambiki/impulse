@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `connected`, `disconnected`, and `lazyImport` called once the document is Parsed now deliver not-yet-dispatched mutation records to every shared-observer watcher before scanning the document, unless called from a watcher callback ([#210](https://github.com/Ambiki/impulse/pull/210))
+- Elements a watcher callback inserts into the element it was called for are now matched when their own mutation record is delivered, one delivery later than before ([#210](https://github.com/Ambiki/impulse/pull/210))
 - `connected`, `disconnected`, `lazyImport`, `on`, and the `@target` / `@action` decorators now share a single document-level `MutationObserver` instead of each call/instance spinning up its own observer chain. This avoids O(N) observer overhead per call site / per `ImpulseElement` instance
 - `lazyImport` no longer leaks a `MutationObserver` per call: the watcher is now torn down after the first match fires
 - `@target` / `@action` now share one document-level `[data-target]` and one `[data-action]` watcher across every `ImpulseElement` instance, routing each token to its owning instance via `element.closest(identifier)`. Previously every instance registered its own pair of attribute watchers, so each inserted node was matched against `2N` selectors and every instance start ran a full `document.querySelectorAll` scan. As part of this, an `ImpulseElement` starting its targets and actions now delivers any not-yet-dispatched mutation records to every shared-observer watcher (`connected`, `disconnected`, `on`, other instances) synchronously, so those callbacks can fire slightly earlier than before ([#153](https://github.com/Ambiki/impulse/issues/153))
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In Firefox, an element that `replaceChildren(node)` lifts out of a child it removes no longer keeps its old matches: targets and actions follow it to its new owner, and a `connected` cleanup runs when it stops matching ([#210](https://github.com/Ambiki/impulse/pull/210))
 - A second element for a `@target()` is no longer dropped. It waits, and is adopted with its own `[target]Connected` when the first one goes away, so a replacement inserted before the old target is removed no longer leaves the field `null`. The "Multiple targets" error is now reported only if the first is still there once the DOM changes made along with the second have been processed ([#208](https://github.com/Ambiki/impulse/pull/208))
 - An `ImpulseElement` that moves itself in `connected()` is no longer left torn down. It now disconnects and re-initializes at the new position, so `connected()` runs again: guard the move to avoid a loop ([#198](https://github.com/Ambiki/impulse/issues/198))
 - Removing one of two duplicate `data-target` tokens (`x.a x.a` to `x.a`) no longer unregisters the target or fires its disconnected callback while the attribute still references it ([#157](https://github.com/Ambiki/impulse/pull/157))
