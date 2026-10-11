@@ -87,6 +87,14 @@ function parseTokens<T extends Element>(element: T, attributeName: string): Toke
 }
 
 /**
+ * Whether `token`'s element still lists its content in the attribute as the document stands. A tracked token outlives
+ * the attribute value that held it until the record rewriting that attribute is delivered.
+ */
+export function isListed<T extends Element>({ attributeName, content, element }: Token<T>): boolean {
+  return parseTokens(element, attributeName).some((token) => token.content === content);
+}
+
+/**
  * Multiset diff: each old token is matched to at most one new token with the same content. Matched old tokens keep
  * their identity (so delegates can key state on the `Token` object); unmatched old tokens are removed and unmatched
  * new tokens are added. Duplicate contents are therefore counted, not collapsed.
