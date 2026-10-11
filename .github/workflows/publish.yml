@@ -17,6 +17,7 @@ jobs:
       - name: Run test
         run: |
           yarn install --frozen-lockfile
+          npx playwright install --with-deps chromium firefox webkit
           yarn test
       - name: Publish
         env:
