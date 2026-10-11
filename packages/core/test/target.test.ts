@@ -253,6 +253,33 @@ describe('@target', () => {
     expect(el.sheetDisconnectedSpy.notCalled).to.be.true;
   });
 
+  // Firefox has no mutation record for a node leaving a child that the same `replaceChildren` call removes.
+  describe('when replaceChildren lifts a target out of a nested element it removes', () => {
+    let el2: TargetTest;
+    let sheet: Element;
+    beforeEach(async () => {
+      el2 = el.querySelector<TargetTest>('target-test')!;
+      sheet = el.querySelector('#sheet')!;
+      el.replaceChildren(sheet);
+      await nextFrame();
+    });
+
+    it('should become a target of its new owner', () => {
+      expect(el.sheet).to.eq(sheet);
+      expect(el.sheetConnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
+    });
+
+    it('should not be handed back to the removed element when that is inserted again', async () => {
+      el2.sheetConnectedSpy.resetHistory();
+      el2.connectedSpy.resetHistory();
+      el.after(el2);
+      await waitUntil(() => el2.connectedSpy.called);
+
+      expect(el2.sheet).to.eq(null);
+      expect(el2.sheetConnectedSpy.called).to.be.false;
+    });
+  });
+
   describe('when a second element carries the same target', () => {
     let old: Element;
     let errors: ReturnType<typeof captureReportedErrors>;

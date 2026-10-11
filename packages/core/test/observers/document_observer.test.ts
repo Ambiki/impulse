@@ -35,6 +35,82 @@ describe('watchSelector', () => {
     });
   });
 
+  describe('registered while records are still queued', () => {
+    it('delivers them to the other watchers before it scans', async () => {
+      const root = await fixture(html`<div></div>`);
+      const calls: string[] = [];
+      const stopOther = watchSelector('.queued-other', { elementConnected: () => calls.push('other') });
+      let stop = () => {};
+      try {
+        const element = document.createElement('div');
+        element.className = 'queued-other queued-registered';
+        root.append(element);
+        stop = watchSelector('.queued-registered', { elementConnected: () => calls.push('registered') });
+
+        expect(calls).to.deep.equal(['other', 'registered']);
+      } finally {
+        stop();
+        stopOther();
+      }
+    });
+
+    it('delivers the records their callbacks queue as well', async () => {
+      const root = await fixture(html`<div></div>`);
+      const item = document.createElement('b');
+      item.className = 'queued-by-callback';
+      const calls: string[] = [];
+      const stopHost = watchSelector('.queued-host', { elementConnected: (host) => host.replaceChildren(item) });
+      let stop = () => {};
+      try {
+        const host = document.createElement('div');
+        host.className = 'queued-host';
+        host.append(document.createElement('i'));
+        root.append(host);
+        stop = watchSelector('.queued-by-callback', {
+          elementConnected: () => calls.push('connected'),
+          elementDisconnected: () => calls.push('disconnected'),
+        });
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['connected']);
+      } finally {
+        stop();
+        stopHost();
+      }
+    });
+
+    it('leaves them queued behind the batch being processed when a callback registers it', async () => {
+      const root = await fixture(html`<div><b class="overtaken"></b></div>`);
+      const item = root.querySelector('b')!;
+      const calls: string[] = [];
+      const stop = watchSelector('.overtaken', {
+        elementConnected: () => calls.push('connected'),
+        elementDisconnected: () => calls.push('disconnected'),
+      });
+      let stopRegistered = () => {};
+      // Puts `item` back while the record for its removal is still waiting in the batch.
+      const stopTrigger = watchSelector('.overtaking', {
+        elementConnected: () => {
+          root.append(item);
+          stopRegistered = watchSelector('.registered-by-callback', {});
+        },
+      });
+      try {
+        const trigger = document.createElement('i');
+        trigger.className = 'overtaking';
+        root.append(trigger);
+        item.remove();
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['connected', 'disconnected', 'connected']);
+      } finally {
+        stopRegistered();
+        stopTrigger();
+        stop();
+      }
+    });
+  });
+
   describe('detached elements', () => {
     it('does not fire elementConnected when an attribute change makes a detached element match', async () => {
       const elementConnected = Sinon.spy();
@@ -347,6 +423,144 @@ describe('subtree enumeration', () => {
     } finally {
       stopUniversal();
       stop();
+    }
+  });
+});
+
+// The call removes the child and inserts the node in one step. Firefox reports only the container's record, with none
+// for the node leaving its old parent.
+describe('replaceChildren with a node from inside a child it removes', () => {
+  it('disconnects the moved node and connects it again', async () => {
+    const root = await fixture(html`<div><section><b class="lifted"></b></section></div>`);
+    const item = root.querySelector('b')!;
+    const calls: string[] = [];
+    const stop = watchSelector('.lifted', {
+      elementConnected: () => calls.push('connected'),
+      elementDisconnected: () => calls.push('disconnected'),
+    });
+    try {
+      root.replaceChildren(item);
+      await nextFrame();
+
+      expect(calls).to.deep.equal(['connected', 'disconnected', 'connected']);
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects a descendant of the moved node that its selector no longer matches', async () => {
+    const root = await fixture(html`
+      <div>
+        <section class="lifted-open"><p><b class="lifted-inner"></b></p></section>
+      </div>
+    `);
+    const moved = root.querySelector('p')!;
+    const item = root.querySelector('b')!;
+    const elementConnected = Sinon.spy();
+    const elementDisconnected = Sinon.spy();
+    const stop = watchSelector('.lifted-open .lifted-inner', { elementConnected, elementDisconnected });
+    try {
+      root.replaceChildren(moved);
+      await nextFrame();
+
+      expect(elementDisconnected.calledOnceWith(item)).to.be.true;
+      expect(elementConnected.calledOnce).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('connects a node once when the callback for its new parent put it there', async () => {
+    const root = await fixture(html`<div></div>`);
+    const item = document.createElement('b');
+    item.className = 'rendered-by-callback';
+    const calls: string[] = [];
+    const stopHost = watchSelector('.rendering-host', { elementConnected: (host) => host.replaceChildren(item) });
+    const stop = watchSelector('.rendered-by-callback', {
+      elementConnected: () => calls.push('connected'),
+      elementDisconnected: () => calls.push('disconnected'),
+    });
+    try {
+      const host = document.createElement('div');
+      host.className = 'rendering-host';
+      host.append(document.createElement('i'));
+      root.append(host);
+      await nextFrame();
+
+      expect(calls).to.deep.equal(['connected']);
+    } finally {
+      stop();
+      stopHost();
+    }
+  });
+
+  it('connects a node once when it was matched earlier in the same batch', async () => {
+    const root = await fixture(html`<div></div>`);
+    const calls: string[] = [];
+    const stop = watchSelector('.rendered', {
+      elementConnected: () => calls.push('connected'),
+      elementDisconnected: () => calls.push('disconnected'),
+    });
+    try {
+      // The record for `host` is delivered first, and by then `item` is already inside it. The record that put it
+      // there has the same shape as a move out of a removed child, but `item` was never anywhere else.
+      const host = document.createElement('div');
+      host.append(document.createElement('i'));
+      const item = document.createElement('b');
+      item.className = 'rendered';
+      root.append(host);
+      host.replaceChildren(item);
+      await nextFrame();
+
+      expect(calls).to.deep.equal(['connected']);
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects the moved node for a watcher that matched it before another watcher did in the same batch', async () => {
+    const root = await fixture(html`<div><section><b class="lifted-early"></b></section></div>`);
+    const item = root.querySelector('b')!;
+    const calls: string[] = [];
+    const stop = watchSelector('.lifted-early', {
+      elementConnected: () => calls.push('connected'),
+      elementDisconnected: () => calls.push('disconnected'),
+    });
+    const stopLate = watchSelector('.lifted-late', {});
+    try {
+      await nextFrame();
+      // The attribute record comes first and matches `item` for the second watcher where it is now.
+      item.classList.add('lifted-late');
+      root.replaceChildren(item);
+      await nextFrame();
+
+      expect(calls).to.deep.equal(['connected', 'disconnected', 'connected']);
+    } finally {
+      stopLate();
+      stop();
+    }
+  });
+
+  it('connects a node once for a watcher registered after the call and before its record is delivered', async () => {
+    const root = await fixture(html`<div><i></i></div>`);
+    const calls: string[] = [];
+    // Keeps the observer running, so the call below is recorded.
+    const stopOther = watchSelector('.keeps-observing', {});
+    let stop = () => {};
+    try {
+      const item = document.createElement('b');
+      item.className = 'registered-late';
+      root.replaceChildren(item);
+      stop = watchSelector('.registered-late', {
+        elementConnected: () => calls.push('connected'),
+        elementDisconnected: () => calls.push('disconnected'),
+      });
+      await nextFrame();
+
+      expect(calls).to.deep.equal(['connected']);
+    } finally {
+      stop();
+      stopOther();
     }
   });
 });

@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `connected`, `disconnected`, and `lazyImport` called once the document is Parsed now deliver not-yet-dispatched mutation records to every shared-observer watcher before scanning the document, unless called from a watcher callback ([#210](https://github.com/Ambiki/impulse/pull/210))
+- Elements a watcher callback inserts into the element it was called for are now matched when their own mutation record is delivered, one delivery later than before ([#210](https://github.com/Ambiki/impulse/pull/210))
 - `connected`, `disconnected` and `lazyImport` no longer match while the document is parsing (`readyState` is `loading`), so a callback never runs on a half-parsed element. A watcher registered during the parse matches on `DOMContentLoaded`; one registered later still scans synchronously. An element inserted and removed during the parse is never reported. On a long page, `connected` callbacks wait for the whole parse, so unenhanced content can show briefly. A throwing `lazyImport` callback is now reported like an uncaught error without stopping other callbacks for its selector. `on` handlers are unaffected. See `docs/adr/0003-watchers-and-elements-wait-for-the-document-to-be-parsed.md` ([#197](https://github.com/Ambiki/impulse/pull/197))
 - `@target` / `@action` now share one `[data-target]` and one `[data-action]` watcher across all `ImpulseElement` instances instead of a pair per instance. An element starting its targets and actions now delivers pending mutation records to every watcher synchronously, so `connected`, `disconnected` and `on` callbacks can fire slightly earlier ([#175](https://github.com/Ambiki/impulse/pull/175))
 - `on` now uses event delegation: one document-level listener per event name and capture phase instead of one per matching element. `event.currentTarget` points at the matched element, and `event.stopPropagation()` halts further delegated dispatch ([#101](https://github.com/Ambiki/impulse/pull/101))
@@ -32,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In Firefox, an element that `replaceChildren(node)` lifts out of a child it removes no longer keeps its old matches: targets and actions follow it to its new owner, and a `connected` cleanup runs when it stops matching ([#210](https://github.com/Ambiki/impulse/pull/210))
 - A second element for a `@target()` now waits and is adopted when the first one leaves, so a replacement inserted before the old target is removed no longer leaves the field `null`. The "Multiple targets" error is reported only if the first is still there after the same synchronous run of script ([#208](https://github.com/Ambiki/impulse/pull/208))
 - An `ImpulseElement` that moves itself in `connected()` now re-initializes at its new position instead of staying torn down. `connected()` runs again, so guard the move to avoid a loop ([#202](https://github.com/Ambiki/impulse/pull/202))
 - `ImpulseElement` no longer initializes twice when moved synchronously, or finishes initializing after being removed mid-initialization ([#169](https://github.com/Ambiki/impulse/pull/169))
