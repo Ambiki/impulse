@@ -1,6 +1,7 @@
 # Properties
 
-Properties allow you to read and write HTML attributes.
+Properties allow you to read and write HTML attributes. A `@property()` is defined on the element when it connects.
+From then on, reading it reads the attribute and assigning it writes the attribute.
 
 ```html
 <lazy-load src="/users"></lazy-load>
@@ -25,7 +26,8 @@ export default class LazyLoadElement extends ImpulseElement {
 When a property changes, its callback runs so you can react to the new value.
 
 Define a `[property]Changed` function, where `[property]` is the property name. It receives `newValue` as the first
-argument and `oldValue` as the second.
+argument and `oldValue` as the second. It does not run for the initial value, before the element has
+[initialized](/utilities/when-initialized), or while the element is disconnected.
 
 ```ts{7}
 import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
@@ -73,7 +75,7 @@ export default class PopOverElement extends ImpulseElement {
 Attribute values are converted on read, so `this.property` and the value passed to the
 [change callback](#change-callbacks) always agree. A missing attribute reads as the type's empty value — `''`, `0`,
 `false`, `[]`, or `{}` — and an `Array` or `Object` attribute that is not valid JSON falls back to `[]` or `{}`
-rather than throwing.
+rather than throwing. A `Boolean` attribute reads as `true` whenever it is present, unless its value is `"false"`.
 
 ## Default property values
 
@@ -92,6 +94,10 @@ export default class LazyLoadElement extends ImpulseElement {
 }
 ```
 
+If the attribute is present, it wins over the default. A property without a default still writes its empty value to
+the attribute on connect: `src=""`, `count="0"`, `items="[]"` or `options="{}"`. A `Boolean` property is the exception,
+since `false` means no attribute. A value assigned before the element connects is used as the default.
+
 ## Naming conventions
 
 Always use kebab-case in your HTML, and use camelCase in your `.ts` file.
@@ -108,3 +114,6 @@ export default class LazyLoadElement extends ImpulseElement {
   @property() contentType: string;
 }
 ```
+
+Write acronyms as words: `fooUrl`, not `fooURL`. The attribute for `fooURL` is `foo-url`, which maps back to `fooUrl`,
+so a `fooURLChanged` callback would never run.

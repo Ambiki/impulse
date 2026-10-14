@@ -19,11 +19,13 @@ disconnected('button', (element) => {
 
 Like `connected`, it matches nothing [before the document is parsed](./connected#before-the-document-is-parsed), so an
 element inserted and removed while `document.readyState` is `loading` is never reported. A callback that throws is
-[reported like an uncaught error](./connected#errors).
+[reported like an uncaught error](./connected#errors), and a selector the browser rejects
+[throws at the call](./connected#errors).
 
 ## Stopping observation
 
-The `disconnected` function returns a cleanup function that stops observing when called.
+The `disconnected` function returns a cleanup function that stops observing when called. Unlike `connected`, stopping
+does not run the callback for matching elements still in the DOM.
 
 ```ts{1,6}
 const stop = disconnected('div', (element) => {

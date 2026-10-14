@@ -44,6 +44,7 @@ connected('.dynamic-content', (element) => {
 ## Stopping observation
 
 The `connected` function returns a cleanup function that stops observing when called. Any element still in the DOM at that point has its cleanup function run immediately, since it will never be disconnected through this watcher.
+Every cleanup runs even if one throws. The first error is then thrown from `stop()`, not reported to `window.onerror`.
 
 ```ts{1,6}
 const stop = connected('div', (element) => {
@@ -66,10 +67,17 @@ is parsed.
   `type="module"` one without `async`, runs after the parse, so it is not affected. An `async` script can run on either
   side of it.
 
+Before it scans, a call made after the parse first hands DOM changes the observer has not delivered yet to the other
+watchers, so their callbacks can run inside the call. A call made while the observer is delivering changes, from a
+callback reacting to one, skips this. An element a callback inserts into the element it was called for is matched when
+the observer delivers that insertion, not during the callback.
+
 On a long page, whatever the callback does, such as hiding or enhancing an element, waits for the whole parse, so the
 unenhanced content can show briefly.
 
 ## Errors
+
+A selector the browser rejects throws a `DOMException` named `SyntaxError` at the call and registers nothing.
 
 A callback that throws is reported like an uncaught error, so it reaches `window.onerror`, and does not stop the
 callbacks for other elements or other selectors.

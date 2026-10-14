@@ -19,6 +19,12 @@ export default class ClipBoardElement extends ImpulseElement {
 
 Under the hood, this calls [`customElements.define()`](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/define)
 to register your class as a [custom element](https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements).
+If the tag name is already defined, the call is ignored and the first class stays registered.
+
+::: warning Subclasses
+Decorators on a base class are not inherited. A subclass only sees the `@property()` and `@target()` declarations on
+its own class. See [issue #119](https://github.com/Ambiki/impulse/issues/119).
+:::
 
 ## Tag names
 

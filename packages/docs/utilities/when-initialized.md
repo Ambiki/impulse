@@ -11,9 +11,13 @@ pattern, but for an Impulse element resolves on full initialization rather than 
 ```ts
 import { whenInitialized } from '@ambiki/impulse';
 
-const select = await whenInitialized(this.selectTarget);
+// Inside an Impulse element declaring `@target() select: SelectElement;`
+const select = await whenInitialized(this.select);
 select.doSomething();
 ```
+
+Pass an element, not `null`. A `@target()` with no matching element is `null`, and `whenInitialized(null)` throws a
+`TypeError`.
 
 - **Standard HTML elements** (a tag name without a hyphen can never be a custom element) resolve immediately — there is
   nothing to initialize.
@@ -31,9 +35,10 @@ matter: `innerHTML`, `appendChild`, and server-rendered markup all initialize no
 
 ## Reading a target's properties from a connected callback
 
-When a `[target]Connected()` callback fires, the target element is in the DOM but may not have finished initializing yet,
-so its `@property` accessors may not be installed. If you need to read a target's properties, await `whenInitialized`
-first:
+When a `[target]Connected()` callback fires, the target element is in the DOM but may not have finished initializing
+yet. Its `@property` accessors exist once its class is defined, but a target whose class is not defined yet (one loaded
+with [`lazyImport`](/utilities/lazy-import), for example) has none. If you need to read a target's properties, await
+`whenInitialized` first:
 
 ```ts
 @target() select: SelectElement;
@@ -48,7 +53,8 @@ async selectConnected(select: SelectElement) {
 
 By default there is **no deadline** — like `customElements.whenDefined`, the promise stays pending until the element is
 ready. A never-registered (e.g. mistyped) tag therefore never resolves, which surfaces as the code after your `await`
-never running.
+never running. Neither does an Impulse element that is not in the DOM: disconnecting one resets it, so it stays pending
+until it is connected and initializes again.
 
 If you want to bail out after a while, pass a `timeout` (in milliseconds) and the promise rejects once it elapses. An
 acceptable wait depends on your bundle size and your users' network — which only your application knows — so the library
@@ -56,11 +62,14 @@ does not pick one for you:
 
 ```ts
 try {
-  const panel = await whenInitialized(this.panelTarget, { timeout: 5000 });
+  const panel = await whenInitialized(this.panel, { timeout: 5000 });
 } catch {
   // The element did not become ready in time.
 }
 ```
+
+The rejection is an `Error` reading `<my-panel> was not initialized within 5000ms.` A `timeout` of `Infinity` means no
+deadline.
 
 ::: tip
 When awaiting a [lazily imported](/utilities/lazy-import) element, remember the wait includes fetching and executing its

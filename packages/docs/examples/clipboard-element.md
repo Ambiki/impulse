@@ -40,6 +40,13 @@ export default class ClipBoardElement extends ImpulseElement {
 }
 ```
 
+The decorator only runs once the file is loaded, so import it from your application's entry point:
+
+```ts
+// application.ts
+import './clip_board_element';
+```
+
 Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 
 ```html{1,4}
@@ -51,7 +58,7 @@ Secondly, we will replace our `<div>` with the `<clip-board>` tag.
 
 ## Binding actions and responding to them
 
-We want to call the `copy` function when the button is clicked. You can do this by binding `button.addEventListener('click', this.copy)`
+We want to call the `copy` function when the button is clicked. You can do this by binding `button.addEventListener('click', () => this.copy())`
 in the `connected` [lifecycle callback](/reference/lifecycle-callbacks.md), but Impulse has a better way of doing it.
 You can set the `data-action="click->clip-board#copy"` (also known as [action descriptors](/reference/actions.md#descriptors))
 on the button and Impulse will automatically listen for click events and remove the listener when the element is
@@ -89,7 +96,7 @@ import { ImpulseElement, registerElement } from '@ambiki/impulse';
 @registerElement('clip-board')
 export default class ClipBoardElement extends ImpulseElement {
   copy() {
-    const input = this.querySelector('input');
+    const input = this.querySelector('input')!;
     const value = input.value;
     navigator.clipboard.writeText(value); // using the native browser API
   }

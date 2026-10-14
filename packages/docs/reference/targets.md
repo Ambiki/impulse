@@ -28,8 +28,9 @@ An element can have multiple target references.
 
 ## Single target
 
-A single target can be referenced via the `@target()` decorator. The property is the matching element, or `null`
-while none is present.
+A single target can be referenced via the `@target()` decorator. Once the element has
+[initialized](/utilities/when-initialized), the property is the matching element, or `null` while none is present.
+Before that, it is `undefined`.
 
 ```html{2}
 <greet-user>
@@ -60,8 +61,9 @@ mistake and is [reported like an uncaught error](/utilities/connected#errors). U
 
 ## Multiple targets
 
-Multiple targets can be referenced via the `@targets()` decorator. The property is every matching element in
-document order, and an empty array while there are none — so it is always safe to iterate.
+Multiple targets can be referenced via the `@targets()` decorator. Once the element has initialized, the property is
+every matching element in document order, and an empty array while there are none — so it is safe to iterate. The same
+array is returned until the targets change, so treat it as read-only: copy it before sorting or reversing it.
 
 ```html{2,3}
 <greet-user>
@@ -84,9 +86,10 @@ export default class GreetUserElement extends ImpulseElement {
 
 ## How targets are resolved
 
-A target is not a one-off `querySelector()`. Impulse watches the document, so the property always points at whatever
-is in the DOM right now — a target that is replaced, moved, or rendered later is picked up without any work on your
-part, which is what makes the [connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible.
+A target is not a one-off `querySelector()`. Impulse watches the document, so the property follows the DOM — a target
+that is replaced, moved, or rendered later is picked up without any work on your part, which is what makes the
+[connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible. The property updates when
+Impulse's `MutationObserver` delivers the change, not at the moment of the `append()` or `remove()` call.
 
 A `data-target` token belongs to the closest ancestor (or the element itself) whose tag name matches the identifier in
 the token. Nested elements of the same tag therefore never claim each other's targets:
