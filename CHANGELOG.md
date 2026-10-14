@@ -11,46 +11,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `whenInitialized` to await an element being ready: standard elements resolve immediately, Impulse elements once initialized, and other custom elements once defined. Waits indefinitely unless `{ timeout }` (milliseconds) is passed ([#122](https://github.com/Ambiki/impulse/pull/122), [#121](https://github.com/Ambiki/impulse/pull/121), [#113](https://github.com/Ambiki/impulse/pull/113))
-- Export `SelectorSet`, which indexes CSS selectors by their leftmost token ([#100](https://github.com/Ambiki/impulse/pull/100))
+- Add `whenInitialized` to await an element being ready. Waits indefinitely unless `{ timeout }` (milliseconds) is passed ([#122](https://github.com/Ambiki/impulse/pull/122), [#121](https://github.com/Ambiki/impulse/pull/121), [#113](https://github.com/Ambiki/impulse/pull/113))
+- Export `SelectorSet` ([#100](https://github.com/Ambiki/impulse/pull/100))
 - Export `SetMap` ([#93](https://github.com/Ambiki/impulse/pull/93))
 
 ### Changed
 
-- `connected`, `disconnected`, and `lazyImport` called once the document is Parsed now deliver not-yet-dispatched mutation records to every shared-observer watcher before scanning the document, unless called from a watcher callback ([#210](https://github.com/Ambiki/impulse/pull/210))
-- Elements a watcher callback inserts into the element it was called for are now matched when their own mutation record is delivered, one delivery later than before ([#210](https://github.com/Ambiki/impulse/pull/210))
-- `connected`, `disconnected` and `lazyImport` no longer match while the document is parsing (`readyState` is `loading`), so a callback never runs on a half-parsed element. A watcher registered during the parse matches on `DOMContentLoaded`; one registered later still scans synchronously. An element inserted and removed during the parse is never reported. On a long page, `connected` callbacks wait for the whole parse, so unenhanced content can show briefly. A throwing `lazyImport` callback is now reported like an uncaught error without stopping other callbacks for its selector. `on` handlers are unaffected. See `docs/adr/0003-watchers-and-elements-wait-for-the-document-to-be-parsed.md` ([#197](https://github.com/Ambiki/impulse/pull/197))
-- `@target` / `@action` now share one `[data-target]` and one `[data-action]` watcher across all `ImpulseElement` instances instead of a pair per instance. An element starting its targets and actions now delivers pending mutation records to every watcher synchronously, so `connected`, `disconnected` and `on` callbacks can fire slightly earlier ([#175](https://github.com/Ambiki/impulse/pull/175))
-- `on` now uses event delegation: one document-level listener per event name and capture phase instead of one per matching element. `event.currentTarget` points at the matched element, and `event.stopPropagation()` halts further delegated dispatch ([#101](https://github.com/Ambiki/impulse/pull/101))
-- `connected`, `disconnected`, `lazyImport`, `on`, `@target` and `@action` now share one document-level `MutationObserver` instead of one observer chain per call or instance ([#100](https://github.com/Ambiki/impulse/pull/100))
-- `lazyImport` now stops watching after its first match instead of leaking a `MutationObserver` per call ([#100](https://github.com/Ambiki/impulse/pull/100))
+- `connected`, `disconnected` and `lazyImport` deliver pending mutations to other watchers before their initial scan. Elements a watcher callback inserts into its own element match one delivery later ([#210](https://github.com/Ambiki/impulse/pull/210))
+- `connected`, `disconnected` and `lazyImport` wait for the document to be parsed before matching, so a callback never runs on a half-parsed element. On a long page, unenhanced content can show briefly. See `docs/adr/0003-watchers-and-elements-wait-for-the-document-to-be-parsed.md` ([#197](https://github.com/Ambiki/impulse/pull/197))
+- `connected`, `disconnected`, `lazyImport`, `on`, `@target` and `@action` share one document-level `MutationObserver`, so callbacks can fire slightly earlier ([#175](https://github.com/Ambiki/impulse/pull/175), [#100](https://github.com/Ambiki/impulse/pull/100))
+- `on` uses event delegation. `event.currentTarget` is the matched element, and `event.stopPropagation()` stops further delegated handlers ([#101](https://github.com/Ambiki/impulse/pull/101))
+- `lazyImport` stops watching after its first match ([#100](https://github.com/Ambiki/impulse/pull/100))
 
 ### Deprecated
 
-- The implicit wait for descendant custom elements to be defined before target connected callbacks run, to be removed in the next major version. `await whenInitialized(target)` inside the callback instead, then set `ImpulseElement.migratedToWhenInitialized = true` to silence the warning ([#120](https://github.com/Ambiki/impulse/pull/120))
+- The implicit wait for descendant custom elements before target connected callbacks. Use `await whenInitialized(target)`, then set `ImpulseElement.migratedToWhenInitialized = true` to silence the warning ([#120](https://github.com/Ambiki/impulse/pull/120))
 
 ### Removed (BREAKING)
 
-- Non-bubbling events (`focus`, `blur`, `mouseenter`, `mouseleave`, `load`, `error`, `scroll`) passed to `on` now require `{ capture: true }`. Or use the bubbling `focusin` / `focusout` / `mouseover` / `mouseout` ([#101](https://github.com/Ambiki/impulse/pull/101))
-- `SelectorObserver`, `ElementObserver`, `AttributeObserver` and `TokenListObserver`. Use `connected` / `disconnected` instead ([#100](https://github.com/Ambiki/impulse/pull/100))
+- Non-bubbling events (`focus`, `blur`, `mouseenter`, `mouseleave`, `load`, `error`, `scroll`) passed to `on` require `{ capture: true }`, or use `focusin` / `focusout` / `mouseover` / `mouseout` ([#101](https://github.com/Ambiki/impulse/pull/101))
+- `SelectorObserver`, `ElementObserver`, `AttributeObserver` and `TokenListObserver`. Use `connected` / `disconnected` ([#100](https://github.com/Ambiki/impulse/pull/100))
 
 ### Fixed
 
-- A selector the browser rejects, passed to `connected`, `disconnected`, `lazyImport` or `on`, no longer breaks every other watcher or delegated handler: the call throws a `SyntaxError` and registers nothing ([#217](https://github.com/Ambiki/impulse/pull/217))
-- In Firefox, an element that `replaceChildren(node)` lifts out of a child it removes no longer keeps its old matches: targets and actions follow it to its new owner, and a `connected` cleanup runs when it stops matching ([#210](https://github.com/Ambiki/impulse/pull/210))
-- A second element for a `@target()` now waits and is adopted when the first one leaves, so a replacement inserted before the old target is removed no longer leaves the field `null`. The "Multiple targets" error is reported only if the first is still there after the same synchronous run of script ([#208](https://github.com/Ambiki/impulse/pull/208))
-- An `ImpulseElement` that moves itself in `connected()` now re-initializes at its new position instead of staying torn down. `connected()` runs again, so guard the move to avoid a loop ([#202](https://github.com/Ambiki/impulse/pull/202))
-- `ImpulseElement` no longer initializes twice when moved synchronously, or finishes initializing after being removed mid-initialization ([#169](https://github.com/Ambiki/impulse/pull/169))
-- A throwing watcher callback (`connected` / `disconnected`, target or action) no longer aborts the mutation batch for other watchers or leaks the watcher during the initial scan. Errors are reported through `window.onerror` and processing continues. A duplicate `@target` (the "Multiple targets" error) is now reported the same way instead of rejecting initialization: the element initializes with the duplicate left waiting ([#168](https://github.com/Ambiki/impulse/pull/168))
-- `ImpulseElement` now finishes tearing down when `disconnected()` or a target disconnected callback throws, so it can re-initialize on reconnect. The error is rethrown afterwards ([#167](https://github.com/Ambiki/impulse/pull/167))
-- `lazyImport` no longer throws `ReferenceError: Cannot access 'stop' before initialization` when a matching element is already in the DOM ([#165](https://github.com/Ambiki/impulse/pull/165))
-- `@target` / `@action` teardown now reports every tracked token and deregisters the watcher even if a callback throws or calls stop again ([#164](https://github.com/Ambiki/impulse/pull/164))
-- Stopping a `connected` watcher now runs the cleanup of every matched element still in the DOM ([#162](https://github.com/Ambiki/impulse/pull/162))
-- Removing one of two duplicate `data-target` tokens (`x.a x.a` to `x.a`) no longer unregisters the target or fires its disconnected callback ([#157](https://github.com/Ambiki/impulse/pull/157))
-- Removing one token from a multi-token `data-action` attribute now unbinds only that action instead of every listener on the element ([#157](https://github.com/Ambiki/impulse/pull/157))
-- Define `@property` accessors synchronously on connect instead of after `await domReady()`, so a parent's `[target]Connected(child)` callback can no longer read a child's property before it exists ([#124](https://github.com/Ambiki/impulse/pull/124))
-- Remove the `data-impulse-element` attribute when an element is disconnected ([#112](https://github.com/Ambiki/impulse/pull/112))
-- Preserve DOM order for `@targets()` when a target is inserted between existing targets ([#97](https://github.com/Ambiki/impulse/pull/97))
+- `connected`, `disconnected`, `lazyImport` and `on` throw a `SyntaxError` for a selector the browser rejects, instead of breaking every other watcher ([#217](https://github.com/Ambiki/impulse/pull/217))
+- In Firefox, an element moved by `replaceChildren(node)` is rematched ([#210](https://github.com/Ambiki/impulse/pull/210))
+- A replacement `@target()` inserted before the old one is removed is adopted instead of leaving the field `null` ([#208](https://github.com/Ambiki/impulse/pull/208))
+- An `ImpulseElement` that moves itself in `connected()` re-initializes. Guard the move to avoid a loop ([#202](https://github.com/Ambiki/impulse/pull/202))
+- `ImpulseElement` no longer initializes twice when moved synchronously, or after being removed mid-initialization ([#169](https://github.com/Ambiki/impulse/pull/169))
+- A throwing watcher callback is reported through `window.onerror` without stopping other watchers. A duplicate `@target` is reported the same way instead of rejecting initialization ([#168](https://github.com/Ambiki/impulse/pull/168))
+- `ImpulseElement` finishes tearing down when `disconnected()` or a target disconnected callback throws ([#167](https://github.com/Ambiki/impulse/pull/167))
+- `lazyImport` no longer throws a `ReferenceError` when a matching element is already in the DOM ([#165](https://github.com/Ambiki/impulse/pull/165))
+- `@target` / `@action` teardown completes when a callback throws ([#164](https://github.com/Ambiki/impulse/pull/164))
+- Stopping a `connected` watcher runs the cleanup of every matched element ([#162](https://github.com/Ambiki/impulse/pull/162))
+- Removing one `data-target` or `data-action` token no longer unbinds other tokens or a remaining duplicate ([#157](https://github.com/Ambiki/impulse/pull/157))
+- `@property` accessors are defined on connect, so a parent's `[target]Connected(child)` can read them ([#124](https://github.com/Ambiki/impulse/pull/124))
+- Remove `data-impulse-element` when an element disconnects ([#112](https://github.com/Ambiki/impulse/pull/112))
+- Preserve DOM order for `@targets()` when a target is inserted between others ([#97](https://github.com/Ambiki/impulse/pull/97))
 
 ## [1.1.0] - 2025-10-25
 
