@@ -152,11 +152,11 @@ export function disconnected<T extends Element = Element>(selector: string, call
  *
  * @example
  * ```ts
- * const select = await whenInitialized(this.selectTarget);
+ * const select = await whenInitialized(this.select);
  * select.doSomething();
  *
  * // Bail out after a deadline you choose:
- * const panel = await whenInitialized(this.panelTarget, { timeout: 5000 });
+ * const panel = await whenInitialized(this.panel, { timeout: 5000 });
  * ```
  */
 export function whenInitialized<T extends Element>(
