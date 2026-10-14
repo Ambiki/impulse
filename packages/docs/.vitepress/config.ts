@@ -109,7 +109,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
       },
     ],
     editLink: {
-      pattern: 'https://github.com/Ambiki/impulse/tree/main/packages/docs/:path',
+      pattern: 'https://github.com/Ambiki/impulse/edit/main/packages/docs/:path',
     },
     footer: {
       message: 'Released under the MIT License.',
