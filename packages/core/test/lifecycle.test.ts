@@ -519,6 +519,43 @@ describe('disconnected before the document is Parsed', () => {
   });
 });
 
+describe('an invalid selector', () => {
+  it('throws without stopping other watchers', async () => {
+    const root = await fixture(html`<div></div>`);
+    const callback = Sinon.spy();
+    const stop = connected('.invalid-good', callback);
+    expect(() => connected('div:nope', () => {})).to.throw();
+
+    const element = document.createElement('div');
+    element.className = 'invalid-good';
+    root.append(element);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('throws while the document is loading, and still matches the watchers waiting with it', async () => {
+    const root = await fixture(html`<div class="invalid-waiting"></div>`);
+    const finishParsing = simulateParsing();
+    const callback = Sinon.spy();
+    let stop = () => {};
+    try {
+      stop = connected('.invalid-waiting', callback);
+      expect(() => connected('div:nope', () => {})).to.throw();
+    } finally {
+      finishParsing();
+    }
+
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('throws from disconnected as it does from connected', () => {
+    expect(() => disconnected('div:nope', () => {})).to.throw();
+  });
+});
+
 describe('whenInitialized', () => {
   const CONNECTION_TIMEOUT_MS = 200;
 

@@ -1,5 +1,6 @@
 import SelectorSet from './data_structures/selector_set';
 import { invokeReporting } from './helpers/errors';
+import { assertValidSelector } from './helpers/selector';
 
 interface Handler {
   selector: string;
@@ -41,6 +42,7 @@ const stoppedEvents = new WeakSet<Event>();
  * `passive` is forwarded to the shared document listener (so passive and non-passive registrations use separate
  * listeners), and aborting `signal` removes the registration just like calling the returned cleanup.
  * @returns A cleanup function that removes the registration
+ * @throws A `SyntaxError`, with nothing registered, for a selector the browser rejects.
  *
  * @example
  * ```ts
@@ -81,6 +83,9 @@ export function on(
   callback: (event: Event) => void,
   options?: boolean | AddEventListenerOptions,
 ): () => void {
+  // Before anything else, so a bad selector is an error on every path and leaves no shared listener behind.
+  assertValidSelector(selector);
+
   const opts: AddEventListenerOptions = typeof options === 'boolean' ? { capture: options } : (options ?? {});
   const capture = !!opts.capture;
   const once = !!opts.once;

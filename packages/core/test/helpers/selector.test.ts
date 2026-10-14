@@ -1,10 +1,35 @@
 import { expect } from '@open-wc/testing';
 import {
+  assertValidSelector,
   isReadableSelector,
   selectorAttributes,
   subjectSelectors,
   tokenizeCompound,
 } from '../../src/helpers/selector';
+
+describe('assertValidSelector', () => {
+  function rejects(selector: string) {
+    expect(() => assertValidSelector(selector), selector).to.throw(DOMException).with.property('name', 'SyntaxError');
+  }
+
+  function accepts(selector: string) {
+    expect(() => assertValidSelector(selector), selector).not.to.throw();
+  }
+
+  it('rejects a selector the browser rejects', () => {
+    rejects('div:nope');
+    rejects('');
+    rejects('a,');
+    rejects('.a)');
+  });
+
+  it('accepts a selector the browser accepts', () => {
+    accepts('button');
+    accepts('form > button.primary, [data-x="y"]');
+    accepts('div:not(:is([hidden], .b))');
+    accepts('#\\31 foo');
+  });
+});
 
 describe('selectorAttributes', () => {
   it('returns the attribute an attribute selector names', () => {

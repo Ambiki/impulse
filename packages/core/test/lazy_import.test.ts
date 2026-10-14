@@ -100,6 +100,16 @@ describe('lazy import', () => {
       release();
     }
   });
+
+  it('throws for an invalid selector without stopping other imports', async () => {
+    const callback = Sinon.spy();
+    expect(() => lazyImport('div:nope', () => {})).to.throw();
+    lazyImport('.lazy-after-invalid', callback);
+    await fixture(html`<div class="lazy-after-invalid"></div>`);
+
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
 });
 
 describe('lazy import before the document is Parsed', () => {
