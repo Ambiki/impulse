@@ -61,3 +61,5 @@ import './elements/lazy_load_element';
 An element whose markup contains a custom element that is not defined yet logs a deprecation warning when it
 initializes. See [`[target]Connected()`](/reference/lifecycle-callbacks#target-connected) for what to change and how to
 silence it.
+
+Upgrading from 1.x? See [Upgrading to 2.0](/introduction/upgrading-to-2).

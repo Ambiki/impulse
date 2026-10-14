@@ -69,6 +69,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
         items: [
           { text: 'What is Impulse?', link: '/introduction/what-is-impulse' },
           { text: 'Getting started', link: '/introduction/getting-started' },
+          { text: 'Upgrading to 2.0', link: '/introduction/upgrading-to-2' },
         ],
       },
       {
