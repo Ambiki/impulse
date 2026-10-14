@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-14
+
 ### Added
 
 - Add `whenInitialized` to await an element being ready: standard elements resolve immediately, Impulse elements once initialized, and other custom elements once defined. Waits indefinitely unless `{ timeout }` (milliseconds) is passed ([#122](https://github.com/Ambiki/impulse/pull/122), [#121](https://github.com/Ambiki/impulse/pull/121), [#113](https://github.com/Ambiki/impulse/pull/113))
@@ -34,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A selector the browser rejects, passed to `connected`, `disconnected`, `lazyImport` or `on`, no longer breaks every other watcher or delegated handler: the call throws a `SyntaxError` and registers nothing ([#217](https://github.com/Ambiki/impulse/pull/217))
 - In Firefox, an element that `replaceChildren(node)` lifts out of a child it removes no longer keeps its old matches: targets and actions follow it to its new owner, and a `connected` cleanup runs when it stops matching ([#210](https://github.com/Ambiki/impulse/pull/210))
 - A second element for a `@target()` now waits and is adopted when the first one leaves, so a replacement inserted before the old target is removed no longer leaves the field `null`. The "Multiple targets" error is reported only if the first is still there after the same synchronous run of script ([#208](https://github.com/Ambiki/impulse/pull/208))
 - An `ImpulseElement` that moves itself in `connected()` now re-initializes at its new position instead of staying torn down. `connected()` runs again, so guard the move to avoid a loop ([#202](https://github.com/Ambiki/impulse/pull/202))
@@ -151,7 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v1.1.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/Ambiki/impulse/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/Ambiki/impulse/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Ambiki/impulse/compare/v1.0.0...v1.0.1
