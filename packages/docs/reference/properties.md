@@ -27,7 +27,8 @@ When a property changes, its callback runs so you can react to the new value.
 
 Define a `[property]Changed` function, where `[property]` is the property name. It receives `newValue` as the first
 argument and `oldValue` as the second. It does not run for the initial value, before the element has
-[initialized](/utilities/when-initialized), or while the element is disconnected.
+[initialized](/utilities/when-initialized), or once the element has been torn down after disconnecting. A change made
+from `disconnected()` still runs it.
 
 ```ts{7}
 import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
