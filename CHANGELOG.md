@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An `ImpulseElement` that `disconnected()` or a `[target]Disconnected` callback re-inserts now re-initializes. Removing it again during that teardown no longer runs `disconnected()` twice ([#221](https://github.com/Ambiki/impulse/pull/221))
 - An `ImpulseElement` removed while its targets and actions start, such as by a `[target]Connected` callback, no longer initializes while detached. It initializes when re-inserted ([#218](https://github.com/Ambiki/impulse/pull/218))
 - In Firefox, an element that `replaceChildren(node)` lifts out of a child it removes no longer keeps its old matches: targets and actions follow it to its new owner, and a `connected` cleanup runs when it stops matching ([#210](https://github.com/Ambiki/impulse/pull/210))
 - A second element for a `@target()` is no longer dropped. It waits, and is adopted with its own `[target]Connected` when the first one goes away, so a replacement inserted before the old target is removed no longer leaves the field `null`. The "Multiple targets" error is now reported only if the first is still there once the DOM changes made along with the second have been processed ([#208](https://github.com/Ambiki/impulse/pull/208))

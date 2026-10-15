@@ -24,8 +24,16 @@ export class ImpulseElement extends HTMLElement {
   private _started = false;
   // The token of the `_asyncConnect` call that is still initializing, or `null` when none is.
   private _pendingInit: object | null = null;
+  // While `disconnectedCallback` runs its steps, which can re-insert the element or remove it again, whether something
+  // re-inserted it; `null` otherwise.
+  private _teardown: { reconnected: boolean } | null = null;
 
   connectedCallback() {
+    // A reconnect during teardown is only recorded: the teardown starts the fresh init once it has finished.
+    if (this._teardown) {
+      this._teardown.reconnected = true;
+      return;
+    }
     // A reconnect while an init is still pending must not start a second one; the pending init re-checks
     // `isConnected` after each await and each start step, and finishes on its own.
     if (this._started || this._pendingInit) return;
@@ -61,7 +69,10 @@ export class ImpulseElement extends HTMLElement {
   }
 
   disconnectedCallback() {
-    if (!this._started) return;
+    // A removal during teardown, after something in it re-inserted the element, must not run the steps a second time.
+    if (!this._started || this._teardown) return;
+    const teardown = { reconnected: false };
+    this._teardown = teardown;
 
     // Order is important. Every step runs even if an earlier one throws, so a throwing `disconnected()` cannot leave
     // the watchers registered or the element unable to re-initialize; the first error is rethrown once the element is
@@ -76,8 +87,12 @@ export class ImpulseElement extends HTMLElement {
       invokeEach(steps, (step) => step());
     } finally {
       this._started = false;
+      this._teardown = null;
       this.removeAttribute(IMPULSE_ELEMENT_ATTRIBUTE);
       clearInitialized(this);
+      // `disconnected()` or a `[target]Disconnected` put the element back, unless it was removed again after. A move
+      // that merely triggered this teardown reaches `connectedCallback` once it returns, and initializes there.
+      if (teardown.reconnected && this.isConnected) this._asyncConnect();
     }
   }
 

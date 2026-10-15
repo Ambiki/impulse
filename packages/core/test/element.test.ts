@@ -315,6 +315,60 @@ describe('ImpulseElement teardown', () => {
       errors.release();
     }
   });
+
+  it('invokes [property]Changed for an attribute that disconnected() changes', async () => {
+    counter += 1;
+    const tag = `teardown-property-${counter}`;
+    class Element extends ImpulseElement {
+      @property() state = 'open';
+      stateChanged = Sinon.fake();
+      disconnected() {
+        this.state = 'closed';
+      }
+    }
+    registerElement(tag)(Element);
+
+    const element = document.createElement(tag) as Element;
+    document.body.append(element);
+    try {
+      await whenInitialized(element);
+      element.remove();
+      expect(element.stateChanged.calledOnceWith('closed', 'open')).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('leaves re-initializing a moved element to connectedCallback', async () => {
+    counter += 1;
+    const tag = `teardown-move-${counter}`;
+    const connectedSpy = Sinon.spy();
+    let skipInit = false;
+    class Element extends ImpulseElement {
+      connectedCallback() {
+        if (skipInit) return;
+        super.connectedCallback();
+      }
+
+      connected() {
+        connectedSpy();
+      }
+    }
+    registerElement(tag)(Element);
+
+    const a = await fixture(html`<div></div>`);
+    const b = await fixture(html`<div></div>`);
+    const element = document.createElement(tag) as Element;
+    a.append(element);
+    await waitUntil(() => connectedSpy.calledOnce, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    skipInit = true;
+    b.append(element);
+    await nextFrame();
+    await nextFrame();
+    expect(connectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+  });
 });
 
 describe('ImpulseElement callback errors', () => {
@@ -352,12 +406,23 @@ describe('ImpulseElement callback errors', () => {
 });
 
 describe('ImpulseElement init races', () => {
-  interface PanelHooks {
+  interface RaceHooks {
+    disconnected?: (element: HTMLElement) => void;
     panelConnected?: (element: HTMLElement) => void;
     panelDisconnected?: (element: HTMLElement) => void;
   }
 
-  function createRaceElement(tag: string, hooks: PanelHooks = {}) {
+  // Wraps a hook so it acts only the first time it runs; the init it disturbs runs it again when it starts over.
+  function once(hook: (element: HTMLElement) => void) {
+    let called = false;
+    return (element: HTMLElement) => {
+      if (called) return;
+      called = true;
+      hook(element);
+    };
+  }
+
+  function createRaceElement(tag: string, hooks: RaceHooks = {}) {
     class RaceElement extends ImpulseElement {
       @target() panel!: HTMLElement;
       // Records whether the element was in the document when `connected()` ran.
@@ -371,6 +436,7 @@ describe('ImpulseElement init races', () => {
 
       disconnected() {
         this.disconnectedSpy();
+        hooks.disconnected?.(this);
       }
 
       panelConnected() {
@@ -551,13 +617,8 @@ describe('ImpulseElement init races', () => {
 
   it('does not initialize when a target callback removes the element while targets start', async () => {
     counter += 1;
-    let removed = false;
     const element = createRaceElement(`race-target-remove-${counter}`, {
-      panelConnected: (self) => {
-        if (removed) return;
-        removed = true;
-        self.remove();
-      },
+      panelConnected: once((self) => self.remove()),
     });
     const root = await fixture(html`<div></div>`);
 
@@ -655,19 +716,9 @@ describe('ImpulseElement init races', () => {
   it('initializes once when a target callback re-inserts the element while a bailed-out init is torn down', async () => {
     counter += 1;
     const root = await fixture(html`<div></div>`);
-    let removed = false;
-    let reinserted = false;
     const element = createRaceElement(`race-teardown-reinsert-${counter}`, {
-      panelConnected: (self) => {
-        if (removed) return;
-        removed = true;
-        self.remove();
-      },
-      panelDisconnected: (self) => {
-        if (reinserted) return;
-        reinserted = true;
-        root.append(self);
-      },
+      panelConnected: once((self) => self.remove()),
+      panelDisconnected: once((self) => root.append(self)),
     });
 
     root.append(element);
@@ -677,6 +728,73 @@ describe('ImpulseElement init races', () => {
     expect(element.hasAttribute('data-impulse-element')).to.be.true;
     expect(element.panelConnectedSpy.calledTwice).to.be.true;
     expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('re-initializes when disconnected() re-inserts the element', async () => {
+    counter += 1;
+    const root = await fixture(html`<div></div>`);
+    const element = createRaceElement(`race-disconnected-reinsert-${counter}`, {
+      disconnected: once((self) => root.append(self)),
+    });
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    element.remove();
+    expect(element.isConnected).to.be.true;
+    await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+    expect(element.connectedSpy.alwaysCalledWith(true)).to.be.true;
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    expect(element.panel).to.eq(element.querySelector('div'));
+    expect(element.panelConnectedSpy.calledTwice).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('re-initializes when a target callback re-inserts the element while it is torn down', async () => {
+    counter += 1;
+    const root = await fixture(html`<div></div>`);
+    const element = createRaceElement(`race-target-teardown-reinsert-${counter}`, {
+      panelDisconnected: once((self) => root.append(self)),
+    });
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    element.remove();
+    await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+    expect(element.connectedSpy.alwaysCalledWith(true)).to.be.true;
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    expect(element.panel).to.eq(element.querySelector('div'));
+    expect(element.panelConnectedSpy.calledTwice).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+  });
+
+  it('tears down once when disconnected() re-inserts and removes the element again', async () => {
+    counter += 1;
+    const root = await fixture(html`<div></div>`);
+    const element = createRaceElement(`race-disconnected-reinsert-remove-${counter}`, {
+      disconnected: once((self) => {
+        root.append(self);
+        self.remove();
+      }),
+    });
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    element.remove();
+    await nextFrame();
+    await nextFrame();
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+    expect(element.connectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
   });
 });
 
