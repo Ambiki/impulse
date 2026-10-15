@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- An `ImpulseElement` stops counting as initialized when its teardown begins: `data-impulse-element` is gone when `disconnected()` runs, and `whenInitialized()` called from it waits for the next init ([#222](https://github.com/Ambiki/impulse/pull/222))
 - `connected`, `disconnected` and `lazyImport` deliver pending mutations to other watchers before their initial scan. Elements a watcher callback inserts into its own element match one delivery later ([#210](https://github.com/Ambiki/impulse/pull/210))
 - `connected`, `disconnected` and `lazyImport` wait for the document to be parsed before matching, so a callback never runs on a half-parsed element. On a long page, unenhanced content can show briefly. See `docs/adr/0003-watchers-and-elements-wait-for-the-document-to-be-parsed.md` ([#197](https://github.com/Ambiki/impulse/pull/197))
 - `connected`, `disconnected`, `lazyImport`, `on`, `@target` and `@action` share one document-level `MutationObserver`, so callbacks can fire slightly earlier ([#175](https://github.com/Ambiki/impulse/pull/175), [#100](https://github.com/Ambiki/impulse/pull/100))
@@ -34,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An `ImpulseElement` re-inserted by `disconnected()` or a `[target]Disconnected` callback re-initializes. Removing it again during that teardown no longer runs `disconnected()` twice ([#221](https://github.com/Ambiki/impulse/pull/221))
+- An `ImpulseElement` removed while its targets and actions start no longer initializes while detached ([#218](https://github.com/Ambiki/impulse/pull/218))
 - `connected`, `disconnected`, `lazyImport` and `on` throw a `SyntaxError` for a selector the browser rejects, instead of breaking every other watcher ([#217](https://github.com/Ambiki/impulse/pull/217))
 - In Firefox, an element moved by `replaceChildren(node)` is rematched ([#210](https://github.com/Ambiki/impulse/pull/210))
 - A replacement `@target()` inserted before the old one is removed is adopted instead of leaving the field `null` ([#208](https://github.com/Ambiki/impulse/pull/208))

@@ -107,6 +107,9 @@ disconnected() {
 }
 ```
 
+By the time `disconnected()` runs, the element no longer counts as initialized: the `data-impulse-element` attribute is
+gone, and `whenInitialized(this)` waits until the element is connected and initialized again.
+
 If `disconnected()` or a `[target]Disconnected()` callback throws, the element still finishes tearing down, so it can
 initialize again when it reconnects. The first error is rethrown afterwards.
 
