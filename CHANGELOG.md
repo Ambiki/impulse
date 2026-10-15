@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- An `ImpulseElement` stops counting as initialized when its teardown begins: `data-impulse-element` is gone by the time `disconnected()` runs, and `whenInitialized()` called from it waits for the next init ([#222](https://github.com/Ambiki/impulse/pull/222))
 - `connected`, `disconnected`, and `lazyImport` called once the document is Parsed now deliver not-yet-dispatched mutation records to every shared-observer watcher before scanning the document, unless called from a watcher callback ([#210](https://github.com/Ambiki/impulse/pull/210))
 - Elements a watcher callback inserts into the element it was called for are now matched when their own mutation record is delivered, one delivery later than before ([#210](https://github.com/Ambiki/impulse/pull/210))
 - `connected`, `disconnected`, `lazyImport`, `on`, and the `@target` / `@action` decorators now share a single document-level `MutationObserver` instead of each call/instance spinning up its own observer chain. This avoids O(N) observer overhead per call site / per `ImpulseElement` instance

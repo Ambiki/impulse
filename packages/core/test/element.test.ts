@@ -316,6 +316,8 @@ describe('ImpulseElement teardown', () => {
     }
   });
 
+  // The teardown keeps reporting property changes until its steps have run. Switching that off as the teardown begins,
+  // ahead of `disconnected()`, would drop this call.
   it('invokes [property]Changed for an attribute that disconnected() changes', async () => {
     counter += 1;
     const tag = `teardown-property-${counter}`;
@@ -339,12 +341,44 @@ describe('ImpulseElement teardown', () => {
     }
   });
 
-  it('leaves re-initializing a moved element to connectedCallback', async () => {
+  it('stops counting as initialized before disconnected() runs', async () => {
+    counter += 1;
+    const tag = `teardown-uninitialized-${counter}`;
+    const markerSeen = Sinon.spy((_marker: boolean) => {});
+    const resolved = Sinon.spy();
+    class Element extends ImpulseElement {
+      disconnected() {
+        markerSeen(this.hasAttribute('data-impulse-element'));
+        whenInitialized(this).then(resolved);
+      }
+    }
+    registerElement(tag)(Element);
+
+    const root = await fixture(html`<div></div>`);
+    const element = document.createElement(tag) as Element;
+    root.append(element);
+    await whenInitialized(element);
+
+    element.remove();
+    await nextFrame();
+    await nextFrame();
+    expect(markerSeen.calledOnceWith(false)).to.be.true;
+    expect(resolved.called).to.be.false;
+
+    root.append(element);
+    await waitUntil(() => resolved.calledOnce, 'whenInitialized() should resolve once re-initialized', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+  });
+
+  it('does not initialize a moved element whose connectedCallback skips super', async () => {
     counter += 1;
     const tag = `teardown-move-${counter}`;
     const connectedSpy = Sinon.spy();
     let skipInit = false;
     class Element extends ImpulseElement {
+      // Skipping `super` opts the element out of initializing, which only holds if a move initializes from
+      // `connectedCallback` and not from the teardown the move triggered first.
       connectedCallback() {
         if (skipInit) return;
         super.connectedCallback();
@@ -368,6 +402,40 @@ describe('ImpulseElement teardown', () => {
     await nextFrame();
     expect(connectedSpy.calledOnce).to.be.true;
     expect(element.hasAttribute('data-impulse-element')).to.be.false;
+  });
+
+  it('initializes a moved element once when disconnected() changes a property', async () => {
+    counter += 1;
+    const tag = `teardown-move-property-${counter}`;
+    const connectedSpy = Sinon.spy();
+    const disconnectedSpy = Sinon.spy();
+    class Element extends ImpulseElement {
+      @property() state = 'open';
+      connected() {
+        connectedSpy();
+      }
+
+      // Changing an observed attribute queues a reaction on the element. Chromium and Firefox then run the move's own
+      // `connectedCallback` inside the teardown rather than after it; WebKit still runs it after.
+      disconnected() {
+        disconnectedSpy();
+        this.state = 'closed';
+      }
+    }
+    registerElement(tag)(Element);
+
+    const a = await fixture(html`<div></div>`);
+    const b = await fixture(html`<div></div>`);
+    const element = document.createElement(tag) as Element;
+    a.append(element);
+    await waitUntil(() => connectedSpy.calledOnce, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    b.append(element);
+    await waitUntil(() => connectedSpy.calledTwice, 'element should re-initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    await nextFrame();
+    expect(connectedSpy.calledTwice).to.be.true;
+    expect(disconnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
   });
 });
 
@@ -453,6 +521,22 @@ describe('ImpulseElement init races', () => {
     const element = document.createElement(tag) as RaceElement;
     element.innerHTML = `<div data-target="${tag}.panel"></div>`;
     return element;
+  }
+
+  // Removes an element whose teardown puts it straight back, and checks that it initializes again in full, with every
+  // callback paired.
+  async function removeAndExpectReinitialized(element: ReturnType<typeof createRaceElement>) {
+    element.remove();
+    expect(element.isConnected).to.be.true;
+    await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
+      timeout: CONNECTION_TIMEOUT_MS,
+    });
+    expect(element.connectedSpy.alwaysCalledWith(true)).to.be.true;
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    expect(element.panel).to.eq(element.querySelector('div'));
+    expect(element.panelConnectedSpy.calledTwice).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
   }
 
   it('initializes once when the element is moved synchronously, and still tears down normally', async () => {
@@ -740,17 +824,7 @@ describe('ImpulseElement init races', () => {
     root.append(element);
     await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
 
-    element.remove();
-    expect(element.isConnected).to.be.true;
-    await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
-      timeout: CONNECTION_TIMEOUT_MS,
-    });
-    expect(element.connectedSpy.alwaysCalledWith(true)).to.be.true;
-    expect(element.disconnectedSpy.calledOnce).to.be.true;
-    expect(element.hasAttribute('data-impulse-element')).to.be.true;
-    expect(element.panel).to.eq(element.querySelector('div'));
-    expect(element.panelConnectedSpy.calledTwice).to.be.true;
-    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+    await removeAndExpectReinitialized(element);
   });
 
   it('re-initializes when a target callback re-inserts the element while it is torn down', async () => {
@@ -763,16 +837,26 @@ describe('ImpulseElement init races', () => {
     root.append(element);
     await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
 
-    element.remove();
-    await waitUntil(() => element.connectedSpy.calledTwice, 'element should re-initialize', {
-      timeout: CONNECTION_TIMEOUT_MS,
+    await removeAndExpectReinitialized(element);
+  });
+
+  it('resolves a whenInitialized() call made during teardown once the fresh init has run', async () => {
+    counter += 1;
+    const root = await fixture(html`<div></div>`);
+    const resolved = Sinon.spy((_initialized: boolean) => {});
+    const element = createRaceElement(`race-teardown-when-initialized-${counter}`, {
+      disconnected: once((self) => {
+        root.append(self);
+        whenInitialized(self).then(() => resolved(self.hasAttribute('data-impulse-element')));
+      }),
     });
-    expect(element.connectedSpy.alwaysCalledWith(true)).to.be.true;
-    expect(element.disconnectedSpy.calledOnce).to.be.true;
-    expect(element.hasAttribute('data-impulse-element')).to.be.true;
-    expect(element.panel).to.eq(element.querySelector('div'));
-    expect(element.panelConnectedSpy.calledTwice).to.be.true;
-    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+
+    element.remove();
+    await waitUntil(() => resolved.called, 'whenInitialized() should resolve', { timeout: CONNECTION_TIMEOUT_MS });
+    expect(resolved.calledOnceWith(true)).to.be.true;
   });
 
   it('tears down once when disconnected() re-inserts and removes the element again', async () => {

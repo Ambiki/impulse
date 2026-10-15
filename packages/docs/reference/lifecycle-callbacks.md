@@ -84,6 +84,9 @@ disconnected() {
 }
 ```
 
+By the time `disconnected()` runs, the element no longer counts as initialized: the `data-impulse-element` attribute is
+gone, and `whenInitialized(this)` waits until the element is connected and initialized again.
+
 ### `[target]Disconnected()`
 
 This function is called when the declared `target` / `targets` is disconnected from the DOM. Within this function, you
