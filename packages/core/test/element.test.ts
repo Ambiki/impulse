@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, property, registerElement, target, whenInitialized } from '../src';
+import { ImpulseElement, property, registerElement, target, targets, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
 import { simulateParsing } from './support/parsing';
 
@@ -352,13 +352,19 @@ describe('ImpulseElement callback errors', () => {
 });
 
 describe('ImpulseElement init races', () => {
-  function createRaceElement(tag: string) {
+  interface PanelHooks {
+    panelConnected?: (element: HTMLElement) => void;
+    panelDisconnected?: (element: HTMLElement) => void;
+  }
+
+  function createRaceElement(tag: string, hooks: PanelHooks = {}) {
     class RaceElement extends ImpulseElement {
       @target() panel!: HTMLElement;
       // Records whether the element was in the document when `connected()` ran.
       connectedSpy = Sinon.spy((_connected: boolean) => {});
       disconnectedSpy = Sinon.spy();
       panelConnectedSpy = Sinon.spy();
+      panelDisconnectedSpy = Sinon.spy();
       connected() {
         this.connectedSpy(this.isConnected);
       }
@@ -369,6 +375,12 @@ describe('ImpulseElement init races', () => {
 
       panelConnected() {
         this.panelConnectedSpy();
+        hooks.panelConnected?.(this);
+      }
+
+      panelDisconnected() {
+        this.panelDisconnectedSpy();
+        hooks.panelDisconnected?.(this);
       }
     }
     registerElement(tag)(RaceElement);
@@ -535,6 +547,136 @@ describe('ImpulseElement init races', () => {
     expect(connectedSpy.callCount).to.eq(2);
     expect(element.parentElement!.id).to.eq(otherId);
     expect(element.hasAttribute('data-impulse-element')).to.be.true;
+  });
+
+  it('does not initialize when a target callback removes the element while targets start', async () => {
+    counter += 1;
+    let removed = false;
+    const element = createRaceElement(`race-target-remove-${counter}`, {
+      panelConnected: (self) => {
+        if (removed) return;
+        removed = true;
+        self.remove();
+      },
+    });
+    const root = await fixture(html`<div></div>`);
+
+    root.append(element);
+    await nextFrame();
+    await nextFrame();
+    expect(element.isConnected).to.be.false;
+    expect(element.connectedSpy.called).to.be.false;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    expect(element.panelConnectedSpy.calledOnce).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.panelConnectedSpy.calledTwice).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+
+    element.remove();
+    expect(element.disconnectedSpy.calledOnce).to.be.true;
+    expect(element.panelDisconnectedSpy.calledTwice).to.be.true;
+  });
+
+  it('does not initialize when another element\'s callback removes the element while actions start', async () => {
+    counter += 1;
+    const tag = `race-action-remove-${counter}`;
+    const removerTag = `race-action-remover-${counter}`;
+    let victim: HTMLElement | null = null;
+
+    class RemoverElement extends ImpulseElement {
+      @targets() triggers!: HTMLElement[];
+      triggersConnected() {
+        victim?.remove();
+        victim = null;
+      }
+    }
+    registerElement(removerTag)(RemoverElement);
+    const root = await fixture(html`<div></div>`);
+    const remover = document.createElement(removerTag) as RemoverElement;
+    root.append(remover);
+    await whenInitialized(remover);
+
+    class VictimElement extends ImpulseElement {
+      @target() panel!: HTMLElement;
+      connectedSpy = Sinon.spy((_connected: boolean) => {});
+      handleSpy = Sinon.spy();
+      panelConnectedSpy = Sinon.spy();
+      panelDisconnectedSpy = Sinon.spy();
+      connected() {
+        this.connectedSpy(this.isConnected);
+      }
+
+      handle() {
+        this.handleSpy();
+      }
+
+      // Queues a mutation that the remover's watcher only sees once something flushes, which the actions starting
+      // next does before they are wired up.
+      panelConnected() {
+        this.panelConnectedSpy();
+        if (!this.panelConnectedSpy.calledOnce) return;
+        const trigger = document.createElement('span');
+        trigger.setAttribute('data-target', `${removerTag}.triggers`);
+        remover.append(trigger);
+      }
+
+      panelDisconnected() {
+        this.panelDisconnectedSpy();
+      }
+    }
+    registerElement(tag)(VictimElement);
+
+    const element = document.createElement(tag) as VictimElement;
+    element.innerHTML = `<button data-target="${tag}.panel" data-action="click->${tag}#handle"></button>`;
+    victim = element;
+    root.append(element);
+    await nextFrame();
+    await nextFrame();
+    expect(element.isConnected).to.be.false;
+    expect(element.connectedSpy.called).to.be.false;
+    expect(element.hasAttribute('data-impulse-element')).to.be.false;
+    expect(element.panelConnectedSpy.calledOnce).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
+    element.querySelector('button')!.click();
+    expect(element.handleSpy.called).to.be.false;
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    element.querySelector('button')!.click();
+    expect(element.handleSpy.calledOnce).to.be.true;
+  });
+
+  it('initializes once when a target callback re-inserts the element while a bailed-out init is torn down', async () => {
+    counter += 1;
+    const root = await fixture(html`<div></div>`);
+    let removed = false;
+    let reinserted = false;
+    const element = createRaceElement(`race-teardown-reinsert-${counter}`, {
+      panelConnected: (self) => {
+        if (removed) return;
+        removed = true;
+        self.remove();
+      },
+      panelDisconnected: (self) => {
+        if (reinserted) return;
+        reinserted = true;
+        root.append(self);
+      },
+    });
+
+    root.append(element);
+    await waitUntil(() => element.connectedSpy.called, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
+    await nextFrame();
+    expect(element.connectedSpy.calledOnceWith(true)).to.be.true;
+    expect(element.hasAttribute('data-impulse-element')).to.be.true;
+    expect(element.panelConnectedSpy.calledTwice).to.be.true;
+    expect(element.panelDisconnectedSpy.calledOnce).to.be.true;
   });
 });
 
