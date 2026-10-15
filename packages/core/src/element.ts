@@ -27,7 +27,7 @@ export class ImpulseElement extends HTMLElement {
 
   connectedCallback() {
     // A reconnect while an init is still pending must not start a second one; the pending init re-checks
-    // `isConnected` after each await and finishes on its own.
+    // `isConnected` after each await and each start step, and finishes on its own.
     if (this._started || this._pendingInit) return;
     this._asyncConnect();
   }
@@ -137,9 +137,20 @@ export class ImpulseElement extends HTMLElement {
       await this._resolveUndefinedElements();
       // Removed while waiting for descendants to be defined.
       if (!this.isConnected) return;
-      // Order is important: targets must be wired up before actions.
+      // Order is important: targets must be wired up before actions. Each start runs code synchronously: replaying the
+      // existing targets invokes `[target]Connected`, and subscribing flushes pending mutations, which runs other
+      // elements' callbacks. Any of it can remove the element, and `disconnectedCallback` ignores a removal until
+      // `_started` is set, so the check is repeated after each.
       this.target.start();
+      if (!this.isConnected) {
+        this._abandonInit();
+        return;
+      }
       this.action.start();
+      if (!this.isConnected) {
+        this._abandonInit();
+        return;
+      }
       this._started = true;
       // Nothing is pending once targets and actions have started, so a move inside `connected()` below takes the
       // normal disconnect and reconnect path: `disconnected()`, then a fresh init at the new position. Still pending,
@@ -154,6 +165,16 @@ export class ImpulseElement extends HTMLElement {
     } finally {
       if (this._pendingInit === token) this._pendingInit = null;
     }
+  }
+
+  /**
+   * Stops whatever an init started before the element was removed, so a later reconnect starts over. Stopping targets
+   * invokes `[target]Disconnected` for the ones just connected, keeping the callbacks paired. That code can re-insert
+   * the element, so nothing may be pending by then: the reconnect starts a fresh init rather than being dropped.
+   */
+  private _abandonInit() {
+    this._pendingInit = null;
+    invokeEach([() => this.action.stop(), () => this.target.stop()], (step) => step());
   }
 
   private _resolveUndefinedElements() {
