@@ -24,8 +24,8 @@ for (const { selector, value } of handlers.matches(element)) {
 selector, so run `element.matches(selector)` on what comes back. Each entry is returned once even when its selector is
 indexed under several keys.
 
-The results belong to the set and are only valid until the next `matches()` call, which reuses them. Read them and let
-them go — retaining or mutating one corrupts the index.
+Each call returns a new array, but the entries in it belong to the set. Read them, and do not mutate them: changing one
+corrupts the index.
 
 ## How the index works
 
@@ -80,12 +80,13 @@ shared between selectors is contributed once, since querying costs more for ever
 Adding the same selector and value twice stores two entries, and each needs its own `delete()`.
 
 ```ts
-handlers.add('button', submit);
-handlers.add('button', submit);
-handlers.size; // 2
+const buttons = new SelectorSet<() => void>();
+buttons.add('button', submit);
+buttons.add('button', submit);
+buttons.size; // 2
 
-handlers.delete('button', submit);
-handlers.size; // 1
+buttons.delete('button', submit);
+buttons.size; // 1
 ```
 
 ## API
