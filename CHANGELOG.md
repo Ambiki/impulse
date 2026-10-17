@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The library now targets ES2020 ([#227](https://github.com/Ambiki/impulse/pull/227))
+
 ## [2.0.0-rc.0] - 2026-10-16
 
 ### Added
