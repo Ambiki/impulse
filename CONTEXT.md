@@ -13,8 +13,9 @@ one Compound of three; `.open a.link` is two.
 _Avoid_: Compound selector, segment, clause
 
 **Initialized**:
-An element whose properties, targets, and actions have started and that has not been disconnected since. Only an
-element itself can be Initialized; the `data-impulse-element` attribute reports the state rather than conferring it.
+An Impulse element whose properties, targets, and actions have started and that has not been disconnected since. Only
+an Impulse element can be Initialized, and only by initializing itself: a standard element or another custom element
+never is, and the `data-impulse-element` attribute reports the state rather than conferring it.
 _Avoid_: Started, mounted, booted
 
 **Owner**:

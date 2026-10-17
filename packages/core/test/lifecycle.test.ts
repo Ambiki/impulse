@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { connected, disconnected, ImpulseElement, registerElement, whenInitialized } from '../src';
+import { connected, disconnected, ImpulseElement, isInitialized, registerElement, target, targets, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
 import { simulateInteractive, simulateParsing } from './support/parsing';
 
@@ -797,6 +797,188 @@ describe('whenInitialized', () => {
       expect(resolved).to.eq(element);
     } finally {
       element.remove();
+    }
+  });
+});
+
+describe('isInitialized', () => {
+  it('is false while the element waits to initialize, and true once it has', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    const childTag = `is-initialized-child-${counter}`;
+    class IsInitializedElement extends ImpulseElement {
+      static migratedToWhenInitialized = true;
+    }
+    registerElement(tag)(IsInitializedElement);
+
+    // An undefined custom element inside holds the init back until it is defined. That is the deprecated implicit wait,
+    // and the flag only silences its warning. Once that wait is removed, hold the init some other way.
+    const element = document.createElement(tag);
+    element.appendChild(document.createElement(childTag));
+    document.body.appendChild(element);
+
+    try {
+      await nextFrame();
+      expect(element.isConnected).to.be.true;
+      expect(isInitialized(element)).to.be.false;
+
+      customElements.define(childTag, class extends HTMLElement {});
+      await whenInitialized(element);
+      expect(isInitialized(element)).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('is true inside connected()', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    let seen: boolean | undefined;
+    class IsInitializedElement extends ImpulseElement {
+      connected() {
+        seen = isInitialized(this);
+      }
+    }
+    registerElement(tag)(IsInitializedElement);
+
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    try {
+      await whenInitialized(element);
+      expect(seen).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('is false inside [target]Connected() during init, and true for a target added after it', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    const seen: boolean[] = [];
+    class IsInitializedElement extends ImpulseElement {
+      @targets() items!: HTMLElement[];
+
+      itemsConnected() {
+        seen.push(isInitialized(this));
+      }
+    }
+    registerElement(tag)(IsInitializedElement);
+
+    const element = document.createElement(tag);
+    element.innerHTML = `<span data-target="${tag}.items"></span>`;
+    document.body.appendChild(element);
+
+    try {
+      await whenInitialized(element);
+      expect(seen).to.deep.eq([false]);
+
+      const later = document.createElement('span');
+      later.setAttribute('data-target', `${tag}.items`);
+      element.appendChild(later);
+      await waitUntil(() => seen.length === 2, 'the later target should connect');
+      expect(seen).to.deep.eq([false, true]);
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('is false inside disconnected() and [target]Disconnected()', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    const seen: Record<string, boolean> = {};
+    class IsInitializedElement extends ImpulseElement {
+      @target() panel!: HTMLElement;
+
+      disconnected() {
+        seen.disconnected = isInitialized(this);
+      }
+
+      panelDisconnected() {
+        seen.panelDisconnected = isInitialized(this);
+      }
+    }
+    registerElement(tag)(IsInitializedElement);
+
+    const element = document.createElement(tag);
+    element.innerHTML = `<div data-target="${tag}.panel"></div>`;
+    document.body.appendChild(element);
+
+    try {
+      await whenInitialized(element);
+      element.remove();
+      expect(seen).to.deep.eq({ disconnected: false, panelDisconnected: false });
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('is false once the element is removed, and true again once it re-initializes', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    class IsInitializedElement extends ImpulseElement {}
+    registerElement(tag)(IsInitializedElement);
+
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+
+    try {
+      await whenInitialized(element);
+      element.remove();
+      expect(isInitialized(element)).to.be.false;
+
+      document.body.appendChild(element);
+      expect(isInitialized(element)).to.be.false;
+      await whenInitialized(element);
+      expect(isInitialized(element)).to.be.true;
+    } finally {
+      element.remove();
+    }
+  });
+
+  it('is false for a copy carrying the marker attribute until the copy initializes', async () => {
+    counter += 1;
+    const tag = `is-initialized-${counter}`;
+    class IsInitializedElement extends ImpulseElement {}
+    registerElement(tag)(IsInitializedElement);
+
+    const element = document.createElement(tag);
+    document.body.appendChild(element);
+    let copy: Element | undefined;
+
+    try {
+      await whenInitialized(element);
+      copy = element.cloneNode(true) as Element;
+      expect(copy.hasAttribute('data-impulse-element')).to.be.true;
+      expect(isInitialized(copy)).to.be.false;
+
+      document.body.appendChild(copy);
+      expect(isInitialized(copy)).to.be.false;
+      await whenInitialized(copy);
+      expect(isInitialized(copy)).to.be.true;
+    } finally {
+      element.remove();
+      copy?.remove();
+    }
+  });
+
+  it('is false for elements that never initialize', async () => {
+    counter += 1;
+    const tag = `non-impulse-${counter}`;
+    customElements.define(tag, class extends HTMLElement {});
+
+    const div = document.createElement('div');
+    const plain = document.createElement(tag);
+    document.body.append(div, plain);
+
+    try {
+      await whenInitialized(div);
+      await whenInitialized(plain);
+      expect(isInitialized(div)).to.be.false;
+      expect(isInitialized(plain)).to.be.false;
+    } finally {
+      div.remove();
+      plain.remove();
     }
   });
 });
