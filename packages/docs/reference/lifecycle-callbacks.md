@@ -72,9 +72,10 @@ or set `migratedToWhenInitialized` on a single element class. The flag only sile
 ### `connected()`
 
 This function is called when the element itself is connected to the DOM. When this function is invoked, you can be sure
-that all properties and targets have been resolved and added to the DOM. You can query the DOM within this function,
-set event listeners, and do much more. Anything done within this function should be undone when the element is
-disconnected from the DOM.
+that all properties and targets have been resolved and added to the DOM, and
+[`isInitialized(this)`](/utilities/is-initialized) is `true`. You can query the DOM within this function, set event
+listeners, and do much more. Anything done within this function should be undone when the element is disconnected from
+the DOM.
 
 ```ts
 connected() {
@@ -108,7 +109,8 @@ disconnected() {
 ```
 
 By the time `disconnected()` runs, the element no longer counts as initialized: the `data-impulse-element` attribute is
-gone, and `whenInitialized(this)` waits until the element is connected and initialized again.
+gone, [`isInitialized(this)`](/utilities/is-initialized) is `false`, and `whenInitialized(this)` waits until the element
+is connected and initialized again.
 
 If `disconnected()` or a `[target]Disconnected()` callback throws, the element still finishes tearing down, so it can
 initialize again when it reconnects. The first error is rethrown afterwards.

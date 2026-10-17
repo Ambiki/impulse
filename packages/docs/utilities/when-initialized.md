@@ -4,7 +4,8 @@ The `whenInitialized` function returns a promise that resolves once an element i
 Impulse element that means once its properties, targets, and actions have started.
 
 This mirrors the familiar [`customElements.whenDefined()`](https://developer.mozilla.org/en-US/docs/Web/API/CustomElementRegistry/whenDefined)
-pattern, but for an Impulse element resolves on full initialization rather than mere definition.
+pattern, but for an Impulse element resolves on full initialization rather than mere definition. To check without
+waiting, use [`isInitialized`](/utilities/is-initialized).
 
 ## Usage
 

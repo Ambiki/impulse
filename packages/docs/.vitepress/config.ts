@@ -90,6 +90,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
           { text: 'connected', link: '/utilities/connected' },
           { text: 'disconnected', link: '/utilities/disconnected' },
           { text: 'emit', link: '/utilities/emit' },
+          { text: 'isInitialized', link: '/utilities/is-initialized' },
           { text: 'lazyImport', link: '/utilities/lazy-import' },
           { text: 'on', link: '/utilities/on' },
           { text: 'whenInitialized', link: '/utilities/when-initialized' },

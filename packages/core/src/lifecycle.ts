@@ -3,6 +3,8 @@ import { invokeEach } from './helpers/invoke_each';
 import { isInitialized, waitForInitialization } from './initialization';
 import { watchSelector } from './observers/document_observer';
 
+export { isInitialized };
+
 /**
  * Observes the DOM and invokes a callback whenever elements matching the selector are added to the DOM.
  *
