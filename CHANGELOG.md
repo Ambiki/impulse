@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-rc.1] - 2026-10-17
+
 ### Added
 
 - Add `isInitialized` to check synchronously whether an Impulse element is initialized ([#228](https://github.com/Ambiki/impulse/pull/228))
@@ -162,7 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.1...HEAD
+[2.0.0-rc.1]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.0...v2.0.0-rc.1
 [2.0.0-rc.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0-rc.0
 [1.1.0]: https://github.com/Ambiki/impulse/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/Ambiki/impulse/compare/v1.0.1...v1.0.2
