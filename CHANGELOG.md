@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (BREAKING)
+
+- `@property()` defaults stay in JavaScript: connecting writes no attribute, a missing or unparseable attribute reads as the default, and assigning `null` or `undefined` removes the attribute ([#230](https://github.com/Ambiki/impulse/pull/230))
+- `registerElement` registers and returns a subclass of the decorated class, so a property assigned before connect is written to its attribute ([#230](https://github.com/Ambiki/impulse/pull/230))
+
 ## [2.0.0-rc.1] - 2026-10-17
 
 ### Added
