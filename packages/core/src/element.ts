@@ -6,7 +6,7 @@ import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import { clearInitialized, notifyInitialized } from './initialization';
-import Property, { fromAttribute } from './property';
+import Property from './property';
 import { PROPERTIES, registered } from './registry';
 import Target from './target';
 
@@ -83,8 +83,8 @@ export class ImpulseElement extends HTMLElement {
     // Validate if value changed after transformation.
     // Common case would be:
     // -> 8_000 to 8000
-    const newValue = fromAttribute(_newValue, property.type);
-    const oldValue = fromAttribute(_oldValue, property.type);
+    const newValue = this.property.read(camelizedName, _newValue);
+    const oldValue = this.property.read(camelizedName, _oldValue);
     if (isUnchanged(newValue, oldValue, property.type)) return;
 
     fn.call(this, newValue, oldValue);

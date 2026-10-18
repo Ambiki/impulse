@@ -1,7 +1,6 @@
 import { expect, fixture, html } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, property, registerElement } from '../src';
-import { fromAttribute } from '../src/property';
+import { ImpulseElement, property, registerElement, whenInitialized } from '../src';
 
 describe('@property', () => {
   @registerElement('property-test')
@@ -20,6 +19,9 @@ describe('@property', () => {
     zeroConfigChanged = Sinon.fake();
     numericValueChanged = Sinon.fake();
     overrideConfigChanged = Sinon.fake();
+    valueChanged = Sinon.fake();
+    recordCountChanged = Sinon.fake();
+    nameChanged = Sinon.fake();
 
     // From HTML
     @property() placement: string;
@@ -36,7 +38,7 @@ describe('@property', () => {
     @property({ type: Number }) age = 0;
     @property({ type: Number }) session = 12;
     @property({ type: Array }) sports = ['Football', 'Cricket'];
-    @property({ type: Object }) defaultConfig = { routes: false };
+    @property({ type: Object }) defaultConfig: { routes: boolean } = { routes: false };
 
     // Override default value
     @property() value = 'litchi';
@@ -78,6 +80,8 @@ describe('@property', () => {
 
     expect(el).to.have.property('fallback', true);
     expect(el).to.have.attribute('fallback');
+    el.setAttribute('fallback', 'true');
+    expect(el).to.have.property('fallback', true);
 
     expect(el).to.have.property('delay', 0);
     expect(el).to.have.attribute('delay', '0');
@@ -92,27 +96,41 @@ describe('@property', () => {
     expect(el).to.have.attribute('numeric-value', '8_000');
   });
 
-  it('should set the property value by default', () => {
+  it('should read the default without writing it to the attribute', () => {
     expect(el).to.have.property('name', 'foo');
-    expect(el).to.have.attribute('name', 'foo');
+    expect(el).not.to.have.attribute('name');
 
     expect(el).to.have.property('persisted', false);
     expect(el).not.to.have.attribute('persisted');
 
     expect(el).to.have.property('newRecord', true);
-    expect(el).to.have.attribute('new-record');
+    expect(el).not.to.have.attribute('new-record');
 
     expect(el).to.have.property('age', 0);
-    expect(el).to.have.attribute('age', '0');
+    expect(el).not.to.have.attribute('age');
 
     expect(el).to.have.property('session', 12);
-    expect(el).to.have.attribute('session', '12');
+    expect(el).not.to.have.attribute('session');
 
     expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
-    expect(el).to.have.attribute('sports').to.deep.equal('["Football","Cricket"]');
+    expect(el).not.to.have.attribute('sports');
 
     expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
-    expect(el).to.have.attribute('default-config').to.deep.equal('{"routes":false}');
+    expect(el).not.to.have.attribute('default-config');
+  });
+
+  it('should hand out a copy of an Array or Object default, so mutating it changes nothing', () => {
+    el.sports.push('Tennis');
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
+
+    el.defaultConfig.routes = true;
+    expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
+
+    // An unparseable attribute reads as a copy of the default as well.
+    el.setAttribute('sports', '{');
+    el.sports.push('Tennis');
+    el.removeAttribute('sports');
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
   });
 
   it('should be able to overwrite the default property value', () => {
@@ -132,21 +150,47 @@ describe('@property', () => {
     expect(el).to.have.attribute('override-config').to.deep.equal('{ "property": false }');
   });
 
-  it('should set the property value to the element', () => {
+  it('should read the empty value without writing it when a property has no default', () => {
     expect(el).to.have.property('lastName', '');
-    expect(el).to.have.attribute('last-name', '');
+    expect(el).not.to.have.attribute('last-name');
 
     expect(el).to.have.property('timeout', 0);
-    expect(el).to.have.attribute('timeout', '0');
+    expect(el).not.to.have.attribute('timeout');
 
     expect(el).to.have.property('joining', false);
     expect(el).not.to.have.attribute('joining');
 
     expect(el).to.have.property('friends').to.deep.equal([]);
-    expect(el).to.have.attribute('friends').to.deep.equal('[]');
+    expect(el).not.to.have.attribute('friends');
 
     expect(el).to.have.property('zeroConfig').to.deep.equal({});
-    expect(el).to.have.attribute('zero-config').to.deep.equal('{}');
+    expect(el).not.to.have.attribute('zero-config');
+  });
+
+  it('should keep the default from the first connect after the element reconnects', async () => {
+    // `value="guava"` overrides the `litchi` default. A reconnect must not take the attribute for the default.
+    const parent = el.parentElement!;
+    el.remove();
+    parent.append(el);
+    await whenInitialized(el);
+
+    el.removeAttribute('value');
+    expect(el).to.have.property('value', 'litchi');
+  });
+
+  it('should take a value assigned before the element connects as its default', async () => {
+    const element = document.createElement('property-test') as PropertyTest;
+    element.name = 'bar';
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(element).to.have.property('name', 'bar');
+    expect(element).not.to.have.attribute('name');
+
+    element.setAttribute('name', 'baz');
+    element.removeAttribute('name');
+    expect(element).to.have.property('name', 'bar');
+    element.remove();
   });
 
   it('should be able to assign value to a property', () => {
@@ -174,6 +218,47 @@ describe('@property', () => {
     el.zeroConfig = { fallback: 'yes' };
     expect(el).to.have.property('zeroConfig').to.deep.equal({ fallback: 'yes' });
     expect(el).to.have.attribute('zero-config').to.deep.equal('{"fallback":"yes"}');
+  });
+
+  it('should write false for a boolean that defaults to true, so it can be turned off', () => {
+    el.newRecord = false;
+    expect(el).to.have.property('newRecord', false);
+    expect(el).to.have.attribute('new-record', 'false');
+
+    el.newRecord = true;
+    expect(el).to.have.property('newRecord', true);
+    expect(el).to.have.attribute('new-record', '');
+
+    el.persisted = true;
+    expect(el).to.have.attribute('persisted', '');
+    el.persisted = false;
+    expect(el).to.have.property('persisted', false);
+    expect(el).not.to.have.attribute('persisted');
+  });
+
+  it('should remove the attribute when assigned null or undefined, so the property reads its default', () => {
+    // The declared types do not admit `null` or `undefined`, so assign around them.
+    const assign = (key: keyof PropertyTest, value: null | undefined) => Object.assign(el, { [key]: value });
+
+    assign('value', null);
+    expect(el).to.have.property('value', 'litchi');
+    expect(el).not.to.have.attribute('value');
+
+    assign('started', undefined);
+    expect(el).to.have.property('started', true);
+    expect(el).not.to.have.attribute('started');
+
+    assign('recordCount', null);
+    expect(el).to.have.property('recordCount', 44);
+    expect(el).not.to.have.attribute('record-count');
+
+    assign('fruits', null);
+    expect(el).to.have.property('fruits').to.deep.equal([]);
+    expect(el).not.to.have.attribute('fruits');
+
+    assign('config', undefined);
+    expect(el).to.have.property('config').to.deep.equal({});
+    expect(el).not.to.have.attribute('config');
   });
 
   it('should call the property [property]Changed callback', () => {
@@ -260,6 +345,40 @@ describe('@property', () => {
     expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
   });
 
+  it('should read the default again once a morph removes the attribute that overrode it', () => {
+    el.removeAttribute('value');
+    expect(el).to.have.property('value', 'litchi');
+    expect(el.valueChanged.calledOnceWith('litchi', 'guava')).to.be.true;
+
+    el.removeAttribute('started');
+    expect(el).to.have.property('started', true);
+    expect(el.startedChanged.calledOnceWith(true, false)).to.be.true;
+
+    el.removeAttribute('record-count');
+    expect(el).to.have.property('recordCount', 44);
+    expect(el.recordCountChanged.calledOnceWith(44, 22)).to.be.true;
+
+    el.removeAttribute('names');
+    expect(el).to.have.property('names').to.deep.equal([]);
+    expect(el.namesChanged.getCall(0).args).to.deep.equal([[], ['Md', 'Abeid']]);
+  });
+
+  it('should compare against the default when the attribute is missing on either side of a change', () => {
+    el.setAttribute('name', 'bar');
+    expect(el.nameChanged.calledOnceWith('bar', 'foo')).to.be.true;
+
+    el.nameChanged.resetHistory();
+    el.setAttribute('name', 'foo');
+    el.nameChanged.resetHistory();
+    el.removeAttribute('name');
+    expect(el).to.have.property('name', 'foo');
+    expect(el.nameChanged.called).to.be.false;
+
+    el.name = 'foo';
+    expect(el).to.have.attribute('name', 'foo');
+    expect(el.nameChanged.called).to.be.false;
+  });
+
   it('should not fire the change callback when removing an attribute that already reads as the empty value', () => {
     // An empty attribute and a missing one both read as `0`/`''`, so removing it is not a change.
     el.setAttribute('numeric-value', '');
@@ -277,7 +396,32 @@ describe('@property', () => {
     expect(el.placementChanged.called).to.be.false;
   });
 
-  it('should fall back to an empty collection rather than throw when the attribute is not valid JSON', () => {
+  it('should read an attribute that does not parse as its type as the default', () => {
+    el.setAttribute('sports', '{');
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
+    el.setAttribute('sports', '{"foo":"bar"}');
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
+    el.setAttribute('sports', 'null');
+    expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
+
+    el.setAttribute('default-config', 'nope');
+    expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
+    el.setAttribute('default-config', '["routes"]');
+    expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
+    el.setAttribute('default-config', '5');
+    expect(el).to.have.property('defaultConfig').to.deep.equal({ routes: false });
+
+    el.setAttribute('session', '');
+    expect(el).to.have.property('session', 12);
+    el.setAttribute('session', 'abc');
+    expect(el).to.have.property('session', 12);
+
+    // Any string is a String, the empty one included.
+    el.setAttribute('name', '');
+    expect(el).to.have.property('name', '');
+  });
+
+  it('should not throw when an attribute without a default is not valid JSON', () => {
     el.setAttribute('fruits', '{');
     expect(el).to.have.property('fruits').to.deep.equal([]);
     expect(el.fruitsChanged.getCall(0).args[0]).to.deep.equal([]);
@@ -339,52 +483,12 @@ describe('@property', () => {
     expect(el.configChanged.getCall(0).args[1]).to.deep.equal({ foo: 'bar' });
   });
 
-  it('should not fire the Number callback when the value transforms to NaN on both sides', () => {
+  it('should not fire the Number callback when two unreadable values both read as the default', () => {
     // Starts from `numeric-value="8_000"` (=> 8000).
     el.setAttribute('numeric-value', 'abc');
-    expect(el.numericValueChanged.calledOnce).to.be.true;
-    expect(Number.isNaN(el.numericValueChanged.getCall(0).args[0])).to.be.true;
-    expect(el.numericValueChanged.getCall(0).args[1]).to.equal(8000);
+    expect(el.numericValueChanged.calledOnceWith(0, 8000)).to.be.true;
 
-    // NaN -> NaN is unchanged, so the callback must not fire again.
     el.setAttribute('numeric-value', 'xyz');
     expect(el.numericValueChanged.calledOnce).to.be.true;
-  });
-});
-
-describe('fromAttribute', () => {
-  it('converts a String attribute', () => {
-    expect(fromAttribute('bottom', String)).to.eq('bottom');
-    expect(fromAttribute('', String)).to.eq('');
-    // A removed attribute reads as the empty string, never `null`.
-    expect(fromAttribute(null, String)).to.eq('');
-  });
-
-  it('converts a Number attribute', () => {
-    expect(fromAttribute('22', Number)).to.eq(22);
-    expect(fromAttribute('8_000', Number)).to.eq(8000);
-    expect(fromAttribute('', Number)).to.eq(0);
-    // A removed attribute reads as `0`, never `NaN`.
-    expect(fromAttribute(null, Number)).to.eq(0);
-    expect(Number.isNaN(fromAttribute('abc', Number))).to.be.true;
-  });
-
-  it('converts a Boolean attribute', () => {
-    expect(fromAttribute('', Boolean)).to.be.true;
-    expect(fromAttribute('true', Boolean)).to.be.true;
-    expect(fromAttribute('false', Boolean)).to.be.false;
-    expect(fromAttribute(null, Boolean)).to.be.false;
-  });
-
-  it('converts a Array attribute', () => {
-    expect(fromAttribute('["Guava"]', Array)).to.eql(['Guava']);
-    expect(fromAttribute(null, Array)).to.eql([]);
-    expect(fromAttribute('{', Array)).to.eql([]);
-  });
-
-  it('converts a Object attribute', () => {
-    expect(fromAttribute('{ "foo": "bar" }', Object)).to.eql({ foo: 'bar' });
-    expect(fromAttribute(null, Object)).to.eql({});
-    expect(fromAttribute('nope', Object)).to.eql({});
   });
 });

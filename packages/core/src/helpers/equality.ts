@@ -3,11 +3,10 @@ import type { PropertyConstructor } from '../decorators/property';
 /**
  * Returns whether a converted attribute value is unchanged, and so must not fire `[property]Changed`.
  *
- * Primitives compare with `Object.is` so a Number that transforms to `NaN` on both sides (e.g. a non-numeric value
- * replaced with another) counts as unchanged. `Array` and `Object` cannot compare that way: `fromAttribute` parses a
- * fresh value on every call, so the two sides are never the same reference no matter what they hold. They compare
- * structurally instead, which also makes a reformatted but equal write (`{ "foo": "bar" }` to `{"foo":"bar"}`) the
- * no-op it reads as.
+ * Primitives compare with `Object.is`. `Array` and `Object` cannot compare that way: `fromAttribute` parses a fresh
+ * value, or copies the Default, on every call, so the two sides are never the same reference no matter what they
+ * hold. They compare structurally instead, which also makes a reformatted but equal write (`{ "foo": "bar" }` to
+ * `{"foo":"bar"}`) the no-op it reads as.
  *
  * @example
  * isUnchanged(['Guava'], ['Guava'], Array);
