@@ -4,20 +4,15 @@ import { isDeepEqual } from './helpers/equality';
 import { dasherize, parseJSON } from './helpers/string';
 import { PROPERTIES, registeredFor } from './registry';
 
-const recordedDefaults = new WeakMap<Element, ReadonlyMap<string, unknown>>();
+const properties = new WeakMap<Element, Property>();
 
 /**
- * Records the value each `@property()` of `element` holds now, as its Default. `registerElement`'s subclass calls this
- * once construction is done, so every field initializer has run and nothing has been assigned yet. A value assigned
- * after that, before the element connects, can then be told from the Default and is written like any assignment. In a
- * chain of registered classes each one records again, and the outermost, recording last, wins.
+ * Binds every `@property()` of `element` now, taking the value each holds as its Default. `registerElement`'s subclass
+ * calls this once construction is done, when every field initializer has run and nothing has been assigned yet, so any
+ * later assignment, before the element connects or after, goes through the setter and is written to the attribute.
  */
-export function recordDefaults(element: Element) {
-  const values = new Map<string, unknown>();
-  for (const key of registeredFor(element, PROPERTIES).keys()) {
-    values.set(key, (element as unknown as Record<string, unknown>)[key]);
-  }
-  recordedDefaults.set(element, values);
+export function bindProperties(element: Element) {
+  properties.get(element)?.bind();
 }
 
 export default class Property {
@@ -26,20 +21,26 @@ export default class Property {
 
   constructor(private readonly instance: ImpulseElement) {
     this.declarations = registeredFor(this.instance, PROPERTIES);
+    properties.set(this.instance, this);
   }
 
   start() {
-    const recorded = recordedDefaults.get(this.instance);
+    // Already bound at construction for a class registered with `@registerElement`. Otherwise (a class defined with
+    // `customElements.define`) this is the first chance, and a value assigned before connecting can't be told from the
+    // field initializer, so it is taken as the Default.
+    this.bind();
+  }
+
+  /**
+   * Replaces each property's field with accessors, taking the value it holds as its Default. Each property is bound
+   * once: on a later call the field is already an accessor, and reading it would take whatever the attribute holds by
+   * then for the Default.
+   */
+  bind() {
     for (const { key, type } of this.declarations.values()) {
-      // Bound on the first start only. On a reconnect the field is already an accessor, and reading it would take
-      // whatever the attribute holds by then for the Default.
       if (this.bound.has(key)) continue;
 
-      // Read before the accessor replaces the field. Without a recorded Default (a class registered with
-      // `customElements.define` rather than `@registerElement`), a value assigned before connecting can't be told from
-      // the field initializer, so it is taken as the Default.
-      const value = (this.instance as unknown as Record<string, unknown>)[key];
-      const defaultValue = recorded?.has(key) ? recorded.get(key) : value;
+      const defaultValue = (this.instance as unknown as Record<string, unknown>)[key];
       const property = new BoundProperty(this.instance, key, type, defaultValue);
       this.bound.set(key, property);
       Object.defineProperty(this.instance, key, {
@@ -47,7 +48,6 @@ export default class Property {
         get: () => property.value,
         set: (value: unknown) => property.write(value),
       });
-      if (!Object.is(value, defaultValue)) property.write(value);
     }
   }
 

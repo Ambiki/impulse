@@ -54,7 +54,7 @@ describe('@property', () => {
     @property({ type: Array }) friends: string[];
     @property({ type: Object }) zeroConfig: Record<string, string>;
 
-    // Initialized to nothing
+    // A field initializer of `null` or `undefined`
     @property() nickname: string | null = null;
     @property({ type: Number }) score: number | undefined = undefined;
   }
@@ -137,7 +137,7 @@ describe('@property', () => {
     expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
   });
 
-  it('should read the empty value when a property is initialized to null or undefined', () => {
+  it('should read the empty value when the field initializer is null or undefined', () => {
     expect(el).to.have.property('nickname', '');
     expect(el).not.to.have.attribute('nickname');
 
@@ -210,11 +210,58 @@ describe('@property', () => {
     expect(element).to.have.property('newRecord', false);
     expect(element).to.have.attribute('new-record', 'false');
 
+    // Written before the element initialized, so it is not a change to report.
+    expect(element.nameChanged.called).to.be.false;
+
     // Assigned, not defaulted: the field initializers are still the defaults.
     element.removeAttribute('name');
     expect(element).to.have.property('name', 'foo');
     element.persisted = false;
     expect(element).not.to.have.attribute('persisted');
+    element.remove();
+  });
+
+  it('should write a value assigned before connecting even when it equals the default', async () => {
+    const element = document.createElement('property-test') as PropertyTest;
+    element.setAttribute('persisted', '');
+    element.persisted = false;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(element).to.have.property('persisted', false);
+    expect(element).not.to.have.attribute('persisted');
+    element.remove();
+  });
+
+  it('should keep the defaults of a subclass defined without @registerElement out of its attributes', async () => {
+    class PlainChildTest extends PropertyTest {
+      @property() color = 'red';
+    }
+    customElements.define('property-plain-child-test', PlainChildTest);
+
+    const element = document.createElement('property-plain-child-test') as PlainChildTest;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(element).to.have.property('color', 'red');
+    expect(element).not.to.have.attribute('color');
+    element.remove();
+  });
+
+  it('should take the defaults of a registered subclass from its own field initializers', async () => {
+    @registerElement('property-registered-child-test')
+    class RegisteredChildTest extends PropertyTest {
+      @property() color = 'red';
+    }
+
+    const element = document.createElement('property-registered-child-test') as RegisteredChildTest;
+    element.setAttribute('color', 'blue');
+    document.body.append(element);
+    await whenInitialized(element);
+    expect(element).to.have.property('color', 'blue');
+
+    element.removeAttribute('color');
+    expect(element).to.have.property('color', 'red');
     element.remove();
   });
 

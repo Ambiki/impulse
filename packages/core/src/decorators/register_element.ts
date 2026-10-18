@@ -1,4 +1,4 @@
-import { recordDefaults } from '../property';
+import { bindProperties } from '../property';
 import { shareRegistrations } from '../registry';
 
 /**
@@ -6,10 +6,10 @@ import { shareRegistrations } from '../registry';
  * it. The tag name is also the identifier that `data-target` and `data-action` descriptors are scoped by. The class is
  * additionally exposed on `window` under its class name, for inspecting it from the browser console.
  *
- * What gets registered, and returned, is a subclass of the decorated class that records each `@property()` Default
- * once construction is done. A value assigned before the element connects can then be told from its Default, and is
- * written to the attribute like any assignment. As a decorator, the class name refers to the subclass. Called as a
- * function, `registerElement(name)(Class)`, only the returned class is registered, so `new Class()` throws.
+ * What gets registered, and returned, is a subclass of the decorated class that binds each `@property()` once
+ * construction is done: the field initializers are the Defaults, and any later assignment, before the element connects
+ * or after, is written to the attribute. As a decorator, the class name refers to the subclass. Called as a function,
+ * `registerElement(name)(Class)`, only the returned class is registered, so `new Class()` throws.
  *
  * Registering a name that is already taken is ignored rather than fatal, so a module evaluated twice (a hot reload,
  * say) leaves the working element alone. Every other failure is rethrown, including the `SyntaxError` for a tag name
@@ -26,11 +26,14 @@ import { shareRegistrations } from '../registry';
  * ```
  */
 export function registerElement(name: string) {
-  return (ctor: CustomElementConstructor): any => {
+  return <T extends CustomElementConstructor>(ctor: T): T => {
     const registered = class extends ctor {
-      constructor() {
-        super();
-        recordDefaults(this);
+      constructor(...args: any[]) {
+        super(...args);
+        // Only once the whole element is constructed. A subclass's field initializers run after this returns, so a
+        // registered subclass binds in its own constructor, and one defined without `@registerElement` binds when it
+        // first connects.
+        if (new.target === registered) bindProperties(this);
       }
     };
     Object.defineProperty(registered, 'name', { value: ctor.name });

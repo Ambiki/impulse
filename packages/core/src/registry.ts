@@ -89,8 +89,8 @@ export function registeredFor<T extends RegistryEntry>(
 
 /**
  * Makes `to` read the registrations declared on `from`, for a subclass that stands in for the class that declared
- * them, such as the one `registerElement` registers. `to` shares `from`'s maps rather than copying them, and a
- * decorator run against `to` itself still gets maps of its own.
+ * them, such as the one `registerElement` registers. `to` shares `from`'s maps rather than copying them, so a
+ * registration made against `to` lands in `from`'s maps too. Nothing declares fields on that subclass, so none is.
  */
 export function shareRegistrations(from: object, to: object): void {
   const registries = ownRegistries(from);

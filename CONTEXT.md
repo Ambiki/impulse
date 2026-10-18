@@ -14,8 +14,8 @@ _Avoid_: Compound selector, segment, clause
 
 **Default**:
 The value a property reads as while its attribute is missing or can't be read as its type: the value it holds once the
-element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript and is never
-written to the attribute.
+element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript: an element
+never writes it to the attribute on its own.
 _Avoid_: Initial value, fallback, reflected value
 
 **Empty value**:

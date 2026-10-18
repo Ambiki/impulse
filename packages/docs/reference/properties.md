@@ -1,7 +1,7 @@
 # Properties
 
-Properties allow you to read and write HTML attributes. A `@property()` is defined on the element when it connects.
-From then on, reading it reads the attribute and assigning it writes the attribute.
+Properties allow you to read and write HTML attributes. A `@property()` is defined on the element once it is
+constructed. From then on, reading it reads the attribute and assigning it writes the attribute.
 
 ```html
 <lazy-load src="/users"></lazy-load>
@@ -109,8 +109,9 @@ A property without a default, or with `null` or `undefined` as its default, read
 returns never changes the default.
 
 A value assigned before the element connects, as in `element.open = true` on an element you just created, is not a
-default: it is written to the attribute when the element connects, like any assignment. Telling the two apart takes
-`@registerElement`. For a class registered with `customElements.define` instead, such a value becomes the default.
+default: it is written to the attribute like any assignment. This takes `@registerElement`. A class registered with
+`customElements.define` instead defines its properties when it first connects, so a value assigned before that
+becomes the default.
 
 ## Assigning values
 
