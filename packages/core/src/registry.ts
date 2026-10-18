@@ -87,6 +87,16 @@ export function registeredFor<T extends RegistryEntry>(
   return registered(Object.getPrototypeOf(instance), registry);
 }
 
+/**
+ * Makes `to` read the registrations declared on `from`, for a subclass that stands in for the class that declared
+ * them, such as the one `registerElement` registers. `to` shares `from`'s maps rather than copying them, and a
+ * decorator run against `to` itself still gets maps of its own.
+ */
+export function shareRegistrations(from: object, to: object): void {
+  const registries = ownRegistries(from);
+  if (registries) Object.defineProperty(to, REGISTRIES, { value: registries, configurable: true });
+}
+
 function ownRegistries<T extends RegistryEntry>(proto: object): Map<string, Map<string, T>> | undefined {
   if (!Object.hasOwn(proto, REGISTRIES)) return;
   return (proto as Record<symbol, Map<string, Map<string, T>>>)[REGISTRIES];

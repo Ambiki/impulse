@@ -53,6 +53,10 @@ describe('@property', () => {
     @property({ type: Boolean }) joining: boolean;
     @property({ type: Array }) friends: string[];
     @property({ type: Object }) zeroConfig: Record<string, string>;
+
+    // Initialized to nothing
+    @property() nickname: string | null = null;
+    @property({ type: Number }) score: number | undefined = undefined;
   }
 
   let el: PropertyTest;
@@ -133,6 +137,19 @@ describe('@property', () => {
     expect(el).to.have.property('sports').to.deep.equal(['Football', 'Cricket']);
   });
 
+  it('should read the empty value when a property is initialized to null or undefined', () => {
+    expect(el).to.have.property('nickname', '');
+    expect(el).not.to.have.attribute('nickname');
+
+    expect(el).to.have.property('score', 0);
+    expect(el).not.to.have.attribute('score');
+  });
+
+  it('should read the default after a Number is assigned NaN', () => {
+    el.session = Number.NaN;
+    expect(el).to.have.property('session', 12);
+  });
+
   it('should be able to overwrite the default property value', () => {
     expect(el).to.have.property('value', 'guava');
     expect(el).to.have.attribute('value', 'guava');
@@ -178,18 +195,42 @@ describe('@property', () => {
     expect(el).to.have.property('value', 'litchi');
   });
 
-  it('should take a value assigned before the element connects as its default', async () => {
+  it('should write a value assigned before connecting, keeping the field initializer as the default', async () => {
     const element = document.createElement('property-test') as PropertyTest;
+    element.name = 'bar';
+    element.persisted = true;
+    element.newRecord = false;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(element).to.have.property('name', 'bar');
+    expect(element).to.have.attribute('name', 'bar');
+    expect(element).to.have.property('persisted', true);
+    expect(element).to.have.attribute('persisted', '');
+    expect(element).to.have.property('newRecord', false);
+    expect(element).to.have.attribute('new-record', 'false');
+
+    // Assigned, not defaulted: the field initializers are still the defaults.
+    element.removeAttribute('name');
+    expect(element).to.have.property('name', 'foo');
+    element.persisted = false;
+    expect(element).not.to.have.attribute('persisted');
+    element.remove();
+  });
+
+  it('should take a value assigned before connecting as the default without @registerElement', async () => {
+    class UnrecordedTest extends ImpulseElement {
+      @property() name = 'foo';
+    }
+    customElements.define('property-unrecorded-test', UnrecordedTest);
+
+    const element = document.createElement('property-unrecorded-test') as UnrecordedTest;
     element.name = 'bar';
     document.body.append(element);
     await whenInitialized(element);
 
     expect(element).to.have.property('name', 'bar');
     expect(element).not.to.have.attribute('name');
-
-    element.setAttribute('name', 'baz');
-    element.removeAttribute('name');
-    expect(element).to.have.property('name', 'bar');
     element.remove();
   });
 

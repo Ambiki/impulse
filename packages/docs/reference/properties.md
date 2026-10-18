@@ -106,8 +106,11 @@ the default again, and the change callback receives it.
 
 A property without a default, or with `null` or `undefined` as its default, reads as its type's empty value: `''`,
 `0`, `false`, `[]`, or `{}`. An `Array` or `Object` default is copied on every read, so mutating what the property
-returns never changes the default. A value assigned before the element connects is taken as the default as well, so it
-is not written to the attribute either.
+returns never changes the default.
+
+A value assigned before the element connects, as in `element.open = true` on an element you just created, is not a
+default: it is written to the attribute when the element connects, like any assignment. Telling the two apart takes
+`@registerElement`. For a class registered with `customElements.define` instead, such a value becomes the default.
 
 ## Assigning values
 

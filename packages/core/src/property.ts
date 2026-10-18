@@ -4,6 +4,22 @@ import { isDeepEqual } from './helpers/equality';
 import { dasherize, parseJSON } from './helpers/string';
 import { PROPERTIES, registeredFor } from './registry';
 
+const recordedDefaults = new WeakMap<Element, ReadonlyMap<string, unknown>>();
+
+/**
+ * Records the value each `@property()` of `element` holds now, as its Default. `registerElement`'s subclass calls this
+ * once construction is done, so every field initializer has run and nothing has been assigned yet. A value assigned
+ * after that, before the element connects, can then be told from the Default and is written like any assignment. In a
+ * chain of registered classes each one records again, and the outermost, recording last, wins.
+ */
+export function recordDefaults(element: Element) {
+  const values = new Map<string, unknown>();
+  for (const key of registeredFor(element, PROPERTIES).keys()) {
+    values.set(key, (element as unknown as Record<string, unknown>)[key]);
+  }
+  recordedDefaults.set(element, values);
+}
+
 export default class Property {
   private readonly declarations: ReadonlyMap<string, PropertyDeclaration>;
   private readonly bound = new Map<string, BoundProperty>();
@@ -13,18 +29,25 @@ export default class Property {
   }
 
   start() {
+    const recorded = recordedDefaults.get(this.instance);
     for (const { key, type } of this.declarations.values()) {
       // Bound on the first start only. On a reconnect the field is already an accessor, and reading it would take
       // whatever the attribute holds by then for the Default.
       if (this.bound.has(key)) continue;
 
-      const property = new BoundProperty(this.instance, key, type);
+      // Read before the accessor replaces the field. Without a recorded Default (a class registered with
+      // `customElements.define` rather than `@registerElement`), a value assigned before connecting can't be told from
+      // the field initializer, so it is taken as the Default.
+      const value = (this.instance as unknown as Record<string, unknown>)[key];
+      const defaultValue = recorded?.has(key) ? recorded.get(key) : value;
+      const property = new BoundProperty(this.instance, key, type, defaultValue);
       this.bound.set(key, property);
       Object.defineProperty(this.instance, key, {
         configurable: true,
         get: () => property.value,
         set: (value: unknown) => property.write(value),
       });
+      if (!Object.is(value, defaultValue)) property.write(value);
     }
   }
 
@@ -105,7 +128,7 @@ const PROPERTY_TYPES = new Map<PropertyConstructor, PropertyType>([
         const number = Number(digits);
         return digits === '' || Number.isNaN(number) ? undefined : number;
       },
-      toAttribute: (value) => ((value as number) || 0).toString(),
+      toAttribute: String,
       equals: Object.is,
       copy: identity,
     },
@@ -136,12 +159,10 @@ class BoundProperty {
   private readonly type: PropertyType;
   private readonly defaultValue: unknown;
 
-  constructor(private readonly element: Element, key: string, type: PropertyConstructor) {
+  constructor(private readonly element: Element, key: string, type: PropertyConstructor, defaultValue: unknown) {
     this.attributeName = dasherize(key);
     this.type = PROPERTY_TYPES.get(type)!;
-    // A field initializer and a value assigned before the element connected are both an own value here, and both
-    // become the Default.
-    this.defaultValue = (element as unknown as Record<string, unknown>)[key] ?? this.type.empty();
+    this.defaultValue = defaultValue ?? this.type.empty();
   }
 
   get value() {
