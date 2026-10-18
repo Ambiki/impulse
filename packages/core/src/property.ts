@@ -1,11 +1,12 @@
 import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
 import type { ImpulseElement } from './element';
+import { isDeepEqual } from './helpers/equality';
 import { dasherize, parseJSON } from './helpers/string';
 import { PROPERTIES, registeredFor } from './registry';
 
 export default class Property {
-  readonly declarations: ReadonlyMap<string, PropertyDeclaration>;
-  private readonly defaults = new Map<string, unknown>();
+  private readonly declarations: ReadonlyMap<string, PropertyDeclaration>;
+  private readonly bound = new Map<string, BoundProperty>();
 
   constructor(private readonly instance: ImpulseElement) {
     this.declarations = registeredFor(this.instance, PROPERTIES);
@@ -13,20 +14,18 @@ export default class Property {
 
   start() {
     for (const { key, type } of this.declarations.values()) {
-      // The Default is captured on the first start only. On a reconnect the field is already an accessor, and reading
-      // it would capture whatever the attribute holds by then.
-      if (this.defaults.has(key)) continue;
-      this.initializeProperty(key, type);
-    }
-  }
+      // Bound on the first start only. On a reconnect the field is already an accessor, and reading it would take
+      // whatever the attribute holds by then for the Default.
+      if (this.bound.has(key)) continue;
 
-  /**
-   * Converts an attribute value of the property `key` the way its getter does, so `[property]Changed` receives
-   * exactly what the getter reads before and after the change.
-   */
-  read(key: string, value: string | null) {
-    const { type } = this.declarations.get(key)!;
-    return fromAttribute(value, type, () => this.defaultOf(key, type));
+      const property = new BoundProperty(this.instance, key, type);
+      this.bound.set(key, property);
+      Object.defineProperty(this.instance, key, {
+        configurable: true,
+        get: () => property.value,
+        set: (value: unknown) => property.write(value),
+      });
+    }
   }
 
   stop() {
@@ -34,120 +33,145 @@ export default class Property {
     // nothing to tear down when the element disconnects.
   }
 
-  private defaultOf(key: string, type: PropertyConstructor) {
-    const value = this.defaults.get(key);
-    // A copy, as parsing the attribute would give, so mutating what the getter returns never changes the Default.
-    return type === Array || type === Object ? JSON.parse(JSON.stringify(value)) : value;
-  }
-
-  private initializeProperty(key: string, type: PropertyConstructor) {
-    const attributeName = dasherize(key);
-    // A field initializer and a value assigned before the element connected are both an own value here, and both
-    // become the Default.
-    const value = (this.instance as unknown as Record<string, unknown>)[key];
-    const defaultValue = value ?? emptyValue(type);
-    this.defaults.set(key, defaultValue);
-
-    Object.defineProperty(this.instance, key, {
-      configurable: true,
-      get: () => this.read(key, this.instance.getAttribute(attributeName)),
-      set: toAttribute(this.instance, attributeName, type, defaultValue),
-    });
+  /**
+   * Returns the values `[property]Changed` receives when the attribute of the property `key` goes from `oldAttribute`
+   * to `newAttribute`, or `null` when both read as the same value, so nothing changed: `8_000` rewritten as `8000`,
+   * reformatted JSON, or an attribute removed while it read as the Default.
+   */
+  change(key: string, oldAttribute: string | null, newAttribute: string | null) {
+    const property = this.bound.get(key);
+    if (!property) {
+      throw new Error(
+        `Unregistered attribute changed: ${dasherize(key)}. Register the attribute using the @property() decorator.`,
+      );
+    }
+    return property.change(oldAttribute, newAttribute);
   }
 }
 
 /**
- * Converts an attribute value into the value of its `@property()` for the given type.
- *
- * Both the property getter and `attributeChangedCallback` read through this, so `this.prop` and the value handed to
- * `[property]Changed` can never disagree. A missing attribute (`null`) reads as the Default, and so does one that does
- * not parse as its type: an empty or non-numeric Number, or JSON that is invalid or of the wrong kind for an Array or
- * Object. Any string is a valid String, and a Boolean only looks at whether the attribute is present and not
- * `"false"`.
- *
- * @example
- * fromAttribute('8_000', Number, () => 0);
- * //=> 8000
- *
- * fromAttribute('abc', Number, () => 12);
- * //=> 12
+ * How the values of one property type are read from and written to an attribute.
  */
-function fromAttribute(value: string | null, type: PropertyConstructor, readDefault: () => unknown) {
-  if (value === null) return readDefault();
-
-  switch (type) {
-    case Number: {
-      const digits = value.replace(/_/g, '').trim();
-      const number = Number(digits);
-      return digits === '' || Number.isNaN(number) ? readDefault() : number;
-    }
-    case Boolean:
-      return value !== 'false';
-    case Array: {
-      const parsed = parseJSON(value, null);
-      return Array.isArray(parsed) ? parsed : readDefault();
-    }
-    case Object: {
-      const parsed = parseJSON(value, null);
-      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : readDefault();
-    }
-    default:
-      return value;
-  }
+interface PropertyType {
+  /** The Empty value. A new one on every call, so no two properties share an Array or Object. */
+  empty: () => unknown;
+  /** The value `attribute` holds, or `undefined` when it does not parse as this type. */
+  fromAttribute: (attribute: string) => unknown;
+  /** The attribute `value` is written as, or `null` when the attribute is removed instead. */
+  toAttribute: (value: unknown, defaultValue: unknown) => string | null;
+  /** Whether two values are the same, so a change from one to the other is not reported. */
+  equals: (left: unknown, right: unknown) => boolean;
+  /** A copy of `value` that is safe to mutate. */
+  copy: (value: unknown) => unknown;
 }
 
-/**
- * The Empty value of a property type: what it holds when it holds nothing. It is the Default of a property declared
- * without one.
- */
-function emptyValue(type: PropertyConstructor) {
-  switch (type) {
-    case Number:
-      return 0;
-    case Boolean:
-      return false;
-    case Array:
-      return [];
-    case Object:
-      return {};
-    default:
-      return '';
-  }
-}
+const identity = (value: unknown) => value;
 
 /**
- * Returns the setter that writes a property value back to its attribute. Kept beside `fromAttribute` so the two
- * halves of the conversion stay in step, case for case.
+ * An Array or Object type, stored as JSON. A value parsed from an attribute is a fresh one on every read, so values
+ * compare structurally, and copies go through JSON too, so a copy of the Default is what parsing it would give.
  */
-function toAttribute(element: Element, attributeName: string, type: PropertyConstructor, defaultValue: unknown) {
-  return (value: unknown) => {
-    const attribute = serialize(value, type, defaultValue);
-    if (attribute === null) {
-      element.removeAttribute(attributeName);
-    } else {
-      element.setAttribute(attributeName, attribute);
-    }
+function jsonType(isKind: (value: unknown) => boolean, empty: () => unknown): PropertyType {
+  return {
+    empty,
+    fromAttribute: (attribute) => {
+      const parsed = parseJSON(attribute, null);
+      return isKind(parsed) ? parsed : undefined;
+    },
+    toAttribute: (value) => JSON.stringify(value),
+    equals: isDeepEqual,
+    copy: (value) => JSON.parse(JSON.stringify(value)),
   };
 }
 
-/**
- * The attribute value a property value is written as, or `null` when the attribute is removed instead.
- */
-function serialize(value: unknown, type: PropertyConstructor, defaultValue: unknown): string | null {
-  // Assigning nothing removes the attribute, so the property reads its Default again.
-  if (value === null || value === undefined) return null;
+const PROPERTY_TYPES = new Map<PropertyConstructor, PropertyType>([
+  [
+    String,
+    {
+      empty: () => '',
+      // Any string is a String, the empty one included.
+      fromAttribute: identity,
+      toAttribute: String,
+      equals: Object.is,
+      copy: identity,
+    },
+  ],
+  [
+    Number,
+    {
+      empty: () => 0,
+      fromAttribute: (attribute) => {
+        const digits = attribute.replace(/_/g, '').trim();
+        const number = Number(digits);
+        return digits === '' || Number.isNaN(number) ? undefined : number;
+      },
+      toAttribute: (value) => ((value as number) || 0).toString(),
+      equals: Object.is,
+      copy: identity,
+    },
+  ],
+  [
+    Boolean,
+    {
+      empty: () => false,
+      fromAttribute: (attribute) => attribute !== 'false',
+      toAttribute: (value, defaultValue) => {
+        if (value) return '';
+        // A missing attribute would read as a `true` Default, so `false` has to be spelled out.
+        return defaultValue ? 'false' : null;
+      },
+      equals: Object.is,
+      copy: identity,
+    },
+  ],
+  [Array, jsonType(Array.isArray, () => [])],
+  [Object, jsonType((value) => typeof value === 'object' && value !== null && !Array.isArray(value), () => ({}))],
+]);
 
-  switch (type) {
-    case Number:
-      return ((value as number) || 0).toString();
-    case Boolean:
-      if (value) return '';
-      // A missing attribute would read as a `true` Default, so `false` has to be spelled out.
-      return defaultValue ? 'false' : null;
-    case Array:
-    case Object:
-      return JSON.stringify(value);
-    default:
-      return String(value);
+/**
+ * One `@property()` of one element: its attribute, its type, and its Default.
+ */
+class BoundProperty {
+  private readonly attributeName: string;
+  private readonly type: PropertyType;
+  private readonly defaultValue: unknown;
+
+  constructor(private readonly element: Element, key: string, type: PropertyConstructor) {
+    this.attributeName = dasherize(key);
+    this.type = PROPERTY_TYPES.get(type)!;
+    // A field initializer and a value assigned before the element connected are both an own value here, and both
+    // become the Default.
+    this.defaultValue = (element as unknown as Record<string, unknown>)[key] ?? this.type.empty();
+  }
+
+  get value() {
+    return this.read(this.element.getAttribute(this.attributeName));
+  }
+
+  write(value: unknown) {
+    // Assigning nothing removes the attribute, so the property reads its Default again.
+    const attribute = value === null || value === undefined ? null : this.type.toAttribute(value, this.defaultValue);
+    if (attribute === null) {
+      this.element.removeAttribute(this.attributeName);
+    } else {
+      this.element.setAttribute(this.attributeName, attribute);
+    }
+  }
+
+  change(oldAttribute: string | null, newAttribute: string | null) {
+    const oldValue = this.read(oldAttribute);
+    const newValue = this.read(newAttribute);
+    return this.type.equals(newValue, oldValue) ? null : { newValue, oldValue };
+  }
+
+  /**
+   * Converts an attribute value into the property's value. Both the getter and `change` read through this, so
+   * `this.prop` and the values handed to `[property]Changed` can never disagree. A missing attribute reads as the
+   * Default, and so does one that does not parse as the type.
+   */
+  private read(attribute: string | null) {
+    const value = attribute === null ? undefined : this.type.fromAttribute(attribute);
+    // A copy, as parsing an attribute would give, so mutating what the getter returns never changes the Default.
+    return value === undefined ? this.type.copy(this.defaultValue) : value;
   }
 }

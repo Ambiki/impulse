@@ -2,7 +2,6 @@ import Action from './action';
 import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { whenParsed } from './helpers/dom';
-import { isUnchanged } from './helpers/equality';
 import { invokeEach } from './helpers/invoke_each';
 import { camelize, dasherize } from './helpers/string';
 import { clearInitialized, notifyInitialized } from './initialization';
@@ -73,21 +72,8 @@ export class ImpulseElement extends HTMLElement {
     const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
     if (typeof fn !== 'function') return;
 
-    const property = this.property.declarations.get(camelizedName);
-    if (!property) {
-      throw new Error(
-        `Unregistered attribute changed: ${name}. Register the attribute using the @property() decorator.`,
-      );
-    }
-
-    // Validate if value changed after transformation.
-    // Common case would be:
-    // -> 8_000 to 8000
-    const newValue = this.property.read(camelizedName, _newValue);
-    const oldValue = this.property.read(camelizedName, _oldValue);
-    if (isUnchanged(newValue, oldValue, property.type)) return;
-
-    fn.call(this, newValue, oldValue);
+    const change = this.property.change(camelizedName, _oldValue, _newValue);
+    if (change) fn.call(this, change.newValue, change.oldValue);
   }
 
   disconnectedCallback() {

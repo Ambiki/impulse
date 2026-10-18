@@ -13,9 +13,9 @@ one Compound of three; `.open a.link` is two.
 _Avoid_: Compound selector, segment, clause
 
 **Default**:
-The value a property reads as while its attribute is missing or can't be read as its type: its field initializer, or a
-value assigned before the element first connects, or its Empty value when it has neither or is initialized to `null` or
-`undefined`. It lives only in JavaScript and is never written to the attribute.
+The value a property reads as while its attribute is missing or can't be read as its type: the value the element holds
+for it when it first connects, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript and is
+never written to the attribute.
 _Avoid_: Initial value, fallback, reflected value
 
 **Empty value**:
