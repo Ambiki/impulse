@@ -1,7 +1,7 @@
 # Properties
 
-Properties allow you to read and write HTML attributes. A `@property()` is defined on the element when it connects.
-From then on, reading it reads the attribute and assigning it writes the attribute.
+Properties allow you to read and write HTML attributes. A `@property()` is defined on the element once it is
+constructed. From then on, reading it reads the attribute and assigning it writes the attribute.
 
 ```html
 <lazy-load src="/users"></lazy-load>
@@ -26,7 +26,7 @@ export default class LazyLoadElement extends ImpulseElement {
 When a property changes, its callback runs so you can react to the new value.
 
 Define a `[property]Changed` function, where `[property]` is the property name. It receives `newValue` as the first
-argument and `oldValue` as the second. It does not run for the initial value, before the element has
+argument and `oldValue` as the second. It does not run for the value the element connects with, before it has
 [initialized](/utilities/when-initialized), or once the element has been torn down after disconnecting. A change made
 from `disconnected()` still runs it.
 
@@ -45,7 +45,7 @@ export default class LazyLoadElement extends ImpulseElement {
 
 The callback only runs when the converted value actually changes. An attribute write that reads back as the same
 value is a no-op: `8_000` rewritten as `8000`, an `Array` or `Object` attribute reformatted (`{ "foo": "bar" }` to
-`{"foo":"bar"}`, or its keys reordered), or an attribute removed when it already read as the empty value. `Array` and
+`{"foo":"bar"}`, or its keys reordered), or an attribute removed when it already read as the default. `Array` and
 `Object` values are compared structurally, so a server re-render that emits the same data in a different shape of JSON
 does not re-trigger downstream effects.
 
@@ -74,13 +74,14 @@ export default class PopOverElement extends ImpulseElement {
 ```
 
 Attribute values are converted on read, so `this.property` and the value passed to the
-[change callback](#change-callbacks) always agree. A missing attribute reads as the type's empty value — `''`, `0`,
-`false`, `[]`, or `{}` — and an `Array` or `Object` attribute that is not valid JSON falls back to `[]` or `{}`
-rather than throwing. A `Boolean` attribute reads as `true` whenever it is present, unless its value is `"false"`.
+[change callback](#change-callbacks) always agree. A missing attribute reads as the property's
+[default](#default-property-values), and so does one that does not parse as its type: an empty or non-numeric
+`Number`, or an `Array` or `Object` attribute that is not valid JSON of that kind. Any value is a valid `String`, the
+empty one included. A `Boolean` attribute reads as `true` whenever it is present, unless its value is `"false"`.
 
 ## Default property values
 
-You can assign a default value to the property and it will be reflected in the element.
+Assign a value to the property to give it a default: what the property reads as while its attribute is missing.
 
 ```ts{5,8}
 import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
@@ -95,9 +96,38 @@ export default class LazyLoadElement extends ImpulseElement {
 }
 ```
 
-If the attribute is present, it wins over the default. A property without a default still writes its empty value to
-the attribute on connect: `src=""`, `count="0"`, `items="[]"` or `options="{}"`. A `Boolean` property is the exception,
-since `false` means no attribute. A value assigned before the element connects is used as the default.
+The default lives only in JavaScript. Connecting does not write it to the attribute, so `getAttribute('src')` returns
+`null` and a selector such as `[src="/users"]` does not match. Render the attribute from the server when CSS or other
+code needs to see it. Since the element holds no attribute the server's HTML lacks, a morph (a Turbo page refresh, for
+example) that syncs the element to that HTML leaves its defaults alone.
+
+If the attribute is present, it wins over the default. Once it is removed, by hand or by a morph, the property reads
+the default again, and the change callback receives it.
+
+A property without a default, or with `null` or `undefined` as its default, reads as its type's empty value: `''`,
+`0`, `false`, `[]`, or `{}`. An `Array` or `Object` default is copied on every read, so mutating what the property
+returns never changes the default.
+
+A value assigned before the element connects, as in `element.open = true` on an element you just created, is not a
+default: it is written to the attribute like any assignment. This takes `@registerElement`. A class registered with
+`customElements.define` instead defines its properties when it first connects, so a value assigned before that
+becomes the default.
+
+## Assigning values
+
+Assigning a property writes its attribute, even when the value equals the default:
+
+```ts
+element.src = '/posts'; // src="/posts"
+element.src = '/users'; // src="/users"
+element.src = null; // removes `src`, so `element.src` reads the default, '/users'
+```
+
+Assigning `null` or `undefined` removes the attribute, which resets the property to its default.
+
+A `Boolean` set to `true` writes an empty attribute (`open=""`). Set to `false`, it removes the attribute, so `[open]`
+selectors stop matching. A `Boolean` that defaults to `true` is the exception: a missing attribute would read as
+`true`, so `false` is written as `flip="false"`.
 
 ## Naming conventions
 

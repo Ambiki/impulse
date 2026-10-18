@@ -12,6 +12,17 @@ A run of Simple selectors with no combinator between them, all of which must mat
 one Compound of three; `.open a.link` is two.
 _Avoid_: Compound selector, segment, clause
 
+**Default**:
+The value a property reads as while its attribute is missing or can't be read as its type: the value it holds once the
+element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript: an element
+never writes it to the attribute on its own.
+_Avoid_: Initial value, fallback, reflected value
+
+**Empty value**:
+What a property's type holds when it holds nothing: `''` for a String, `0` for a Number, `false` for a Boolean, `[]`
+for an Array, and `{}` for an Object.
+_Avoid_: Blank, zero value, falsy value
+
 **Initialized**:
 An Impulse element whose properties, targets, and actions have started and that has not been disconnected since. Only
 an Impulse element can be Initialized, and only by initializing itself: a standard element or another custom element
