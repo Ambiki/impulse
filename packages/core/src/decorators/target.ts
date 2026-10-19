@@ -12,13 +12,17 @@ export interface TargetDeclaration {
 /**
  * Binds a field to the element carrying `data-target="<tag-name>.<field>"`, or `null` while none is present. The
  * binding is live rather than a one-off `querySelector()`, and a `[field]Connected(element)` or
- * `[field]Disconnected(element)` method is invoked as the target comes and goes.
+ * `[field]Disconnected(element)` method is invoked as the target comes and goes. A read reflects the DOM as it is now,
+ * while the callbacks run once the change is delivered, so in between the field can hold an element whose
+ * `[field]Connected` has not run yet. Inside a callback run while changes are being delivered, the field reflects the
+ * changes delivered so far.
  *
  * A token belongs to the closest ancestor matching its identifier, or to the element itself when it carries both, so
  * nested elements of the same tag do not claim each other's targets. A second element carrying a single-target key
- * waits: it stays out of the field and is adopted, with its own `[field]Connected`, when the first goes away. If the
- * first is still there once the DOM changes made along with the second have been processed, an error pointing at
- * {@link targets} is reported.
+ * waits: it stays out of the field and is adopted, with its own `[field]Connected`, when the first goes away. Elements
+ * that arrive in the same DOM changes while the field has no target do not wait behind each other: the first in
+ * document order becomes the target. If the first is still there once the DOM changes made along with the second have
+ * been processed, an error pointing at {@link targets} is reported.
  *
  * @example
  * ```ts

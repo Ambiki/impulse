@@ -303,6 +303,32 @@ describe('connected', () => {
       stop();
     }
   });
+
+  it('disconnects a later match that a callback run by the first scan removes before calling connected again', async () => {
+    const root = await fixture(html`
+      <div>
+        <div id="scanned1" class="scanned"></div>
+        <div id="scanned2" class="scanned"></div>
+      </div>
+    `);
+    const live = new Set<string>();
+    const stops: (() => void)[] = [];
+    stops.push(connected('.scanned', (element) => {
+      live.add(element.id);
+      if (element.id === 'scanned1') {
+        root.querySelector('#scanned2')!.remove();
+        stops.push(connected('.scanned-elsewhere', () => {}));
+      }
+      return () => live.delete(element.id);
+    }));
+    try {
+      await nextFrame();
+
+      expect(Array.from(live)).to.deep.equal(['scanned1']);
+    } finally {
+      for (const stop of stops) stop();
+    }
+  });
 });
 
 describe('shared observer', () => {

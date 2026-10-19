@@ -51,6 +51,7 @@ layout and paint stay out of the numbers; the pages are served cross-origin isol
 | `attributes-plain` | Toggle a class and write a style on 1,000 elements with no tokens |
 | `attributes-tokened` | The same on 1,000 elements that each carry a `data-action` |
 | `attributes-fallback` | The same as `attributes-plain`, with a registered selector that is not self-contained |
+| `target-reads` | Read a `<table-row>`'s `@target()` field 10,000 times, with no DOM change waiting |
 
 `create` inserts all rows in one `append`, `clear` removes them with `replaceChildren()`, `append` adds 1,000 rows to
 5,000, and `move` re-appends the 5,000 rows in reverse order.
