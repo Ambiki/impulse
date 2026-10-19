@@ -22,5 +22,13 @@ jobs:
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish
+        # A prerelease goes to the dist-tag named by its identifier (2.0.0-rc.0 -> rc), never latest.
+        run: |
+          version=$(node -p "require('./package.json').version")
+          prerelease=${version#*-}
+          if [ "$prerelease" = "$version" ]; then
+            npm publish
+          else
+            npm publish --tag "${prerelease%%.*}"
+          fi
         working-directory: ./packages/core

@@ -168,6 +168,11 @@
   dependencies:
     "@algolia/client-common" "5.39.0"
 
+"@ambiki/impulse@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@ambiki/impulse/-/impulse-1.1.0.tgz#fbaef12acc221b94d512a7914f7ebaef7aa5d5ff"
+  integrity sha512-herFonGYzVGo/TzzuZGokGf8ERTzESiab4JEBf020CLqF61xbGjl1DTUFBdENV/QufpFlNp0nhWd7pd4MojZ5A==
+
 "@antfu/eslint-config@^8.2.0":
   version "8.2.0"
   resolved "https://registry.yarnpkg.com/@antfu/eslint-config/-/eslint-config-8.2.0.tgz#f10a0a968167608ba78aff8d7df84cb024b7e5ab"

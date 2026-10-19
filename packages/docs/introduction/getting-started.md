@@ -44,3 +44,22 @@ Impulse does not support yet — see [issue #183](https://github.com/Ambiki/impu
 decorator when called as an expression`, and they throw at runtime because a standard decorator is handed a different
 set of arguments.
 :::
+
+## Loading your elements
+
+`@registerElement()` defines the element when its file runs, so import every element file from your application's entry
+point (or load it with [`lazyImport`](/utilities/lazy-import)):
+
+```ts
+// application.ts
+import './elements/clip_board_element';
+import './elements/lazy_load_element';
+```
+
+## The descendant-wait warning
+
+An element whose markup contains a custom element that is not defined yet logs a deprecation warning when it
+initializes. See [`[target]Connected()`](/reference/lifecycle-callbacks#target-connected) for what to change and how to
+silence it.
+
+Upgrading from 1.x? See [Upgrading to 2.0](/introduction/upgrading-to-2).

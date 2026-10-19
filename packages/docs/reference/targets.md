@@ -28,8 +28,9 @@ An element can have multiple target references.
 
 ## Single target
 
-A single target can be referenced via the `@target()` decorator. The property is the matching element, or `null`
-while none is present.
+A single target can be referenced via the `@target()` decorator. Once the element has
+[initialized](/utilities/when-initialized), the property is the matching element, or `null` while none is present.
+Before that, it is `undefined`.
 
 ```html{2}
 <greet-user>
@@ -50,18 +51,21 @@ export default class GreetUserElement extends ImpulseElement {
 ```
 
 A `@target()` property points at one element. A second element carrying the same target name waits: it stays out of the
-property until the first one is removed or stops carrying the name, and is then adopted, getting its own
+property until the target is removed or stops carrying the name, and is then adopted, getting its own
 [connected callback](#connected-and-disconnected-callbacks). When several wait, the first in document order is adopted.
-Replacing a target by inserting the new element before removing the old one therefore works.
+Replacing a target by inserting the new element before removing the old one therefore works, wherever the new one goes.
+Elements that arrive in the same synchronous run of script while the property has no target are not kept waiting
+behind each other: the first of them in document order becomes the target.
 
 Doing both in one synchronous run of script reports nothing. If the first is still there after that, the second is a
-mistake: Impulse reports an error like an uncaught one, so it reaches `window.onerror`. Use
+mistake and is [reported like an uncaught error](/utilities/connected#errors). Use
 [`@targets()`](#multiple-targets) when several elements share a name.
 
 ## Multiple targets
 
-Multiple targets can be referenced via the `@targets()` decorator. The property is every matching element in
-document order, and an empty array while there are none — so it is always safe to iterate.
+Multiple targets can be referenced via the `@targets()` decorator. Once the element has initialized, the property is
+every matching element in document order, and an empty array while there are none — so it is safe to iterate. The same
+array is returned until the targets change, so treat it as read-only: copy it before sorting or reversing it.
 
 ```html{2,3}
 <greet-user>
@@ -84,9 +88,36 @@ export default class GreetUserElement extends ImpulseElement {
 
 ## How targets are resolved
 
-A target is not a one-off `querySelector()`. Impulse watches the document, so the property always points at whatever
-is in the DOM right now — a target that is replaced, moved, or rendered later is picked up without any work on your
-part, which is what makes the [connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible.
+A target is not a one-off `querySelector()`. Impulse watches the document, so the property follows the DOM — a target
+that is replaced, moved, or rendered later is picked up without any work on your part, which is what makes the
+[connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible.
+
+Reading the property reflects the DOM as it is now, even right after a target is appended or removed in the same
+method:
+
+```ts
+addTag(text: string) {
+  this.append(this.renderTag(text));
+  // Includes the new tag's button.
+  for (const button of this.removeButtons) button.disabled = this.disabled;
+}
+```
+
+The [connected and disconnected callbacks](#connected-and-disconnected-callbacks) still run when Impulse's
+`MutationObserver` delivers the change, a moment after it is made, once the code that made it has finished. Until then,
+the property can already hold an element whose connected callback has not run yet, or no longer hold one whose
+disconnected callback has not run yet.
+
+Inside a callback Impulse runs as it delivers changes, such as a `[target]Connected` or a
+[`connected()`](/utilities/connected) callback, the property reflects the changes delivered so far.
+
+While changes wait to be delivered, a read looks through the element's descendants for its targets and keeps the answer
+until the DOM changes again. A loop that changes the DOM and reads the property on every pass repeats that search on
+every pass, so read it once after the loop.
+
+Moving the element itself tears it down and [initializes](/utilities/when-initialized) it again at its new place. In
+between, the property still reads its targets from the DOM, and their disconnected and connected callbacks run with the
+teardown and the new initialization.
 
 A `data-target` token belongs to the closest ancestor (or the element itself) whose tag name matches the identifier in
 the token. Nested elements of the same tag therefore never claim each other's targets:

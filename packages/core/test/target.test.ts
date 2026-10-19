@@ -334,6 +334,114 @@ describe('@target', () => {
       expect(errors.reported).to.be.empty;
     });
 
+    it('should give the key to the first of two claimants in document order when it loses its target in the same task', async () => {
+      const later = createPanel();
+      const earlier = createPanel();
+      old.remove();
+      el.append(later);
+      el.prepend(earlier);
+      expect(el.panel).to.eq(earlier);
+
+      await nextFrame();
+      expect(el.panel).to.eq(earlier);
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should keep the key for the target when it is moved behind a claimant inserted ahead of it', async () => {
+      const claimant = createPanel();
+      el.append(old);
+      el.prepend(claimant);
+      expect(el.panel).to.eq(old);
+
+      await nextFrame();
+      expect(el.panel).to.eq(old);
+      expect(el.panelConnectedSpy.calledWith(claimant)).to.be.false;
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should keep the key for the target when one append moves it behind a new claimant', async () => {
+      const claimant = createPanel();
+      el.append(claimant, old);
+      expect(el.panel).to.eq(old);
+
+      await nextFrame();
+      expect(el.panel).to.eq(old);
+      expect(el.panelConnectedSpy.calledWith(claimant)).to.be.false;
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should leave no callback unpaired when a takeover tears the element down', async () => {
+      const later = createPanel();
+      const earlier = createPanel();
+      el.panelDisconnectedSpy = Sinon.spy((panel: HTMLElement) => {
+        if (panel === later) el.remove();
+      });
+      old.remove();
+      el.append(later);
+      el.prepend(earlier);
+      await nextFrame();
+
+      expect(el.isConnected).to.be.false;
+      expect(el.panelConnectedSpy.args.map(([panel]) => panel)).to.deep.equal([old, later]);
+      expect(el.panelDisconnectedSpy.args.map(([panel]) => panel)).to.deep.equal([old, later]);
+      expect(el.panel).to.eq(null);
+    });
+
+    it('should report both errors when the callbacks on either side of a takeover throw', async () => {
+      const later = createPanel();
+      const earlier = createPanel();
+      el.panelDisconnectedSpy = Sinon.stub().throws(new Error('panel disconnected failed'));
+      el.panelConnectedSpy = Sinon.stub().throws(new Error('panel connected failed'));
+      const failures = captureReportedErrors('failed');
+      try {
+        old.remove();
+        el.append(later);
+        el.prepend(earlier);
+        await nextFrame();
+
+        expect(el.panel).to.eq(earlier);
+        // `old` leaving, `later` arriving, then `later` giving way and `earlier` taking over.
+        expect(failures.reported.map((error) => error.message).sort()).to.deep.equal([
+          'panel connected failed',
+          'panel connected failed',
+          'panel disconnected failed',
+          'panel disconnected failed',
+        ]);
+      } finally {
+        // The fixture is torn down after the test, which runs `[target]Disconnected` once more.
+        el.panelDisconnectedSpy = Sinon.spy();
+        el.panelConnectedSpy = Sinon.spy();
+        failures.release();
+      }
+    });
+
+    it('should end with the first claimant in document order and report nothing when the other leaves in the same task', async () => {
+      const later = createPanel();
+      const earlier = createPanel();
+      old.remove();
+      el.append(later);
+      el.prepend(earlier);
+      later.remove();
+      expect(el.panel).to.eq(earlier);
+
+      await nextFrame();
+      expect(el.panel).to.eq(earlier);
+      expect(el.panelConnectedSpy.lastCall.calledWith(earlier, earlier)).to.be.true;
+      expect(errors.reported).to.be.empty;
+    });
+
+    it('should keep the old target until it is removed when read part-way through a swap in one task', async () => {
+      const fresh = createPanel();
+      old.after(fresh);
+      expect(el.panel).to.eq(old);
+
+      old.remove();
+      expect(el.panel).to.eq(fresh);
+
+      await nextFrame();
+      expect(errors.reported).to.be.empty;
+    });
+
     it('should report nothing when a replacement listing the target twice is swapped in within one task', async () => {
       const fresh = createPanel(`${el.identifier}.panel ${el.identifier}.panel`);
       old.after(fresh);
@@ -492,6 +600,60 @@ describe('@target', () => {
         el.panelConnectedSpy = Sinon.spy();
         failures.release();
       }
+    });
+  });
+
+  describe('when read in the same task as a DOM change', () => {
+    it('should be a target inserted before the read, connected once the change is delivered', async () => {
+      const sheet = document.createElement('div');
+      sheet.setAttribute('data-target', 'target-test.sheet');
+      el.append(sheet);
+
+      expect(el.sheet).to.eq(sheet);
+      expect(el.sheetConnectedSpy.called).to.be.false;
+
+      await Promise.resolve();
+      expect(el.sheetConnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
+    });
+
+    it('should be the target of the element moved before it has initialized again', () => {
+      const container = document.createElement('div');
+      el.after(container);
+      container.append(el);
+
+      expect(el.panel).to.eq(el.querySelector('#panel'));
+      expect(el.button).to.eq(el.querySelector('#button'));
+    });
+
+    it('should read no target for an element in a shadow root, as it never connects one there', async () => {
+      const host = await fixture<HTMLElement>(html`<div></div>`);
+      host.attachShadow({ mode: 'open' }).innerHTML =
+        '<target-test><div data-target="target-test.panel"></div></target-test>';
+      const shadowed = host.shadowRoot!.querySelector<TargetTest>('target-test')!;
+      await waitUntil(() => shadowed.hasAttribute('data-impulse-element'));
+
+      host.append(document.createElement('span'));
+      expect(shadowed.panel).to.eq(null);
+    });
+
+    it('should follow a target moved into a nested element of the same tag', () => {
+      const nested = el.querySelector<TargetTest>('target-test')!;
+      const button = el.querySelector<HTMLButtonElement>('#button')!;
+      nested.append(button);
+
+      expect(el.button).to.eq(null);
+      expect(nested.button).to.eq(button);
+    });
+
+    it('should be null once its target is removed before the read, disconnected once the change is delivered', async () => {
+      const button = el.querySelector('#button')!;
+      button.remove();
+
+      expect(el.button).to.eq(null);
+      expect(el.buttonDisconnectedSpy.called).to.be.false;
+
+      await Promise.resolve();
+      expect(el.buttonDisconnectedSpy.calledOnceWith(button, button)).to.be.true;
     });
   });
 });

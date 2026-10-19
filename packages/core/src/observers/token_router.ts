@@ -1,8 +1,8 @@
 import type { Token, TokenListWatcherDelegate } from './token_list_watcher';
 import { invokeReporting } from '../helpers/errors';
 import { invokeEach } from '../helpers/invoke_each';
-import { flushMutations } from './document_observer';
-import { isListed, watchTokenList } from './token_list_watcher';
+import { endDelivery, flushMutations, startDelivery } from './document_observer';
+import { isListed, listedContents, watchTokenList } from './token_list_watcher';
 
 /**
  * One document-wide `[attributeName]` token watcher shared by every subscribing element, so the per-mutation cost of
@@ -60,8 +60,13 @@ export default class TokenRouter {
     this.subscriberCount += 1;
     // `watchTokenList` wraps each token delivery in its own error reporting, so a throwing delegate is reported there.
     // The replay is the router's own delivery and needs the same isolation: one bad token must not hide the rest.
-    for (const token of this.ownedTokens(owner)) {
-      invokeReporting(() => routed.tokenMatched?.(token));
+    const nested = startDelivery();
+    try {
+      for (const token of this.ownedTokens(owner)) {
+        invokeReporting(() => routed.tokenMatched?.(token));
+      }
+    } finally {
+      endDelivery(nested);
     }
 
     let stopped = false;
@@ -82,21 +87,36 @@ export default class TokenRouter {
     return isListed(token) && this.ownerOf(token) === owner;
   }
 
+  /**
+   * Whether a scan of the document as it stands would route to `owner` a token on `element` that `accepts`: the
+   * question {@link stillRoutesTo} answers for a delivered token, asked of an element whose tokens may not have been.
+   */
+  routesTo(owner: Element, element: Element, accepts: (content: string) => boolean): boolean {
+    return listedContents(element, this.attributeName).some(
+      (content) => accepts(content) && this.ownerFor(element, content) === owner,
+    );
+  }
+
   private unsubscribe(owner: Element, delegate: TokenListWatcherDelegate<Element>) {
     this.delegates.delete(owner);
     this.subscriberCount -= 1;
     // The owner's tokens stay indexed: they are still in the document, and a later re-subscribe replays them. The
     // observer's removal records (or the count-zero teardown below) are what finally drop them.
     const owned = this.ownedTokens(owner);
+    const nested = startDelivery();
     try {
       invokeEach(owned, (token) => delegate.tokenUnmatched?.(token));
     } finally {
-      if (this.subscriberCount === 0) {
-        const stopWatching = this.stopWatching;
-        this.stopWatching = undefined;
-        // Fires `tokenUnmatched` for every tracked token; no delegate is left to deliver to, so this only clears the
-        // ownership index.
-        stopWatching?.();
+      try {
+        if (this.subscriberCount === 0) {
+          const stopWatching = this.stopWatching;
+          this.stopWatching = undefined;
+          // Fires `tokenUnmatched` for every tracked token; no delegate is left to deliver to, so this only clears the
+          // ownership index.
+          stopWatching?.();
+        }
+      } finally {
+        endDelivery(nested);
       }
     }
   }
@@ -137,11 +157,15 @@ export default class TokenRouter {
    * token's identifier. Delegates do not repeat this walk; they only verify the identifier is their own tag name.
    */
   private ownerOf(token: Token<Element>): Element | null {
-    const identifier = this.identifierFor(token.content);
+    return this.ownerFor(token.element, token.content);
+  }
+
+  private ownerFor(element: Element, content: string): Element | null {
+    const identifier = this.identifierFor(content);
     if (!identifier) return null;
     // The identifier comes straight from markup; an unparsable one (`123`, `.x`) is simply not a tag name.
     try {
-      return token.element.closest(identifier);
+      return element.closest(identifier);
     } catch {
       return null;
     }

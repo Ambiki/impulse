@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   build:
+    # Keep the docs on the latest stable release; a prerelease tag (v2.0.0-rc.0) skips deployment.
+    if: ${{ !contains(github.event.release.tag_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
