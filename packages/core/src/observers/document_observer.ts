@@ -44,8 +44,11 @@ let pendingWatchers: Set<RegisteredWatcher> | null = null;
 // batch was queued before the batch was taken, so a match made under its number or a later one has seen the tree as
 // those records left it.
 let batches = 0;
-// Whether a batch is being processed, and so whether a watcher callback may be on the stack.
-let processing = false;
+// Whether changes are being delivered (see `whileDelivering`), and so whether a callback may be on the stack.
+let delivering = false;
+// Records `undeliveredVersion` has taken from the observer, oldest first, and a version bumped each time it adds some.
+let held: MutationRecord[] = [];
+let heldVersion = 0;
 
 /**
  * Registers a watcher for elements matching `selector`. The shared document-level MutationObserver is started on first
@@ -55,7 +58,7 @@ let processing = false;
  * Nothing is matched before the document is Parsed (docs/adr/0003). A watcher registered while `readyState` is
  * `loading` joins the index on `DOMContentLoaded`. One registered later scans the document before this function
  * returns, which the token routers rely on to replay tokens already on the page. Records still queued are delivered
- * first, to every watcher, unless it is registered from a watcher callback.
+ * first, to every watcher, unless it is registered from a callback run during a delivery (see `whileDelivering`).
  *
  * Returns a cleanup function that deregisters the watcher and forgets every element it had matched. It does not fire
  * `elementDisconnected` for them; callers that need teardown must handle it themselves.
@@ -82,10 +85,12 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
   } else {
     // The scan sees the changes behind every record still queued. Those are delivered first, so a match made here is
     // older than any record taken later, which is how `walkMoved` tells that a node has moved since. Not from a
-    // callback, though: the rest of the batch it is running in has to come before anything queued after it.
-    if (!processing) flushMutations();
+    // callback, though: the rest of the delivery it is running in has to come before anything queued after it.
+    if (!delivering) flushMutations();
     addToIndex(registered);
-    for (const element of document.querySelectorAll(selector)) connect(element, registered);
+    whileDelivering(() => {
+      for (const element of document.querySelectorAll(selector)) connect(element, registered);
+    });
   }
 
   let stopped = false;
@@ -127,7 +132,7 @@ function addPendingToIndex() {
   pendingWatchers = null;
   if (!watchers || watchers.size === 0) return;
   for (const watcher of watchers) addToIndex(watcher);
-  walkAdded(document.documentElement);
+  whileDelivering(() => walkAdded(document.documentElement));
 }
 
 /**
@@ -136,8 +141,62 @@ function addPendingToIndex() {
  * includes the records the callbacks queue while it runs.
  */
 export function flushMutations(): void {
-  for (let records = mutationObserver?.takeRecords(); records?.length; records = mutationObserver?.takeRecords()) {
+  for (let records = takeRecords(); records.length; records = takeRecords()) {
     processMutations(records);
+  }
+}
+
+/**
+ * Whether the DOM has changes the watchers have not been handed yet, without handing them over, so callbacks still run
+ * when the changes are delivered. Returns `0` when there are none, or while a delivery is running (a callback reads
+ * what has been delivered so far). Otherwise returns a version that goes up whenever more changes are waiting, so a
+ * caller can reuse what it worked out from the DOM until then.
+ *
+ * Asking takes the queued records from the observer, which is the only way to see them. They are held and delivered
+ * ahead of any record queued after them, in a microtask of their own unless the observer's callback comes first.
+ */
+export function undeliveredVersion(): number {
+  if (delivering) return 0;
+  const records = mutationObserver?.takeRecords();
+  if (records?.length) {
+    if (held.length === 0) queueMicrotask(deliverHeld);
+    for (const record of records) held.push(record);
+    heldVersion += 1;
+  }
+  return held.length > 0 ? heldVersion : 0;
+}
+
+// Every record not yet delivered, held ones first.
+function takeRecords(): MutationRecord[] {
+  return afterHeld(mutationObserver?.takeRecords() ?? []);
+}
+
+// `records`, after the held records, which were queued before them. Empties the hold.
+function afterHeld(records: MutationRecord[]): MutationRecord[] {
+  if (held.length === 0) return records;
+  const all = held.concat(records);
+  held = [];
+  return all;
+}
+
+function deliverHeld() {
+  if (held.length > 0) processMutations(takeRecords());
+}
+
+/**
+ * Runs `deliver`, which hands changes to callbacks, as a delivery: a batch of records, a new watcher's first scan, or a
+ * token router's replay or teardown. Until it returns, {@link undeliveredVersion} reports nothing waiting, so a callback
+ * reads what has been delivered so far, and a newly registered watcher leaves queued records alone. Records have to be
+ * delivered in order, and a delivery walks a list it took before its first callback: records delivered from a callback
+ * could drop an element the walk then connects anyway, detached and never to be disconnected.
+ */
+export function whileDelivering(deliver: () => void): void {
+  const nested = delivering;
+  delivering = true;
+  try {
+    deliver();
+  } finally {
+    delivering = nested;
   }
 }
 
@@ -206,14 +265,15 @@ function deliverMutations(mutations: MutationRecord[]) {
   // and no watcher callback has run since, so re-observing here cannot drop an attribute record from a detached subtree
   // that is re-inserted later in the task. Until then the wider filter only delivers records nobody needs.
   if (attributeFilterTooWide) observeAttributes();
-  processMutations(mutations);
+  processMutations(afterHeld(mutations));
 }
 
 function stopObserving() {
   if (!mutationObserver) return;
+  const records = takeRecords();
   const observer = mutationObserver;
   mutationObserver = null;
-  processMutations(observer.takeRecords());
+  processMutations(records);
   observer.disconnect();
 }
 
@@ -226,8 +286,10 @@ function processMutations(mutations: MutationRecord[]) {
   // Kept for the whole loop: a callback can have a later batch delivered from inside this one (`flushMutations`).
   batches += 1;
   const batch = batches;
-  const nested = processing;
-  processing = true;
+  // `whileDelivering`, inlined: this loop runs once per record, and wrapping it in a closure costs `attributes-fallback`
+  // about 9%.
+  const nested = delivering;
+  delivering = true;
   try {
     for (const mutation of mutations) {
       if (mutation.type === 'childList') {
@@ -239,7 +301,7 @@ function processMutations(mutations: MutationRecord[]) {
       }
     }
   } finally {
-    processing = nested;
+    delivering = nested;
   }
 }
 

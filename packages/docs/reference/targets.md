@@ -62,8 +62,8 @@ mistake and is [reported like an uncaught error](/utilities/connected#errors). U
 ## Multiple targets
 
 Multiple targets can be referenced via the `@targets()` decorator. Once the element has initialized, the property is
-every matching element in document order, and an empty array while there are none — so it is safe to iterate. The same
-array is returned until the targets change, so treat it as read-only: copy it before sorting or reversing it.
+every matching element in document order, and an empty array while there are none — so it is safe to iterate. Reads
+can hand out the same array, so treat it as read-only: copy it before sorting or reversing it.
 
 ```html{2,3}
 <greet-user>
@@ -88,8 +88,33 @@ export default class GreetUserElement extends ImpulseElement {
 
 A target is not a one-off `querySelector()`. Impulse watches the document, so the property follows the DOM — a target
 that is replaced, moved, or rendered later is picked up without any work on your part, which is what makes the
-[connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible. The property updates when
-Impulse's `MutationObserver` delivers the change, not at the moment of the `append()` or `remove()` call.
+[connected and disconnected callbacks](#connected-and-disconnected-callbacks) possible.
+
+Reading the property reflects the DOM as it is now, even right after a target is appended or removed in the same
+method:
+
+```ts
+addTag(text: string) {
+  this.append(this.renderTag(text));
+  // Includes the new tag's button.
+  for (const button of this.removeButtons) button.disabled = this.disabled;
+}
+```
+
+The [connected and disconnected callbacks](#connected-and-disconnected-callbacks) still run when Impulse's
+`MutationObserver` delivers the change, a moment after it is made, once the code that made it has finished. Until then,
+the property can already hold an element whose connected callback has not run yet, or no longer hold one whose
+disconnected callback has not run yet.
+
+Inside a callback Impulse runs as it delivers changes, such as a `[target]Connected` or a
+[`connected()`](/utilities/connected) callback, the property reflects the changes delivered so far.
+
+While changes wait to be delivered, a read looks through the element's descendants for its targets and keeps the answer
+until the DOM changes again. A loop that changes the DOM and reads the property on every pass repeats that search on
+every pass, so read it once after the loop.
+
+Moving the element itself is different: it is torn down and initialized again at its new place, and until it has
+[initialized](/utilities/when-initialized) again, the property reads as `null` or an empty array.
 
 A `data-target` token belongs to the closest ancestor (or the element itself) whose tag name matches the identifier in
 the token. Nested elements of the same tag therefore never claim each other's targets:

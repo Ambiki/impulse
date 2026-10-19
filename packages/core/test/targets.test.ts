@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, registerElement, targets } from '../src';
+import { connected, ImpulseElement, registerElement, targets } from '../src';
 
 describe('@targets', () => {
   @registerElement('targets-test')
@@ -254,5 +254,155 @@ describe('@targets', () => {
     div.remove();
 
     expect(el.sheetsDisconnectedSpy.notCalled).to.be.true;
+  });
+
+  describe('when read in the same task as a DOM change', () => {
+    function createPanel(id: string): HTMLElement {
+      const panel = document.createElement('div');
+      panel.id = id;
+      panel.setAttribute('data-target', 'targets-test.panels');
+      return panel;
+    }
+
+    it('should include a target inserted before the read', () => {
+      const inserted = createPanel('panel-new');
+      el.append(inserted);
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel2', 'panel-new']);
+    });
+
+    it('should keep document order for a target inserted between two others', () => {
+      document.getElementById('panel1')!.after(createPanel('panel-mid'));
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel-mid', 'panel2']);
+    });
+
+    it('should leave out a target inserted into a nested element of the same tag', () => {
+      const nested = el.querySelector<TargetsTest>('targets-test')!;
+      nested.append(createPanel('panel-nested'));
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel2']);
+      expect(nested.panels.map((p) => p.id)).to.deep.equal(['panel3', 'panel4', 'panel-nested']);
+    });
+
+    it('should leave out a target whose data-target stops listing the field', () => {
+      document.getElementById('panel1')!.setAttribute('data-target', 'targets-test.sheets');
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel2']);
+      expect(el.sheets.map((p) => p.id)).to.deep.equal(['panel1']);
+    });
+
+    it('should read a descriptor with a segment past the field as the field', () => {
+      const panel = createPanel('panel-new');
+      panel.setAttribute('data-target', 'targets-test.panels.ignored');
+      el.append(panel);
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel2', 'panel-new']);
+    });
+
+    it('should hand out the same array until the DOM changes again', () => {
+      el.append(createPanel('panel-new'));
+      const first = el.panels;
+      expect(el.panels).to.equal(first);
+
+      el.append(createPanel('panel-newer'));
+      expect(el.panels).not.to.equal(first);
+    });
+
+    it('should hand out the same array when an unrelated change is waiting too', () => {
+      el.append(createPanel('panel-new'));
+      const first = el.panels;
+      el.append(document.createElement('span'));
+
+      expect(el.panels).to.equal(first);
+    });
+
+    it('should read the same targets before and after the change is delivered', async () => {
+      document.getElementById('panel2')!.remove();
+      document.getElementById('panel1')!.before(createPanel('panel-first'));
+      const before = el.panels.map((p) => p.id);
+
+      await Promise.resolve();
+      expect(el.panels.map((p) => p.id)).to.deep.equal(before);
+    });
+
+    it('should leave out a target removed before the read', () => {
+      document.getElementById('panel1')!.remove();
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel2']);
+    });
+
+    it('should run the callbacks for the change when it is delivered, not during the read', async () => {
+      const removed = document.getElementById('panel1')!;
+      const inserted = createPanel('panel-new');
+      removed.remove();
+      el.append(inserted);
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel2', 'panel-new']);
+      expect(el.panelsDisconnectedSpy.called).to.be.false;
+      expect(el.panelsConnectedSpy.calledWith(inserted)).to.be.false;
+
+      await Promise.resolve();
+      expect(el.panelsDisconnectedSpy.calledOnceWith(removed)).to.be.true;
+      expect(el.panelsConnectedSpy.calledWith(inserted)).to.be.true;
+    });
+
+    it('should let the code that read the field finish before [targets]Connected runs', async () => {
+      const states: (string | undefined)[] = [];
+      el.panelsConnectedSpy = Sinon.spy(() => states.push(el.dataset.state));
+      el.append(createPanel('panel-new'));
+      expect(el.panels).to.have.length(3);
+      el.dataset.state = 'set after the read';
+
+      await Promise.resolve();
+      expect(states).to.deep.equal(['set after the read']);
+    });
+  });
+
+  describe('when a [targets]Connected callback run as the element starts changes the DOM, reads the field and calls connected()', () => {
+    @registerElement('targets-replay-test')
+    class TargetsReplayTest extends ImpulseElement {
+      @targets() items: HTMLElement[];
+      connectedItems = new Set<HTMLElement>();
+      itemsReadByCallback: string[] = [];
+      stopWatchingElsewhere?: () => void;
+
+      itemsConnected(item: HTMLElement) {
+        this.connectedItems.add(item);
+        if (item.id !== 'first') return;
+        this.querySelector('#second')!.remove();
+        const third = document.createElement('div');
+        third.id = 'third';
+        third.setAttribute('data-target', 'targets-replay-test.items');
+        this.append(third);
+        this.itemsReadByCallback = this.items.map((i) => i.id);
+        this.stopWatchingElsewhere = connected('.watched-elsewhere', () => {});
+      }
+
+      itemsDisconnected(item: HTMLElement) {
+        this.connectedItems.delete(item);
+      }
+    }
+
+    let replayed: TargetsReplayTest;
+    beforeEach(async () => {
+      replayed = await fixture(html`
+        <targets-replay-test>
+          <div id="first" data-target="targets-replay-test.items"></div>
+          <div id="second" data-target="targets-replay-test.items"></div>
+        </targets-replay-test>
+      `);
+      await nextFrame();
+    });
+    afterEach(() => replayed.stopWatchingElsewhere?.());
+
+    it('should show the callback the targets started so far', () => {
+      expect(replayed.itemsReadByCallback).to.deep.equal(['first']);
+    });
+
+    it('should end with the targets the DOM holds, each connected once', () => {
+      expect(replayed.items.map((i) => i.id)).to.deep.equal(['first', 'third']);
+      expect(Array.from(replayed.connectedItems, (i) => i.id)).to.deep.equal(['first', 'third']);
+    });
   });
 });

@@ -4,6 +4,7 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import SetMap from './data_structures/set_map';
 import { invokeReporting, reportUncaught } from './helpers/errors';
 import { capitalize } from './helpers/string';
+import { undeliveredVersion, whileDelivering } from './observers/document_observer';
 import TokenRouter from './observers/token_router';
 import { registeredFor, TARGETS } from './registry';
 import { parseTargetDescriptor } from './target_descriptor';
@@ -11,6 +12,10 @@ import { parseTargetDescriptor } from './target_descriptor';
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
 // `identifier.key` descriptor.
 const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
+
+function sameElements(a: readonly Element[], b: readonly Element[]): boolean {
+  return a.length === b.length && a.every((element, index) => element === b[index]);
+}
 
 // Two waiting tokens can sit on one element, and a comparator has to call a node equal to itself.
 function byDocumentOrder(a: Node, b: Node): number {
@@ -30,6 +35,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   private waitingByKey: SetMap<string, Token<T>>;
   // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
   private orderedByKey = new Map<string, T[]>();
+  // What each field read while DOM changes waited to be delivered, worked out from the DOM, with the
+  // `undeliveredVersion()` it holds for. Reused until more changes are waiting.
+  private nowByKey = new Map<string, { version: number; value: T[] | T | null }>();
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
@@ -40,12 +48,23 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   }
 
   start() {
-    // Each field reads the current targets when accessed: every matching element in document order (an empty array
-    // when there are none) for `@targets()`, or the element (`null` when there is none) for `@target()`.
+    // Each field reads its Targets when accessed: all of them in document order (an empty array when there are none)
+    // for `@targets()`, or the one (`null` when there is none) for `@target()`. While DOM changes wait to be delivered,
+    // the index is behind, so the field is worked out from the DOM instead, and the callbacks still run when the
+    // changes are delivered (docs/adr/0006).
     for (const { key, multiple } of this.declarations.values()) {
+      const read = multiple ?
+        { delivered: () => this.orderedTargets(key), now: () => this.claimants(key) } :
+        { delivered: () => this.targetsByKey.valuesForKey(key)[0] ?? null, now: () => this.claimantNow(key) };
       Object.defineProperty(this.instance, key, {
         configurable: true,
-        get: multiple ? () => this.orderedTargets(key) : () => this.targetsByKey.valuesForKey(key)[0] ?? null,
+        get: () => {
+          // Until the subscription returns (while its tokens are replayed) and once stopped, the field is the index.
+          const version = this.stopWatching ? undeliveredVersion() : 0;
+          if (version) return this.readNow(key, version, read.now);
+          if (this.nowByKey.size > 0) this.nowByKey.clear();
+          return read.delivered();
+        },
       });
     }
 
@@ -60,6 +79,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect, and so
     // `adoptWaiting` can tell the unmatches that follow are a teardown.
     this.stopWatching = undefined;
+    this.nowByKey.clear();
     stopWatching();
   }
 
@@ -164,7 +184,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       // Every waiting token is stale and normally about to be unmatched. A callback invoked later in this batch can
       // put the descriptor back first, though: the attribute then ends where it began, no record reports a change, and
       // the token stays waiting behind nobody. One more look once the batch is done finds it.
-      if (departed) Promise.resolve().then(() => this.adoptWaiting(key));
+      if (departed) Promise.resolve().then(() => whileDelivering(() => this.adoptWaiting(key)));
       return;
     }
 
@@ -195,6 +215,64 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       this.orderedByKey.set(key, ordered);
     }
     return ordered;
+  }
+
+  /**
+   * What the field for `key` reads while changes wait to be delivered: `now()`, worked out from the DOM, reused until
+   * more changes are waiting. An array with the same elements as the last one is handed out as the last one.
+   */
+  private readNow(key: string, version: number, now: () => T[] | T | null): T[] | T | null {
+    const cached = this.nowByKey.get(key);
+    if (cached?.version === version) return cached.value;
+    let value = now();
+    if (cached && Array.isArray(value) && Array.isArray(cached.value) && sameElements(value, cached.value)) {
+      value = cached.value;
+    }
+    this.nowByKey.set(key, { version, value });
+    return value;
+  }
+
+  /**
+   * The elements claiming `key` as the DOM stands, in document order, this element included when it carries the key
+   * itself. Once the changes waiting are delivered, they are the Targets of a `@targets()` key.
+   */
+  private claimants(key: string): T[] {
+    const owner = this.instance as Element as T;
+    // A substring match finds every candidate; `claims` then parses its tokens as the router does.
+    const selector = `[data-target*="${CSS.escape(`${this.identifier}.${key}`)}"]`;
+    const found: T[] = [];
+    if (owner.matches(selector) && this.claims(owner, key)) found.push(owner);
+    for (const element of owner.querySelectorAll<T>(selector)) {
+      if (this.claims(element, key)) found.push(element);
+    }
+    return found;
+  }
+
+  /**
+   * The element a `@target()` key will have as its Target once the changes waiting are delivered. The Target keeps the
+   * key while it still claims it, and otherwise the first claimant in document order takes over, as `adoptWaiting`
+   * picks.
+   *
+   * When the key has no Target, or loses it, and two new claimants arrive in the same task, delivery connects whichever
+   * it reaches first, which is not always the first in document order. Both staying is reported as a mistake, and one
+   * of them leaving brings the two back into agreement.
+   */
+  private claimantNow(key: string): T | null {
+    const [target] = this.targetsByKey.valuesForKey(key);
+    if (target && this.claims(target, key)) return target;
+    return this.claimants(key)[0] ?? null;
+  }
+
+  // Whether `element` lists `key` for this element's identifier, parsed as the router parses it, and this element is
+  // its Owner: what `router.stillRoutesTo` checks for a token the router has delivered.
+  private claims(element: Element, key: string): boolean {
+    const value = element.getAttribute('data-target');
+    if (!value) return false;
+    const listed = value.trim().split(/\s+/).some((content) => {
+      const descriptor = parseTargetDescriptor(content);
+      return descriptor.identifier === this.identifier && descriptor.key === key;
+    });
+    return listed && element.closest(this.identifier) === (this.instance as Element);
   }
 
   private isStillReferenced(element: T, content: string): boolean {

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Reading a `@target()` or `@targets()` field includes DOM changes made earlier in the same task; the callbacks still run when the changes are delivered ([#232](https://github.com/Ambiki/impulse/pull/232))
+
+### Fixed
+
+- `connected()`, `disconnected()` and `lazyImport()` called from an Impulse callback no longer leave an element that callback removed connected ([#232](https://github.com/Ambiki/impulse/pull/232))
+
 ## [2.0.0-rc.2] - 2026-10-18
 
 ### Changed (BREAKING)

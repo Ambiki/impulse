@@ -334,6 +334,18 @@ describe('@target', () => {
       expect(errors.reported).to.be.empty;
     });
 
+    it('should keep the old target until it is removed when read part-way through a swap in one task', async () => {
+      const fresh = createPanel();
+      old.after(fresh);
+      expect(el.panel).to.eq(old);
+
+      old.remove();
+      expect(el.panel).to.eq(fresh);
+
+      await nextFrame();
+      expect(errors.reported).to.be.empty;
+    });
+
     it('should report nothing when a replacement listing the target twice is swapped in within one task', async () => {
       const fresh = createPanel(`${el.identifier}.panel ${el.identifier}.panel`);
       old.after(fresh);
@@ -492,6 +504,40 @@ describe('@target', () => {
         el.panelConnectedSpy = Sinon.spy();
         failures.release();
       }
+    });
+  });
+
+  describe('when read in the same task as a DOM change', () => {
+    it('should be a target inserted before the read, connected once the change is delivered', async () => {
+      const sheet = document.createElement('div');
+      sheet.setAttribute('data-target', 'target-test.sheet');
+      el.append(sheet);
+
+      expect(el.sheet).to.eq(sheet);
+      expect(el.sheetConnectedSpy.called).to.be.false;
+
+      await Promise.resolve();
+      expect(el.sheetConnectedSpy.calledOnceWith(sheet, sheet)).to.be.true;
+    });
+
+    it('should follow a target moved into a nested element of the same tag', () => {
+      const nested = el.querySelector<TargetTest>('target-test')!;
+      const button = el.querySelector<HTMLButtonElement>('#button')!;
+      nested.append(button);
+
+      expect(el.button).to.eq(null);
+      expect(nested.button).to.eq(button);
+    });
+
+    it('should be null once its target is removed before the read, disconnected once the change is delivered', async () => {
+      const button = el.querySelector('#button')!;
+      button.remove();
+
+      expect(el.button).to.eq(null);
+      expect(el.buttonDisconnectedSpy.called).to.be.false;
+
+      await Promise.resolve();
+      expect(el.buttonDisconnectedSpy.calledOnceWith(button, button)).to.be.true;
     });
   });
 });

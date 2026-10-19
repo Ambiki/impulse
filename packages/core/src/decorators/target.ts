@@ -12,7 +12,10 @@ export interface TargetDeclaration {
 /**
  * Binds a field to the element carrying `data-target="<tag-name>.<field>"`, or `null` while none is present. The
  * binding is live rather than a one-off `querySelector()`, and a `[field]Connected(element)` or
- * `[field]Disconnected(element)` method is invoked as the target comes and goes.
+ * `[field]Disconnected(element)` method is invoked as the target comes and goes. A read reflects the DOM as it is now,
+ * while the callbacks run once the change is delivered, so in between the field can hold an element whose
+ * `[field]Connected` has not run yet. Inside a callback run while changes are being delivered, the field reflects the
+ * changes delivered so far.
  *
  * A token belongs to the closest ancestor matching its identifier, or to the element itself when it carries both, so
  * nested elements of the same tag do not claim each other's targets. A second element carrying a single-target key

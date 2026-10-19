@@ -55,6 +55,12 @@ The element a selector is about: the rightmost compound of each comma-separated 
 subject `a[data-x]`. Everything to its left constrains where that element may sit, without describing it.
 _Avoid_: Key, rightmost part, target, leaf
 
+**Target**:
+An element an Owner's `@target()` or `@targets()` field holds through a `data-target` token: from its
+`[field]Connected` callback until its `[field]Disconnected` callback. An element carrying the token whose connected
+callback has not run is not yet a Target.
+_Avoid_: Ref, reference, child
+
 **Watcher**:
 A selector registered with the shared document observer, together with the callbacks run as elements start and stop
 matching it once the document is Parsed. One Watcher serves every caller that registered it, however many components

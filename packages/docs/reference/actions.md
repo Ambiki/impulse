@@ -40,6 +40,10 @@ descriptor — `greet-user` above. A `data-action` that names an element it is n
 Actions are bound once that element has [initialized](/reference/lifecycle-callbacks#functions). An event fired before
 then is missed.
 
+An action on an element inserted later is bound when Impulse's `MutationObserver` delivers the insertion, not at the
+moment of the `append()` call, so an event dispatched in the same synchronous run of script is missed too. Await a
+microtask (`await Promise.resolve()`) between inserting the element and dispatching the event.
+
 ## Global events
 
 You can add `@window` or `@document` to the descriptor to listen for events on the `window` or `document` respectively.
