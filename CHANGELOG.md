@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reading a `@target()` or `@targets()` field includes DOM changes made earlier in the same task; the callbacks still run when the changes are delivered ([#232](https://github.com/Ambiki/impulse/pull/232))
+- When several elements claim an empty `@target()` field in the same task, the first in document order becomes the target, rather than the first one delivered ([#232](https://github.com/Ambiki/impulse/pull/232))
 
 ### Fixed
 

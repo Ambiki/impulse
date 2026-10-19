@@ -51,9 +51,11 @@ export default class GreetUserElement extends ImpulseElement {
 ```
 
 A `@target()` property points at one element. A second element carrying the same target name waits: it stays out of the
-property until the first one is removed or stops carrying the name, and is then adopted, getting its own
+property until the target is removed or stops carrying the name, and is then adopted, getting its own
 [connected callback](#connected-and-disconnected-callbacks). When several wait, the first in document order is adopted.
-Replacing a target by inserting the new element before removing the old one therefore works.
+Replacing a target by inserting the new element before removing the old one therefore works, wherever the new one goes.
+Elements that arrive in the same synchronous run of script while the property has no target are not kept waiting
+behind each other: the first of them in document order becomes the target.
 
 Doing both in one synchronous run of script reports nothing. If the first is still there after that, the second is a
 mistake and is [reported like an uncaught error](/utilities/connected#errors). Use

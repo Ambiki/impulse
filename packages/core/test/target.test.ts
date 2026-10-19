@@ -347,6 +347,46 @@ describe('@target', () => {
       expect(errors.reported.length).to.eq(1);
     });
 
+    it('should keep the key for the target when it is moved behind a claimant inserted ahead of it', async () => {
+      const claimant = createPanel();
+      el.append(old);
+      el.prepend(claimant);
+      expect(el.panel).to.eq(old);
+
+      await nextFrame();
+      expect(el.panel).to.eq(old);
+      expect(el.panelConnectedSpy.calledWith(claimant)).to.be.false;
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should keep the key for the target when one append moves it behind a new claimant', async () => {
+      const claimant = createPanel();
+      el.append(claimant, old);
+      expect(el.panel).to.eq(old);
+
+      await nextFrame();
+      expect(el.panel).to.eq(old);
+      expect(el.panelConnectedSpy.calledWith(claimant)).to.be.false;
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should leave no callback unpaired when a takeover tears the element down', async () => {
+      const later = createPanel();
+      const earlier = createPanel();
+      el.panelDisconnectedSpy = Sinon.spy((panel: HTMLElement) => {
+        if (panel === later) el.remove();
+      });
+      old.remove();
+      el.append(later);
+      el.prepend(earlier);
+      await nextFrame();
+
+      expect(el.isConnected).to.be.false;
+      expect(el.panelConnectedSpy.args.map(([panel]) => panel)).to.deep.equal([old, later]);
+      expect(el.panelDisconnectedSpy.args.map(([panel]) => panel)).to.deep.equal([old, later]);
+      expect(el.panel).to.eq(null);
+    });
+
     it('should report both errors when the callbacks on either side of a takeover throw', async () => {
       const later = createPanel();
       const earlier = createPanel();
@@ -583,6 +623,17 @@ describe('@target', () => {
 
       expect(el.panel).to.eq(el.querySelector('#panel'));
       expect(el.button).to.eq(el.querySelector('#button'));
+    });
+
+    it('should read no target for an element in a shadow root, as it never connects one there', async () => {
+      const host = await fixture<HTMLElement>(html`<div></div>`);
+      host.attachShadow({ mode: 'open' }).innerHTML =
+        '<target-test><div data-target="target-test.panel"></div></target-test>';
+      const shadowed = host.shadowRoot!.querySelector<TargetTest>('target-test')!;
+      await waitUntil(() => shadowed.hasAttribute('data-impulse-element'));
+
+      host.append(document.createElement('span'));
+      expect(shadowed.panel).to.eq(null);
     });
 
     it('should follow a target moved into a nested element of the same tag', () => {

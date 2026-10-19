@@ -2,7 +2,7 @@ import type { Token, TokenListWatcherDelegate } from './token_list_watcher';
 import { invokeReporting } from '../helpers/errors';
 import { invokeEach } from '../helpers/invoke_each';
 import { endDelivery, flushMutations, startDelivery } from './document_observer';
-import { isListed, watchTokenList } from './token_list_watcher';
+import { isListed, listedContents, watchTokenList } from './token_list_watcher';
 
 /**
  * One document-wide `[attributeName]` token watcher shared by every subscribing element, so the per-mutation cost of
@@ -87,6 +87,16 @@ export default class TokenRouter {
     return isListed(token) && this.ownerOf(token) === owner;
   }
 
+  /**
+   * Whether a scan of the document as it stands would route to `owner` a token on `element` that `accepts`: the
+   * question {@link stillRoutesTo} answers for a delivered token, asked of an element whose tokens may not have been.
+   */
+  routesTo(owner: Element, element: Element, accepts: (content: string) => boolean): boolean {
+    return listedContents(element, this.attributeName).some(
+      (content) => accepts(content) && this.ownerFor(element, content) === owner,
+    );
+  }
+
   private unsubscribe(owner: Element, delegate: TokenListWatcherDelegate<Element>) {
     this.delegates.delete(owner);
     this.subscriberCount -= 1;
@@ -147,11 +157,15 @@ export default class TokenRouter {
    * token's identifier. Delegates do not repeat this walk; they only verify the identifier is their own tag name.
    */
   private ownerOf(token: Token<Element>): Element | null {
-    const identifier = this.identifierFor(token.content);
+    return this.ownerFor(token.element, token.content);
+  }
+
+  private ownerFor(element: Element, content: string): Element | null {
+    const identifier = this.identifierFor(content);
     if (!identifier) return null;
     // The identifier comes straight from markup; an unparsable one (`123`, `.x`) is simply not a tag name.
     try {
-      return token.element.closest(identifier);
+      return element.closest(identifier);
     } catch {
       return null;
     }

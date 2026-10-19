@@ -327,6 +327,17 @@ describe('@targets', () => {
       expect(el.panels).to.equal(before);
     });
 
+    it('should hand out the same array once delivered when a change is undone in the same task', async () => {
+      const added = createPanel('panel-new');
+      el.append(added);
+      expect(el.panels).to.have.length(3);
+      added.remove();
+      const before = el.panels;
+
+      await Promise.resolve();
+      expect(el.panels).to.equal(before);
+    });
+
     it('should hand out the same array when an unrelated change is waiting too', () => {
       el.append(createPanel('panel-new'));
       const first = el.panels;
@@ -388,7 +399,7 @@ describe('@targets', () => {
     });
   });
 
-  describe('when a [targets]Connected callback run as the element starts changes the DOM, reads the field and calls connected()', () => {
+  describe('when a [targets]Connected callback run as the element initializes changes the DOM, reads the field and calls connected()', () => {
     @registerElement('targets-replay-test')
     class TargetsReplayTest extends ImpulseElement {
       @targets() items: HTMLElement[];
@@ -425,7 +436,7 @@ describe('@targets', () => {
     });
     afterEach(() => replayed.stopWatchingElsewhere?.());
 
-    it('should show the callback the targets started so far', () => {
+    it('should show the callback the targets connected so far', () => {
       expect(replayed.itemsReadByCallback).to.deep.equal(['first']);
     });
 

@@ -48,10 +48,10 @@ let batches = 0;
 let delivering = false;
 // How many deliveries have started, a nested one counting as part of the one it runs in: the running one's number.
 let deliveries = 0;
-// Records `undeliveredVersion` has taken from the observer to look at, oldest first, and a count bumped each time it
-// takes more. They are delivered with the next batch, ahead of its own records.
+// Records `undeliveredVersion` has taken from the observer to look at, oldest first, and the version it returns,
+// bumped each time it takes more. They are delivered with the next batch, ahead of its own records.
 let held: MutationRecord[] = [];
-let heldCount = 0;
+let heldVersion = 0;
 // A text node outside the document that only the observer watches. Changing it queues a record no one else sees, so
 // once `undeliveredVersion` has taken the observer's records, its callback still comes when it would have.
 let nudge: Text | null = null;
@@ -164,17 +164,17 @@ export function flushMutations(): void {
 export function undeliveredVersion(): number {
   if (delivering || !mutationObserver) return 0;
   const records = mutationObserver.takeRecords();
-  if (records.length === 0) return held.length > 0 ? heldCount : 0;
+  if (records.length === 0) return held.length > 0 ? heldVersion : 0;
   let taken = false;
   for (const record of records) {
     if (record.target === nudge) continue;
     held.push(record);
     taken = true;
   }
-  if (taken) heldCount += 1;
+  if (taken) heldVersion += 1;
   if (held.length === 0) return 0;
   nudge!.data = '';
-  return heldCount;
+  return heldVersion;
 }
 
 // Every record not yet delivered, held ones first.
@@ -188,14 +188,6 @@ function afterHeld(records: MutationRecord[]): MutationRecord[] {
   const all = held.concat(records);
   held = [];
   return all;
-}
-
-/**
- * Whether changes are being delivered (see {@link startDelivery}), so a callback that is running reads what has been
- * delivered so far.
- */
-export function isDelivering(): boolean {
-  return delivering;
 }
 
 /**

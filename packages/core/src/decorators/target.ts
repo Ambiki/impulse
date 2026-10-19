@@ -19,9 +19,10 @@ export interface TargetDeclaration {
  *
  * A token belongs to the closest ancestor matching its identifier, or to the element itself when it carries both, so
  * nested elements of the same tag do not claim each other's targets. A second element carrying a single-target key
- * waits: it stays out of the field and is adopted, with its own `[field]Connected`, when the first goes away. If the
- * first is still there once the DOM changes made along with the second have been processed, an error pointing at
- * {@link targets} is reported.
+ * waits: it stays out of the field and is adopted, with its own `[field]Connected`, when the first goes away. Elements
+ * that arrive in the same DOM changes while the field has no target do not wait behind each other: the first in
+ * document order becomes the target. If the first is still there once the DOM changes made along with the second have
+ * been processed, an error pointing at {@link targets} is reported.
  *
  * @example
  * ```ts

@@ -78,12 +78,16 @@ export function watchTokenList<T extends Element = Element>(
 }
 
 function parseTokens<T extends Element>(element: T, attributeName: string): Token<T>[] {
+  return listedContents(element, attributeName).map((content) => ({ element, attributeName, content }));
+}
+
+/** The whitespace-separated tokens `element` lists in `attributeName`, in order and duplicates included. */
+export function listedContents(element: Element, attributeName: string): string[] {
   const value = element.getAttribute(attributeName) || '';
   return value
     .trim()
     .split(/\s+/)
-    .filter((content) => content.length)
-    .map((content) => ({ element, attributeName, content }));
+    .filter((content) => content.length);
 }
 
 /**
