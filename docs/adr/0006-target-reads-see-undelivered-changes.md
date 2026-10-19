@@ -7,13 +7,23 @@ targets ([#231](https://github.com/Ambiki/impulse/issues/231);
 to get around it). A read now first asks whether changes are waiting. With none, which is almost every read, it returns
 the index as before. With some, it works the field out from the DOM the way the index will once they are delivered: the
 elements whose Owner is this element and whose `data-target` lists the key, in document order, and for `@target()` the
-current Target for as long as it still holds the key. The callbacks still run when the changes are delivered. The field
+current Target for as long as it still claims the key. The callbacks still run when the changes are delivered. The field
 therefore reflects the DOM as it is now, but between a change and its delivery it can hold an element whose
 `[field]Connected` has not run, or lack one whose `[field]Disconnected` has not.
 
-Looking for waiting changes means taking the records from the observer, since `takeRecords()` is the only way to see
-them. They are held and delivered ahead of anything queued after them, in the same batch, from the observer's callback
-or from a microtask of Impulse's own when the observer has nothing left to call back with.
+A read changes nothing about when callbacks run. The observer's records are the only way to see waiting changes, so a
+read takes them and holds them for the next batch, which delivers them ahead of its own. It then changes a text node
+outside the document that only the observer watches. The record that leaves behind keeps the observer's callback coming
+when it would have, no one else can see it, and the batch ignores it.
+
+For `@target()`, delivery follows the rule the read follows, so the two never disagree. A Target from an earlier
+delivery keeps the key while it claims it, and a claimant inserted ahead of it waits, so a replacement inserted before
+the old Target is removed does not take over early (#199). Otherwise the first claimant in document order takes the key,
+even from a claimant connected earlier in the same delivery, which gets `[field]Disconnected` and waits behind it. Two
+claimants that both stay are still reported as a mistake.
+
+An element that is moved is torn down and initialized again, and its index is empty in between. A read in that window
+works the field out from the DOM too.
 
 Inside a callback Impulse runs while delivering changes (for a batch of records, a new Watcher's first scan, or a target
 or action router's replay when an element starts and its teardown when it stops), the field is the index: what has been
@@ -29,7 +39,13 @@ disconnected.
   callbacks in the middle of the caller's method, other elements' and `connected()` callbacks included, and a callback
   could see the caller's work half done. A method that inserted a row, read a target, then set the state the row's
   connected callback reads had the callback see the old state.
-- **Always query on read**, as Catalyst, Stimulus and Lit's `@query` do. One read path and no held records, but every
+- **Deliver the taken records from a microtask of Impulse's own.** Built second, without the text node. Rejected because
+  a read then moved callbacks: with the observer's queue empty, its callback did not come, so a microtask queued between
+  a change and a read ran before that change's callbacks, where without the read it ran after.
+- **A second observer that sees the same changes.** Built third: a read took that one's records and left the observer's
+  alone, so nothing moved. Rejected because every node a change removes then carries a transient registration for both
+  observers, and the `/clear` Scenarios ran 3 to 9% slower, against nothing for the text node.
+- **Always query on read**, as Catalyst, Stimulus and Lit's `@query` do. One read path and nothing held, but every
   read pays for a subtree query, and `@targets()` would hand out a new array on every read.
 - **Document the stale read.** Leaves every caller that changes the DOM and then reads a target to work around it, with
   a `querySelectorAll` that loses Owner scoping for nested elements of the same tag.
@@ -38,19 +54,16 @@ disconnected.
 
 - Between a change and its delivery, the field and the callbacks disagree, as described above. Stimulus targets behave
   the same way.
-- When a `@target()` key has no Target, or loses it, and two elements claim it in one task, the read takes the first in
-  document order and delivery the first it reaches, which can differ. Both staying is reported as a mistake, and one of
-  them leaving brings the two back into agreement.
-- A microtask queued between a change and a read runs before the callbacks for that change, where it used to run after:
-  the held records are delivered by a microtask queued at the read, unless a change made after the read has the
-  observer's callback deliver them first.
+- When a `@target()` key loses its Target and two claimants arrive in one delivery, the one delivery reaches first can
+  be connected and then disconnected again before the other is connected.
+- A read with changes waiting writes to the text node, so the observer's callback gets one record more than it would
+  have.
 - A read with nothing waiting costs one `takeRecords()` call. The `target-reads` Scenario (10,000 reads of a `@target()`
   field, 30 Rounds against `v2.0.0`) puts a read at 0.13 to 0.15µs, up from 0.03µs. A read with changes waiting queries
   the Owner's subtree, 4 to 7ms for 5,000 targets, and the answer is reused until more changes are waiting.
-- `@targets()` hands out a new array when the claimants change before delivery, and the index's own array after it, so
-  the reference no longer promises the same array until the Targets change.
+- `@targets()` hands out the same array until its elements change, whether it is read from the index or from the DOM.
 - The query has to agree with the index: Owner by `closest()`, tokens parsed with `parseTargetDescriptor`, and the
-  waiting rule for `@target()`. Tests compare the two on order, nested Owners, a rewritten `data-target`, a descriptor
-  with an extra segment, a moved target, and a read before and after delivery.
+  `@target()` rule above. Tests compare the two on order, nested Owners, a rewritten `data-target`, a descriptor with an
+  extra segment, a moved target, a moved Owner, two claimants, and a read before and after delivery.
 - Actions are not covered. A dispatch cannot be hooked the way a read can, so an action on an element inserted in the
   same synchronous run is bound only once the insertion is delivered.

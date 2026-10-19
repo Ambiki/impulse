@@ -1,7 +1,7 @@
 import type { Token, TokenListWatcherDelegate } from './token_list_watcher';
 import { invokeReporting } from '../helpers/errors';
 import { invokeEach } from '../helpers/invoke_each';
-import { flushMutations, whileDelivering } from './document_observer';
+import { endDelivery, flushMutations, startDelivery } from './document_observer';
 import { isListed, watchTokenList } from './token_list_watcher';
 
 /**
@@ -60,11 +60,14 @@ export default class TokenRouter {
     this.subscriberCount += 1;
     // `watchTokenList` wraps each token delivery in its own error reporting, so a throwing delegate is reported there.
     // The replay is the router's own delivery and needs the same isolation: one bad token must not hide the rest.
-    whileDelivering(() => {
+    const nested = startDelivery();
+    try {
       for (const token of this.ownedTokens(owner)) {
         invokeReporting(() => routed.tokenMatched?.(token));
       }
-    });
+    } finally {
+      endDelivery(nested);
+    }
 
     let stopped = false;
     return () => {
@@ -90,10 +93,11 @@ export default class TokenRouter {
     // The owner's tokens stay indexed: they are still in the document, and a later re-subscribe replays them. The
     // observer's removal records (or the count-zero teardown below) are what finally drop them.
     const owned = this.ownedTokens(owner);
-    whileDelivering(() => {
+    const nested = startDelivery();
+    try {
+      invokeEach(owned, (token) => delegate.tokenUnmatched?.(token));
+    } finally {
       try {
-        invokeEach(owned, (token) => delegate.tokenUnmatched?.(token));
-      } finally {
         if (this.subscriberCount === 0) {
           const stopWatching = this.stopWatching;
           this.stopWatching = undefined;
@@ -101,8 +105,10 @@ export default class TokenRouter {
           // ownership index.
           stopWatching?.();
         }
+      } finally {
+        endDelivery(nested);
       }
-    });
+    }
   }
 
   private tokenMatched(token: Token<Element>) {

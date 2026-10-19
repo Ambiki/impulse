@@ -62,8 +62,8 @@ mistake and is [reported like an uncaught error](/utilities/connected#errors). U
 ## Multiple targets
 
 Multiple targets can be referenced via the `@targets()` decorator. Once the element has initialized, the property is
-every matching element in document order, and an empty array while there are none — so it is safe to iterate. Reads
-can hand out the same array, so treat it as read-only: copy it before sorting or reversing it.
+every matching element in document order, and an empty array while there are none — so it is safe to iterate. The same
+array is returned until the targets change, so treat it as read-only: copy it before sorting or reversing it.
 
 ```html{2,3}
 <greet-user>
@@ -113,8 +113,9 @@ While changes wait to be delivered, a read looks through the element's descendan
 until the DOM changes again. A loop that changes the DOM and reads the property on every pass repeats that search on
 every pass, so read it once after the loop.
 
-Moving the element itself is different: it is torn down and initialized again at its new place, and until it has
-[initialized](/utilities/when-initialized) again, the property reads as `null` or an empty array.
+Moving the element itself tears it down and [initializes](/utilities/when-initialized) it again at its new place. In
+between, the property still reads its targets from the DOM, and their disconnected and connected callbacks run with the
+teardown and the new initialization.
 
 A `data-target` token belongs to the closest ancestor (or the element itself) whose tag name matches the identifier in
 the token. Nested elements of the same tag therefore never claim each other's targets:

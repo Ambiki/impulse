@@ -4,7 +4,7 @@ import type { Token, TokenListWatcherDelegate } from './observers/token_list_wat
 import SetMap from './data_structures/set_map';
 import { invokeReporting, reportUncaught } from './helpers/errors';
 import { capitalize } from './helpers/string';
-import { undeliveredVersion, whileDelivering } from './observers/document_observer';
+import { currentDelivery, isDelivering, undeliveredVersion, whileDelivering } from './observers/document_observer';
 import TokenRouter from './observers/token_router';
 import { registeredFor, TARGETS } from './registry';
 import { parseTargetDescriptor } from './target_descriptor';
@@ -38,6 +38,10 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // What each field read while DOM changes waited to be delivered, worked out from the DOM, with the
   // `undeliveredVersion()` it holds for. Reused until more changes are waiting.
   private nowByKey = new Map<string, { version: number; value: T[] | T | null }>();
+  // The array each `@targets()` field last handed out (see `share`).
+  private sharedByKey = new Map<string, T[]>();
+  // The delivery each `@target()` key's Target was connected in (see `takesOver`).
+  private connectedDuring = new Map<string, number>();
   private stopWatching?: () => void;
 
   constructor(private readonly instance: ImpulseElement) {
@@ -54,13 +58,18 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // changes are delivered (docs/adr/0006).
     for (const { key, multiple } of this.declarations.values()) {
       const read = multiple ?
-        { delivered: () => this.orderedTargets(key), now: () => this.claimants(key) } :
+        { delivered: () => this.orderedTargets(key), now: () => this.share(key, this.claimants(key)) } :
         { delivered: () => this.targetsByKey.valuesForKey(key)[0] ?? null, now: () => this.claimantNow(key) };
       Object.defineProperty(this.instance, key, {
         configurable: true,
         get: () => {
-          // Until the subscription returns (while its tokens are replayed) and once stopped, the field is the index.
-          const version = this.stopWatching ? undeliveredVersion() : 0;
+          if (!this.stopWatching) {
+            // Not subscribed: starting (its tokens being replayed), or torn down, either removed or moved and not yet
+            // initialized again. A moved element still has its targets in the DOM though the index has none, so it
+            // reads them there. While its tokens are replayed or torn down, it reads what has been delivered.
+            return this.instance.isConnected && !isDelivering() ? read.now() : read.delivered();
+          }
+          const version = undeliveredVersion();
           if (version) return this.readNow(key, version, read.now);
           if (this.nowByKey.size > 0) this.nowByKey.clear();
           return read.delivered();
@@ -80,7 +89,13 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // `adoptWaiting` can tell the unmatches that follow are a teardown.
     this.stopWatching = undefined;
     this.nowByKey.clear();
-    stopWatching();
+    try {
+      stopWatching();
+    } finally {
+      // Dropped once the teardown's callbacks have read their last, so removed elements are not kept alive.
+      this.sharedByKey.clear();
+      this.connectedDuring.clear();
+    }
   }
 
   tokenMatched(token: Token<T>) {
@@ -97,7 +112,13 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 
     // A `@target()` key holds one element. A second one is kept waiting rather than dropped; `targetsByKey` is left
     // alone, so the field and the callbacks only ever see the target.
-    if (!this.isKeyMultiple(key) && this.targetsByKey.valuesForKey(key).length > 0) {
+    const [target] = this.isKeyMultiple(key) ? [] : this.targetsByKey.valuesForKey(key);
+    if (target) {
+      if (this.takesOver(key, element, target)) {
+        this.tokensByElement.add(element, token);
+        this.handOver(key, target, element);
+        return;
+      }
       this.waitingByKey.add(key, token);
       this.reportIfLeftWaiting(key, token);
       return;
@@ -155,7 +176,45 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   private connect(key: string, element: T) {
     this.targetsByKey.add(key, element);
     this.orderedByKey.delete(key);
+    if (!this.isKeyMultiple(key)) this.connectedDuring.set(key, currentDelivery());
     this.invokeCallback(key, element, 'connected');
+  }
+
+  /**
+   * Whether `element`, claiming a `@target()` key whose Target is `target`, takes the key from it. A read made before
+   * this delivery, while the key had no Target or was losing it, took the first claimant in document order
+   * (`claimantNow`), so a Target connected earlier in the same delivery gives way to a claimant ahead of it. A Target
+   * from an earlier delivery keeps the key, and the claimant waits behind it.
+   */
+  private takesOver(key: string, element: T, target: T): boolean {
+    return (
+      this.connectedDuring.get(key) === currentDelivery() &&
+      byDocumentOrder(element, target) < 0 &&
+      this.claims(element, key) &&
+      this.claims(target, key)
+    );
+  }
+
+  /**
+   * Makes `element` the Target of a `@target()` key in place of `target`, which waits behind it as a second claimant
+   * does: `[key]Disconnected` for `target`, then `[key]Connected` for `element`.
+   */
+  private handOver(key: string, target: T, element: T) {
+    try {
+      this.invokeCallback(key, target, 'disconnected');
+    } finally {
+      this.targetsByKey.delete(key, target);
+      const tokens = this.tokensByElement
+        .valuesForKey(target)
+        .filter((token) => parseTargetDescriptor(token.content).key === key);
+      for (const token of tokens) {
+        this.tokensByElement.delete(target, token);
+        this.waitingByKey.add(key, token);
+      }
+      if (tokens[0]) this.reportIfLeftWaiting(key, tokens[0]);
+      // Reported rather than thrown, as in `adoptWaiting`: it can run while a throwing `[key]Disconnected` unwinds.
+      invokeReporting(() => this.connect(key, element));
+    }
   }
 
   /**
@@ -211,7 +270,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
   private orderedTargets(key: string): T[] {
     let ordered = this.orderedByKey.get(key);
     if (!ordered) {
-      ordered = this.targetsByKey.valuesForKey(key).sort(byDocumentOrder);
+      ordered = this.share(key, this.targetsByKey.valuesForKey(key).sort(byDocumentOrder));
       this.orderedByKey.set(key, ordered);
     }
     return ordered;
@@ -219,17 +278,26 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
   /**
    * What the field for `key` reads while changes wait to be delivered: `now()`, worked out from the DOM, reused until
-   * more changes are waiting. An array with the same elements as the last one is handed out as the last one.
+   * more changes are waiting.
    */
   private readNow(key: string, version: number, now: () => T[] | T | null): T[] | T | null {
     const cached = this.nowByKey.get(key);
     if (cached?.version === version) return cached.value;
-    let value = now();
-    if (cached && Array.isArray(value) && Array.isArray(cached.value) && sameElements(value, cached.value)) {
-      value = cached.value;
-    }
+    const value = now();
     this.nowByKey.set(key, { version, value });
     return value;
+  }
+
+  /**
+   * `targets`, or the array last handed out for `key` when it holds the same elements in the same order, so a
+   * `@targets()` field gives the same array until its elements change, whether it was read from the index or from the
+   * DOM.
+   */
+  private share(key: string, targets: T[]): T[] {
+    const last = this.sharedByKey.get(key);
+    if (last && sameElements(last, targets)) return last;
+    this.sharedByKey.set(key, targets);
+    return targets;
   }
 
   /**
@@ -250,12 +318,8 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
   /**
    * The element a `@target()` key will have as its Target once the changes waiting are delivered. The Target keeps the
-   * key while it still claims it, and otherwise the first claimant in document order takes over, as `adoptWaiting`
-   * picks.
-   *
-   * When the key has no Target, or loses it, and two new claimants arrive in the same task, delivery connects whichever
-   * it reaches first, which is not always the first in document order. Both staying is reported as a mistake, and one
-   * of them leaving brings the two back into agreement.
+   * key while it still claims it, and otherwise the first claimant in document order takes it: `adoptWaiting` picks
+   * that one when the Target leaves, and `takesOver` hands the key to it when it is reached after another claimant.
    */
   private claimantNow(key: string): T | null {
     const [target] = this.targetsByKey.valuesForKey(key);

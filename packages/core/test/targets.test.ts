@@ -309,6 +309,24 @@ describe('@targets', () => {
       expect(el.panels).not.to.equal(first);
     });
 
+    it('should read the targets of the element moved before it has initialized again', async () => {
+      const container = document.createElement('div');
+      el.after(container);
+      container.append(el);
+
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel2']);
+      await nextFrame();
+      expect(el.panels.map((p) => p.id)).to.deep.equal(['panel1', 'panel2']);
+    });
+
+    it('should hand out the same array once the change is delivered', async () => {
+      el.append(createPanel('panel-new'));
+      const before = el.panels;
+
+      await Promise.resolve();
+      expect(el.panels).to.equal(before);
+    });
+
     it('should hand out the same array when an unrelated change is waiting too', () => {
       el.append(createPanel('panel-new'));
       const first = el.panels;
@@ -356,6 +374,17 @@ describe('@targets', () => {
 
       await Promise.resolve();
       expect(states).to.deep.equal(['set after the read']);
+    });
+
+    it('should not change when the callbacks for the change run', async () => {
+      const order: string[] = [];
+      el.panelsConnectedSpy = Sinon.spy(() => order.push('panelsConnected'));
+      el.append(createPanel('panel-new'));
+      Promise.resolve().then(() => order.push('a microtask queued before the read'));
+      expect(el.panels).to.have.length(3);
+
+      await nextFrame();
+      expect(order).to.deep.equal(['panelsConnected', 'a microtask queued before the read']);
     });
   });
 
