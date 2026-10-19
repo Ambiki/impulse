@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0-rc.3] - 2026-10-19
+
 ### Changed
 
 - Reading a `@target()` or `@targets()` field includes DOM changes made earlier in the same task; the callbacks still run when the changes are delivered ([#232](https://github.com/Ambiki/impulse/pull/232))
@@ -181,7 +183,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.2...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.3...HEAD
+[2.0.0-rc.3]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.2...v2.0.0-rc.3
 [2.0.0-rc.2]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.1...v2.0.0-rc.2
 [2.0.0-rc.1]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.0...v2.0.0-rc.1
 [2.0.0-rc.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0-rc.0
