@@ -39,4 +39,16 @@ describe('lazy import', () => {
     await nextFrame();
     expect(callback.calledOnce).to.be.true;
   });
+
+  it('calls only the callback whose selector matches an element on the page', async () => {
+    const callbackA = Sinon.spy();
+    const callbackB = Sinon.spy();
+    lazyImport('.lazy-only-a', callbackA);
+    lazyImport('.lazy-only-b', callbackB);
+    await fixture(html`<div class="lazy-only-a"></div>`);
+
+    await nextFrame();
+    expect(callbackA.calledOnce).to.be.true;
+    expect(callbackB.called).to.be.false;
+  });
 });
