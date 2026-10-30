@@ -22,12 +22,10 @@ export default function lazyImport(selector: string, callback: () => void) {
 
   new SelectorObserver(document.documentElement, selector, {
     elementConnected() {
-      for (const selector of lazyElements.keys) {
-        for (const callback of lazyElements.get(selector) || []) {
-          domReady().then(callback);
-          lazyElements.deleteKey(selector);
-        }
+      for (const cb of lazyElements.get(selector) || []) {
+        domReady().then(cb);
       }
+      lazyElements.deleteKey(selector);
     },
   }).start();
 }
