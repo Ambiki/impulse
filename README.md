@@ -12,6 +12,9 @@ Write your HTML however you like, and let Impulse handle the behavior.
 yarn add @ambiki/impulse
 ```
 
+Impulse uses TypeScript's legacy decorators, so turn on `experimentalDecorators`. See
+[Getting started](https://ambiki.github.io/impulse/introduction/getting-started) for the full `tsconfig.json`.
+
 ## Example: Simple counter
 
 ```ts

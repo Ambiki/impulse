@@ -12,9 +12,21 @@ A run of Simple selectors with no combinator between them, all of which must mat
 one Compound of three; `.open a.link` is two.
 _Avoid_: Compound selector, segment, clause
 
+**Default**:
+The value a property reads as while its attribute is missing or can't be read as its type: the value it holds once the
+element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript: an element
+never writes it to the attribute on its own.
+_Avoid_: Initial value, fallback, reflected value
+
+**Empty value**:
+What a property's type holds when it holds nothing: `''` for a String, `0` for a Number, `false` for a Boolean, `[]`
+for an Array, and `{}` for an Object.
+_Avoid_: Blank, zero value, falsy value
+
 **Initialized**:
-An element whose properties, targets, and actions have started and that has not been disconnected since. Only an
-element itself can be Initialized; the `data-impulse-element` attribute reports the state rather than conferring it.
+An Impulse element whose properties, targets, and actions have started and that has not been disconnected since. Only
+an Impulse element can be Initialized, and only by initializing itself: a standard element or another custom element
+never is, and the `data-impulse-element` attribute reports the state rather than conferring it.
 _Avoid_: Started, mounted, booted
 
 **Owner**:
@@ -42,6 +54,12 @@ _Avoid_: Simple, token, atom, part
 The element a selector is about: the rightmost compound of each comma-separated part. `.button > a[data-x]` has the
 subject `a[data-x]`. Everything to its left constrains where that element may sit, without describing it.
 _Avoid_: Key, rightmost part, target, leaf
+
+**Target**:
+An element an Owner's `@target()` or `@targets()` field holds through a `data-target` token: from its
+`[field]Connected` callback until its `[field]Disconnected` callback. An element carrying the token whose connected
+callback has not run is not yet a Target.
+_Avoid_: Ref, reference, child
 
 **Watcher**:
 A selector registered with the shared document observer, together with the callbacks run as elements start and stop

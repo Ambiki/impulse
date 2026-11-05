@@ -130,7 +130,7 @@ export function on(
  * @example
  * ```ts
  * // Dispatch a simple custom event
- * const button = document.querySelector('button');
+ * const button = document.querySelector('button')!;
  * emit(button, 'custom-click', { detail: { count: 1 } });
  *
  * // Dispatch with typed detail data
@@ -138,7 +138,7 @@ export function on(
  *   username: string;
  *   email: string;
  * }
- * const form = document.querySelector('form');
+ * const form = document.querySelector('form')!;
  * emit<FormData>(form, 'form-submit', {
  *   detail: { username: 'john', email: 'john@example.com' }
  * });
@@ -150,7 +150,7 @@ export function on(
  * });
  *
  * // Dispatch and access the event object
- * const event = emit(element, 'my-event', { detail: { success: true } });
+ * const event = emit(element, 'my-event', { detail: { success: true }, cancelable: true });
  * console.log(event.defaultPrevented);
  * ```
  */

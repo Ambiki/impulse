@@ -69,6 +69,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
         items: [
           { text: 'What is Impulse?', link: '/introduction/what-is-impulse' },
           { text: 'Getting started', link: '/introduction/getting-started' },
+          { text: 'Upgrading to 2.0', link: '/introduction/upgrading-to-2' },
         ],
       },
       {
@@ -89,6 +90,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
           { text: 'connected', link: '/utilities/connected' },
           { text: 'disconnected', link: '/utilities/disconnected' },
           { text: 'emit', link: '/utilities/emit' },
+          { text: 'isInitialized', link: '/utilities/is-initialized' },
           { text: 'lazyImport', link: '/utilities/lazy-import' },
           { text: 'on', link: '/utilities/on' },
           { text: 'whenInitialized', link: '/utilities/when-initialized' },
@@ -109,7 +111,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
       },
     ],
     editLink: {
-      pattern: 'https://github.com/Ambiki/impulse/tree/main/packages/docs/:path',
+      pattern: 'https://github.com/Ambiki/impulse/edit/main/packages/docs/:path',
     },
     footer: {
       message: 'Released under the MIT License.',

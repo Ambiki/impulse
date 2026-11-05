@@ -67,8 +67,21 @@ on('focusin', 'input', handler);
 ## Propagation
 
 Calling `event.stopPropagation()` inside a handler halts further delegated dispatch on the same event - handlers
-registered against ancestor selectors will not fire. `event.stopImmediatePropagation()` additionally blocks any
-remaining handlers registered against the same element.
+matched on elements later in the walk will not fire: ancestors when bubbling, descendants with `capture`.
+`event.stopImmediatePropagation()` additionally blocks any remaining handlers registered against the same element.
+
+Without `capture`, every handler runs from a bubbling listener on `document`, so the event has already passed through
+the elements in between. `event.stopPropagation()` in such a handler cannot stop a native listener on one of those
+elements, and a native listener that stops propagation before the event reaches `document` keeps every bubbling `on`
+handler from running.
+
+## Errors
+
+A selector the browser rejects throws a `DOMException` named `SyntaxError` at the call and registers nothing, even when
+`signal` is already aborted.
+
+A handler that throws is reported like an uncaught error, so it reaches `window.onerror`, and does not stop the handlers
+after it - the same way the browser isolates native listeners from one another.
 
 ## Stopping observation
 

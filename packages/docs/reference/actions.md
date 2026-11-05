@@ -32,8 +32,17 @@ The `data-action` value `click->greet-user#greet` is called an action descriptor
 - `greet-user` is the name of the custom element.
 - `greet` is the name of the function that should be invoked when the event is triggered.
 
+The event name is required. There is no default event per element, so `greet-user#greet` is ignored.
+
 An action is wired up by the closest ancestor (or the element itself) whose tag name matches the identifier in the
 descriptor — `greet-user` above. A `data-action` that names an element it is not inside of is never bound to anything.
+
+Actions are bound once that element has [initialized](/reference/lifecycle-callbacks#functions). An event fired before
+then is missed.
+
+An action on an element inserted later is bound when Impulse's `MutationObserver` delivers the insertion, not at the
+moment of the `append()` call, so an event dispatched in the same synchronous run of script is missed too. Await a
+microtask (`await Promise.resolve()`) between inserting the element and dispatching the event.
 
 ## Global events
 
@@ -78,6 +87,9 @@ descriptor is clearer, so Impulse provides these modifiers out of the box.
   <a href="#" data-action="click.stop.prevent->my-element#invokeAction"></a>
 </my-element>
 ```
+
+Modifiers run in the order written, and only when the method exists. `click.self.prevent` calls `preventDefault()` only
+for clicks on the element itself, while `click.prevent.self` calls it for every click. Unknown modifiers are ignored.
 
 The `.capture`, `.once`, and `.passive` modifiers mirror the [DOM event listener options](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener#options).
 

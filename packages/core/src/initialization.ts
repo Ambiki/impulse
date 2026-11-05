@@ -17,7 +17,29 @@ const initialized = new WeakSet<Element>();
 const waiters = new WeakMap<Element, Set<(element: Element) => void>>();
 
 /**
- * Whether `element` has finished initializing and has not been disconnected since.
+ * Returns whether `element` is an Impulse element that is initialized right now: its properties, targets, and actions
+ * have started, and it has not been disconnected since. It is `true` from just before `connected()` runs until the
+ * element's teardown begins, just before `disconnected()`. A method that can be called at any time can check it before
+ * reaching for the element's targets.
+ *
+ * Standard HTML elements and non-Impulse custom elements never initialize, so they return `false`, even once
+ * `whenInitialized` has resolved for them. A `data-impulse-element` attribute that was copied by `cloneNode` or
+ * hand-written rather than set by the element itself does not count.
+ *
+ * @param element - The element to check.
+ * @returns `true` if `element` is an initialized Impulse element.
+ *
+ * @example
+ * ```ts
+ * show() {
+ *   if (!isInitialized(this)) {
+ *     // Not wired up yet: `connected()` opens the dialog once it runs.
+ *     this.open = true;
+ *     return;
+ *   }
+ *   this.dialog.showModal();
+ * }
+ * ```
  */
 export function isInitialized(element: Element): boolean {
   return initialized.has(element);

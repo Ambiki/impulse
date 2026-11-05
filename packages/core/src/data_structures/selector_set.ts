@@ -97,8 +97,8 @@ export default class SelectorSet<T> {
    * Every entry whose selector could match `element`, each returned once however many buckets it sits in. These are
    * candidates: run `element.matches(selector)` on them to get the real matches.
    *
-   * The results belong to the set and are only valid until the next call, which reuses them. Read them and let them
-   * go; retaining or mutating one corrupts the index.
+   * Each call returns a new array, but the entries in it belong to the set. Read them, and do not mutate them: changing
+   * one corrupts the index.
    */
   matches(element: Element): Match<T>[] {
     // The one allocation left, and it earns its keep: callers run callbacks per candidate, and those callbacks

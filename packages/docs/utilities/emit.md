@@ -6,13 +6,14 @@ The `emit` function dispatches a custom event from a specified target element.
 
 This function creates and dispatches a [CustomEvent](https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent) with
 typed detail data. Events are created with `bubbles: true` and `composed: true` by default, allowing them to propagate
-through the DOM and cross shadow DOM boundaries.
+through the DOM and cross shadow DOM boundaries. They are not cancelable unless you pass `cancelable: true`, and
+`detail` defaults to `{}`.
 
 ```ts{5}
 import { emit } from '@ambiki/impulse';
 
 // Dispatch a simple custom event
-const button = document.querySelector('button');
+const button = document.querySelector('button')!;
 emit(button, 'custom-click', { detail: { count: 1 } });
 ```
 
@@ -21,7 +22,7 @@ emit(button, 'custom-click', { detail: { count: 1 } });
 You can include custom data in the event's detail property:
 
 ```ts{3-6}
-const button = document.querySelector('button');
+const button = document.querySelector('button')!;
 emit(button, 'custom-click', {
   detail: {
     username: 'john',
@@ -60,8 +61,8 @@ The function returns the [CustomEvent](https://developer.mozilla.org/en-US/docs/
 dispatched, allowing you to inspect its state:
 
 ```ts
-const event = emit(element, 'my-event', { detail: { success: true } });
-console.log(event.defaultPrevented);
+const event = emit(element, 'my-event', { detail: { success: true }, cancelable: true });
+console.log(event.defaultPrevented); // true if a listener called `event.preventDefault()`
 ```
 
 ## Emitting from an element
@@ -85,8 +86,8 @@ export default class ClipBoardElement extends ImpulseElement {
 ```
 
 ```ts
-document.querySelector('clip-board').addEventListener('clip-board:copied', (event) => {
-  console.log(event.detail.value);
+document.querySelector('clip-board')!.addEventListener('clip-board:copied', (event) => {
+  console.log((event as CustomEvent<{ value: string }>).detail.value);
 });
 ```
 
