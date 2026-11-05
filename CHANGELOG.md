@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-05
+
+Same as 2.0.0-rc.3. Changes since 1.1.0 are listed under the `2.0.0-rc.*` sections.
+
 ## [2.0.0-rc.3] - 2026-10-19
 
 ### Changed
@@ -80,6 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@property` accessors are defined on connect, so a parent's `[target]Connected(child)` can read them ([#124](https://github.com/Ambiki/impulse/pull/124))
 - Remove `data-impulse-element` when an element disconnects ([#112](https://github.com/Ambiki/impulse/pull/112))
 - Preserve DOM order for `@targets()` when a target is inserted between others ([#97](https://github.com/Ambiki/impulse/pull/97))
+
+## [1.1.1] - 2026-11-02
+
+### Fixed
+
+- Run only the matched selector's callbacks in `lazyImport` ([#235](https://github.com/Ambiki/impulse/pull/235))
 
 ## [1.1.0] - 2025-10-25
 
@@ -183,11 +193,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.3...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0
 [2.0.0-rc.3]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.2...v2.0.0-rc.3
 [2.0.0-rc.2]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.1...v2.0.0-rc.2
 [2.0.0-rc.1]: https://github.com/Ambiki/impulse/compare/v2.0.0-rc.0...v2.0.0-rc.1
 [2.0.0-rc.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0-rc.0
+[1.1.1]: https://github.com/Ambiki/impulse/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/Ambiki/impulse/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/Ambiki/impulse/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/Ambiki/impulse/compare/v1.0.0...v1.0.1
