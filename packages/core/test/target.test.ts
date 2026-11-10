@@ -303,6 +303,32 @@ describe('@target', () => {
       return panel;
     }
 
+    it('should hand the key to a claimant inserted ahead of the target before the element is defined', async () => {
+      // `el` keeps the router watching, so the tokens are indexed as they arrive and replayed in that order once the
+      // element is defined: the target first, then the claimant ahead of it, which takes over as it is replayed.
+      class LateTargetTest extends ImpulseElement {
+        @target() panel: HTMLElement | null;
+        panelConnectedSpy = Sinon.spy();
+        panelConnected(panel: HTMLElement) {
+          this.panelConnectedSpy(panel);
+        }
+      }
+      const late = document.createElement('late-target-test') as LateTargetTest;
+      late.innerHTML = '<div data-target="late-target-test.panel"></div>';
+      el.append(late);
+      await nextFrame();
+      const ahead = createPanel('late-target-test.panel');
+      late.prepend(ahead);
+      await nextFrame();
+
+      registerElement('late-target-test')(LateTargetTest);
+      await waitUntil(() => late.hasAttribute('data-impulse-element'));
+      await nextFrame();
+      expect(late.panel).to.eq(ahead);
+      expect(late.panelConnectedSpy.lastCall.calledWith(ahead)).to.be.true;
+      expect(errors.reported.length).to.eq(1);
+    });
+
     it('should adopt a replacement inserted before the old target is removed', async () => {
       const fresh = await addWaitingPanel();
       expect(el.panel).to.eq(old);
