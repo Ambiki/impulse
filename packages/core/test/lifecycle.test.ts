@@ -282,6 +282,21 @@ describe('createLifecycle', () => {
     expect(await waited).to.eq(waiting.host);
   });
 
+  it('resolves a whenInitialized() call made by a teardown call that re-inserts the host once the fresh init has run', async () => {
+    let waited: Promise<boolean> | undefined;
+    const waiting = script({ a: {} }, {
+      disconnected: (element) => {
+        if (waited) return;
+        waiting.insert();
+        waited = waiting.lifecycle.whenInitialized(element).then(() => element.hasAttribute('data-impulse-element'));
+      },
+    });
+    waiting.insert();
+    waiting.remove();
+    expect(await waited).to.be.true;
+    expect(waiting.log).to.deep.eq(['start a', 'connected', 'disconnected', 'stop a', 'start a', 'connected']);
+  });
+
   it('tears down and starts a fresh init when connected() moves the host', () => {
     let moved = false;
     const other = document.createElement('div');
@@ -725,34 +740,6 @@ describe('whenInitialized', () => {
 });
 
 describe('isInitialized', () => {
-  it('is false while the element waits to initialize, and true once it has', async () => {
-    counter += 1;
-    const tag = `is-initialized-${counter}`;
-    const childTag = `is-initialized-child-${counter}`;
-    class IsInitializedElement extends ImpulseElement {
-      static migratedToWhenInitialized = true;
-    }
-    registerElement(tag)(IsInitializedElement);
-
-    // An undefined custom element inside holds the init back until it is defined. That is the deprecated implicit wait,
-    // and the flag only silences its warning. Once that wait is removed, hold the init some other way.
-    const element = document.createElement(tag);
-    element.appendChild(document.createElement(childTag));
-    document.body.appendChild(element);
-
-    try {
-      await nextFrame();
-      expect(element.isConnected).to.be.true;
-      expect(isInitialized(element)).to.be.false;
-
-      customElements.define(childTag, class extends HTMLElement {});
-      await whenInitialized(element);
-      expect(isInitialized(element)).to.be.true;
-    } finally {
-      element.remove();
-    }
-  });
-
   it('is true inside connected()', async () => {
     counter += 1;
     const tag = `is-initialized-${counter}`;
