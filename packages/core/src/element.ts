@@ -3,10 +3,8 @@ import { IMPULSE_ELEMENT_ATTRIBUTE } from './constants';
 import { emit } from './events';
 import { whenParsed } from './helpers/dom';
 import { invokeEach } from './helpers/invoke_each';
-import { camelize, dasherize } from './helpers/string';
 import { clearInitialized, notifyInitialized } from './initialization';
-import Property from './property';
-import { PROPERTIES, registered } from './registry';
+import Property, { observedAttributes } from './property';
 import Target from './target';
 
 interface TearingDown {
@@ -59,21 +57,15 @@ export class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    return Array.from(registered(this.prototype, PROPERTIES).keys(), dasherize);
+    return observedAttributes(this.prototype);
   }
 
-  attributeChangedCallback(name: string, _oldValue: string | null, _newValue: string | null) {
+  attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
     // Changes are reported from the moment the element is Initialized until its teardown has finished, so a
     // `disconnected()` that sets a property is still told about it.
     const { phase } = this._lifecycle;
-    if ((phase !== 'initialized' && phase !== 'tearingDown') || _oldValue === _newValue) return;
-
-    const camelizedName = camelize(name);
-    const fn = (this as Record<string, unknown>)[`${camelizedName}Changed`];
-    if (typeof fn !== 'function') return;
-
-    const change = this.property.change(camelizedName, _oldValue, _newValue);
-    if (change) fn.call(this, change.newValue, change.oldValue);
+    if ((phase !== 'initialized' && phase !== 'tearingDown') || oldValue === newValue) return;
+    this.property.attributeChanged(name, oldValue, newValue);
   }
 
   disconnectedCallback() {

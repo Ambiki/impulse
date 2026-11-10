@@ -1,6 +1,7 @@
 import { expect, fixture, html } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, whenInitialized } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
 
 describe('@property', () => {
   @registerElement('property-test')
@@ -578,5 +579,74 @@ describe('@property', () => {
 
     el.setAttribute('numeric-value', 'xyz');
     expect(el.numericValueChanged.calledOnce).to.be.true;
+  });
+
+  it('should call the change callback named after the field when the field name has an acronym', async () => {
+    @registerElement('property-acronym-test')
+    class AcronymTest extends ImpulseElement {
+      userIDChanged = Sinon.fake();
+      userIdChanged = Sinon.fake();
+      @property() userID = 'none';
+    }
+
+    expect(AcronymTest.observedAttributes).to.deep.equal(['user-id']);
+    const element = await fixture<AcronymTest>(html`<property-acronym-test user-id="a"></property-acronym-test>`);
+    await whenInitialized(element);
+    expect(element).to.have.property('userID', 'a');
+
+    element.setAttribute('user-id', 'b');
+    expect(element.userIDChanged.calledOnceWith('b', 'a')).to.be.true;
+
+    element.userID = 'c';
+    expect(element).to.have.attribute('user-id', 'c');
+    expect(element.userIDChanged.secondCall.calledWith('c', 'b')).to.be.true;
+
+    element.removeAttribute('user-id');
+    expect(element.userIDChanged.thirdCall.calledWith('none', 'c')).to.be.true;
+    expect(element.userIdChanged.called).to.be.false;
+  });
+
+  it('should call the change callback of every field that reads the changed attribute', async () => {
+    @registerElement('property-shared-attribute-test')
+    class SharedAttributeTest extends ImpulseElement {
+      fooURLChanged = Sinon.fake();
+      fooUrlChanged = Sinon.fake();
+      @property() fooURL: string;
+      @property({ type: Number }) fooUrl: number;
+    }
+
+    expect(SharedAttributeTest.observedAttributes).to.deep.equal(['foo-url']);
+    const element = await fixture<SharedAttributeTest>(html`<property-shared-attribute-test></property-shared-attribute-test>`);
+    await whenInitialized(element);
+
+    element.setAttribute('foo-url', '5');
+    expect(element.fooURLChanged.calledOnceWith('5', '')).to.be.true;
+    expect(element.fooUrlChanged.calledOnceWith(5, 0)).to.be.true;
+  });
+
+  it('should report a change callback for an observed attribute that no property reads', async () => {
+    class ExtraAttributeTest extends ImpulseElement {
+      static get observedAttributes() {
+        return [...super.observedAttributes, 'extra-thing'];
+      }
+
+      extraThingChanged = Sinon.fake();
+      @property() name = 'foo';
+    }
+    customElements.define('property-extra-attribute-test', ExtraAttributeTest);
+
+    const element = document.createElement('property-extra-attribute-test') as ExtraAttributeTest;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    const { reported, release } = captureReportedErrors('Unregistered attribute changed: extra-thing');
+    try {
+      element.setAttribute('extra-thing', 'x');
+    } finally {
+      release();
+      element.remove();
+    }
+    expect(reported).to.have.length(1);
+    expect(element.extraThingChanged.called).to.be.false;
   });
 });
