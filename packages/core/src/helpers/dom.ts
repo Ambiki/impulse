@@ -32,3 +32,12 @@ export function replaceChildrenDropsRemoval(): boolean {
   }
   return dropsRemoval;
 }
+
+/**
+ * Orders two nodes as they sit in the document. A comparator has to call a node equal to itself; two nodes in different
+ * trees, one of them detached, are ordered arbitrarily.
+ */
+export function byDocumentOrder(a: Node, b: Node): number {
+  if (a === b) return 0;
+  return a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+}

@@ -7,6 +7,11 @@ covers the framework and the tooling used to develop it.
 
 ### Framework
 
+**Claimant**:
+An element whose `data-target` names a field of an Owner, as the DOM stands, whether or not it is that field's Target
+yet. A `@target()` field has at most one Target, and the claimants that aren't it wait to take over.
+_Avoid_: Candidate, contender, waiting target
+
 **Compound**:
 A run of Simple selectors with no combinator between them, all of which must match the same element. `a.link[href]` is
 one Compound of three; `.open a.link` is two.
