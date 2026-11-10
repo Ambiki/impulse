@@ -6,17 +6,18 @@ const descriptorPattern = /(?:(.+?)?(?:\.(.+?))?(?:@(window|document))?->)?(.+)#
 const validEventModifiers = ['stop', 'prevent', 'self'];
 const validEventOptions = ['capture', 'once', 'passive'];
 
+// A token that does not read as `event->identifier#method` leaves the parts it lacks `undefined`.
 export interface ActionDescriptor {
-  eventName: string;
+  eventName: string | undefined;
   eventModifiers: readonly string[];
   eventListenerOptions: EventListenerOptions;
   eventTarget: Window | Document | undefined;
-  methodName: string;
-  identifier: string;
+  methodName: string | undefined;
+  identifier: string | undefined;
 }
 
-// Every token is parsed at least twice, once by the router's `identifierFor` and again by `Action#tokenMatched`, and
-// descriptors repeat across elements, so each distinct descriptor is parsed once.
+// The action router parses each token once, but descriptors repeat across elements (every row of a table, say), so
+// each distinct descriptor is parsed once.
 const descriptors = new Map<string, ActionDescriptor>();
 
 export function parseActionDescriptor(_descriptor: string): ActionDescriptor {

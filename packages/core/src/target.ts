@@ -1,7 +1,9 @@
 import type { TargetDeclaration } from './decorators/target';
 import type { ImpulseElement } from './element';
-import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
+import type { Token } from './observers/token_list_watcher';
+import type { TokenRouterDelegate } from './observers/token_router';
 import type { SingleTarget, SingleTargetHost } from './single_target';
+import type { TargetDescriptor } from './target_descriptor';
 import SetMap from './data_structures/set_map';
 import { byDocumentOrder } from './helpers/dom';
 import { reportUncaught } from './helpers/errors';
@@ -14,13 +16,13 @@ import { parseTargetDescriptor } from './target_descriptor';
 
 // One document-wide `[data-target]` watcher for every instance; tokens are routed to the instance named by the
 // `identifier.key` descriptor.
-const router = new TokenRouter('data-target', (content) => parseTargetDescriptor(content).identifier);
+const router = new TokenRouter('data-target', parseTargetDescriptor);
 
 function sameElements(a: readonly Element[], b: readonly Element[]): boolean {
   return a.length === b.length && a.every((element, index) => element === b[index]);
 }
 
-export default class Target<T extends Element> implements TokenListWatcherDelegate<T>, SingleTargetHost<T> {
+export default class Target<T extends Element> implements TokenRouterDelegate<T, TargetDescriptor>, SingleTargetHost<T> {
   private readonly declarations: ReadonlyMap<string, TargetDeclaration>;
   // The `@targets()` fields' Targets, in the order they connected.
   private targetsByKey: SetMap<string, T>;
@@ -110,12 +112,10 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     }
   }
 
-  tokenMatched(token: Token<T>) {
-    const { content, element } = token;
-    const { identifier, key } = parseTargetDescriptor(content);
-    // The router only delivers tokens whose closest `identifier` ancestor is this instance, so no scope check is
-    // needed here. `isValidIdKeyPair` still rejects tokens routed here by a selector other than this tag name.
-    if (!this.isValidIdKeyPair(identifier, key)) return;
+  tokenMatched(token: Token<T>, { key }: TargetDescriptor) {
+    const { element } = token;
+    // The router only delivers tokens whose identifier is this element's tag name, so only the key is left to check.
+    if (!this.isDeclared(key)) return;
 
     // A `@target()` field's rule hears about an element when it starts claiming the field, not about each token.
     const single = this.singles.get(key);
@@ -135,10 +135,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     this.connect(key, element);
   }
 
-  tokenUnmatched(token: Token<T>) {
+  tokenUnmatched(token: Token<T>, { key }: TargetDescriptor) {
     const { content, element } = token;
-    const { identifier, key } = parseTargetDescriptor(content);
-    if (!this.isValidIdKeyPair(identifier, key)) return;
+    if (!this.isDeclared(key)) return;
 
     const single = this.singles.get(key);
     if (single) {
@@ -231,10 +230,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
 
   // Whether the router would route a token on `element` naming `key` to this element, as the DOM stands.
   claims(key: string, element: Element): boolean {
-    return router.routesTo(this.instance, element, (content) => {
-      const descriptor = parseTargetDescriptor(content);
-      return descriptor.identifier === this.identifier && descriptor.key === key;
-    });
+    return router.routesTo(this.instance, element, (descriptor) => descriptor.key === key);
   }
 
   connected(key: string, element: T) {
@@ -284,12 +280,8 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     return this.tokensByElement.valuesForKey(element).some((token) => parseTargetDescriptor(token.content).key === key);
   }
 
-  private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {
-    if (!key || identifier !== this.identifier || !this.declarations.has(key)) {
-      return false;
-    }
-
-    return true;
+  private isDeclared(key: string | undefined): key is string {
+    return !!key && this.declarations.has(key);
   }
 
   private invokeCallback(key: string, target: T, suffix: string) {

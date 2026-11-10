@@ -1,14 +1,16 @@
+import type { ActionDescriptor } from './action_descriptor';
 import type { ImpulseElement } from './element';
-import type { Token, TokenListWatcherDelegate } from './observers/token_list_watcher';
+import type { Token } from './observers/token_list_watcher';
+import type { TokenRouterDelegate } from './observers/token_router';
 import { parseActionDescriptor } from './action_descriptor';
 import EventListener from './event_listener';
 import TokenRouter from './observers/token_router';
 
 // One document-wide `[data-action]` watcher for every instance; tokens are routed to the instance named by the
 // descriptor's identifier.
-const router = new TokenRouter('data-action', (content) => parseActionDescriptor(content).identifier);
+const router = new TokenRouter('data-action', parseActionDescriptor);
 
-export default class Action<T extends Element = Element> implements TokenListWatcherDelegate<T> {
+export default class Action<T extends Element = Element> implements TokenRouterDelegate<T, ActionDescriptor> {
   private stopWatching?: () => void;
   // Keyed by the `Token` object so `tokenUnmatched` only stops the listener that exact token created. The watcher
   // passes the same `Token` instance to both callbacks, and duplicate descriptors on one element get distinct tokens.
@@ -30,17 +32,20 @@ export default class Action<T extends Element = Element> implements TokenListWat
     stopWatching();
   }
 
-  tokenMatched(token: Token<T>) {
-    const { content, element } = token;
-    const { identifier, eventTarget, ...options } = parseActionDescriptor(content);
-    // The router only delivers tokens whose closest `identifier` ancestor is this instance, so no scope check is
-    // needed here. The identifier comparison still rejects tokens routed here by a selector other than this tag name;
-    // it parses the content with the same `parseActionDescriptor` the router's `identifierFor` uses.
-    if (options.eventName && identifier === this.identifier && options.methodName) {
-      const eventListener = new EventListener(this.instance, { ...options, eventTarget: eventTarget || element });
-      this.eventListenerMap.set(token, eventListener);
-      eventListener.start();
-    }
+  tokenMatched(token: Token<T>, descriptor: ActionDescriptor) {
+    // The router only delivers tokens whose identifier is this element's tag name, so only the event and method are
+    // left to check.
+    const { eventName, eventModifiers, eventListenerOptions, eventTarget, methodName } = descriptor;
+    if (!eventName || !methodName) return;
+    const eventListener = new EventListener(this.instance, {
+      eventName,
+      eventModifiers,
+      eventListenerOptions,
+      eventTarget: eventTarget || token.element,
+      methodName,
+    });
+    this.eventListenerMap.set(token, eventListener);
+    eventListener.start();
   }
 
   tokenUnmatched(token: Token<T>) {
@@ -49,9 +54,5 @@ export default class Action<T extends Element = Element> implements TokenListWat
 
     eventListener.stop();
     this.eventListenerMap.delete(token);
-  }
-
-  private get identifier() {
-    return this.instance.identifier;
   }
 }
