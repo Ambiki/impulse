@@ -22,6 +22,7 @@ describe('action modifiers', () => {
         <button id="button2" type="button" data-action="click.stop->action-modifier-test#stopSpy"></button>
         <button id="button3" type="button" data-action="click.prevent.stop->action-modifier-test#stopSpy"></button>
         <button id="button4" type="button" data-action="click->action-modifier-test#toggleSpy"></button>
+        <button id="button5" type="button" data-action="click.prevent->action-modifier-test#missing"></button>
       </action-modifier-test>
     `);
   });
@@ -61,5 +62,12 @@ describe('action modifiers', () => {
     expect(el.toggleSpy.called).to.be.false;
     expect(el.stopSpy.calledOnce).be.true;
     expect(el.stopSpy.args[0][0].defaultPrevented).to.be.true;
+  });
+
+  it('applies no modifier when the element has no such method', () => {
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    el.querySelector<HTMLButtonElement>('#button5')!.dispatchEvent(event);
+
+    expect(event.defaultPrevented).to.be.false;
   });
 });
