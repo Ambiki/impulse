@@ -2,6 +2,7 @@ import type { Lifecycle, Step } from '../src/lifecycle';
 import { expect, nextFrame, waitUntil } from '@open-wc/testing';
 import { ImpulseElement, isInitialized, registerElement, target, targets, whenInitialized } from '../src';
 import { createLifecycle } from '../src/lifecycle';
+import { captureReportedErrors } from './support/capture_reported_errors';
 import { captureUnhandledRejections } from './support/capture_unhandled_rejections';
 
 let counter = 0;
@@ -443,6 +444,82 @@ describe('createLifecycle', () => {
       await rejections.caught();
       expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['connected failed']);
     } finally {
+      rejections.release();
+    }
+  });
+
+  it('unwinds an init whose Step throws as a removal would, going idle and rethrowing the error', async () => {
+    const rejections = captureUnhandledRejections('start b failed');
+    let thrown = false;
+    try {
+      const throwing = script({
+        a: {},
+        b: {
+          onStart: () => {
+            if (thrown) return;
+            thrown = true;
+            throw new Error('start b failed');
+          },
+        },
+        c: {},
+      });
+      throwing.insert();
+      expect(throwing.log).to.deep.eq(['start a', 'start b', 'stop b', 'stop a']);
+      expect(throwing.lifecycle.isInitialized(throwing.host)).to.be.false;
+      expect(throwing.lifecycle.reportsChanges(throwing.host)).to.be.false;
+
+      throwing.log.length = 0;
+      throwing.remove();
+      throwing.insert();
+      expect(throwing.log).to.deep.eq(['start a', 'start b', 'start c', 'connected']);
+      await nextFrame();
+      expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['start b failed']);
+    } finally {
+      rejections.release();
+    }
+  });
+
+  it('unwinds an init whose Step\'s promise rejects as a removal would', async () => {
+    const rejections = captureUnhandledRejections('wait failed');
+    try {
+      const rejecting = script({
+        a: {},
+        waiting: { wait: () => Promise.reject(new Error('wait failed')) },
+        b: {},
+      });
+      rejecting.insert();
+      await nextFrame();
+      expect(rejecting.log).to.deep.eq(['start a', 'start waiting', 'stop waiting', 'stop a']);
+      expect(rejecting.lifecycle.isInitialized(rejecting.host)).to.be.false;
+      expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['wait failed']);
+    } finally {
+      rejections.release();
+    }
+  });
+
+  it('reports a stop that throws while a throwing Step is unwound, and rethrows the Step\'s error', async () => {
+    const rejections = captureUnhandledRejections('start b failed');
+    const reported = captureReportedErrors('stop a failed');
+    try {
+      const throwing = script({
+        a: {
+          onStop: () => {
+            throw new Error('stop a failed');
+          },
+        },
+        b: {
+          onStart: () => {
+            throw new Error('start b failed');
+          },
+        },
+      });
+      throwing.insert();
+      expect(throwing.log).to.deep.eq(['start a', 'start b', 'stop b', 'stop a']);
+      expect(reported.reported.map((error) => error.message)).to.deep.eq(['stop a failed']);
+      await nextFrame();
+      expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['start b failed']);
+    } finally {
+      reported.release();
       rejections.release();
     }
   });

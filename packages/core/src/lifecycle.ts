@@ -5,7 +5,8 @@ import { invokeEach } from './helpers/invoke_each';
 /**
  * One Step of an element's initialization. `start` runs as the element initializes, in the order the Steps are listed;
  * one that returns a promise holds the init until the promise settles. `stop`, when there is one, undoes `start`: the
- * Steps that started are stopped in reverse order when the element is torn down or its init is abandoned.
+ * Steps that started are stopped in reverse order when the element is torn down or its init is abandoned. A Step whose
+ * `start` throws, or whose promise rejects, is stopped too, so `stop` must undo a `start` that only got part of the way.
  */
 export interface Step<H extends Element> {
   start: (host: H) => void | Promise<unknown>;
@@ -111,8 +112,16 @@ export function createLifecycle<H extends Element>({
     phases.set(host, initializing);
     try {
       for (let index = 0; index < steps.length; index += 1) {
-        const waiting: unknown = steps[index].start(host);
-        if (waiting) await waiting;
+        try {
+          const waiting: unknown = steps[index].start(host);
+          if (waiting) await waiting;
+        } catch (error) {
+          // A Step that throws, or whose promise rejects, unwinds the init as a removal would, itself included, so
+          // nothing it or an earlier Step started is left running for a host that is not Initialized. A stop that
+          // throws while unwinding is reported rather than thrown, so it cannot replace the error being rethrown.
+          invokeReporting(() => abandon(host, index + 1));
+          throw error;
+        }
         // A Step can run code that removes the host (a target's connected callback, or another element's callback run
         // by a flush), and a removal while it waits leaves it to this check. A disconnect is ignored until the host is
         // Initialized, so the check follows every Step.
