@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An element whose initialization throws stops whatever it had started, instead of leaving its targets and actions running ([#241](https://github.com/Ambiki/impulse/pull/241))
 - Defining `userIdChanged` for a `@property() userID` no longer throws `Unregistered attribute changed` ([#238](https://github.com/Ambiki/impulse/pull/238))
 
 ## [2.0.0] - 2026-11-05
