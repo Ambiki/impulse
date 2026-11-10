@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A second element claiming a `@target()` field is reported once, however many times it lists the field ([#243](https://github.com/Ambiki/impulse/pull/243))
+- An element defined after a claimant was inserted ahead of its `@target()` Target gives that claimant the field, instead of leaving it empty ([#243](https://github.com/Ambiki/impulse/pull/243))
+- An element waiting for a `@target()` field no longer takes it over when it lists the field a second time ([#243](https://github.com/Ambiki/impulse/pull/243))
+- A second element claiming a `@target()` field is reported once, however many times it lists the field or moves ([#243](https://github.com/Ambiki/impulse/pull/243))
 - An element whose initialization throws stops whatever it had started, instead of leaving its targets and actions running ([#241](https://github.com/Ambiki/impulse/pull/241))
 - Defining `userIdChanged` for a `@property() userID` no longer throws `Unregistered attribute changed` ([#238](https://github.com/Ambiki/impulse/pull/238))
 
