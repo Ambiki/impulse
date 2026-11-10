@@ -161,6 +161,28 @@ describe('action', () => {
     expect(el.foo.calledOnce).to.be.true;
   });
 
+  it('should stop a window or document action once the element carrying it is removed', async () => {
+    document.querySelector('#element1')!.remove();
+    document.querySelector('#element2')!.remove();
+    await nextFrame();
+
+    window.dispatchEvent(new CustomEvent('foo'));
+    document.dispatchEvent(new CustomEvent('foo'));
+    expect(el.foo.called).to.be.false;
+  });
+
+  it('should call a method defined after the action was bound', async () => {
+    const button = document.createElement('button');
+    button.setAttribute('data-action', `click->${el.identifier}#later`);
+    el.append(button);
+    await nextFrame();
+
+    const later = Sinon.spy();
+    Object.assign(el, { later });
+    button.click();
+    expect(later.calledOnce).to.be.true;
+  });
+
   it('should not bind action if the identifier does not match', () => {
     const element = document.querySelector<HTMLElement>('#element3')!;
     element.click();
