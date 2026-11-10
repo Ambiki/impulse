@@ -33,6 +33,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // no `[key]Connected`; one of them is adopted when the target goes away, so a replacement inserted before the element
   // it replaces is removed is not lost.
   private waitingByKey: SetMap<string, Token<T>>;
+  // The elements each `@target()` key has a report scheduled for (see `reportIfLeftWaiting`).
+  private reportsPending = new SetMap<string, T>();
   // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
   private orderedByKey = new Map<string, T[]>();
   // What each field read while DOM changes waited to be delivered, worked out from the DOM, with the
@@ -47,6 +49,10 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // `keptForMovedTarget`).
   private departedByKey = new Map<string, { element: T; since: number; delivery: number }>();
   private stopWatching?: () => void;
+  // Whether the element is subscribed, from the moment it starts subscribing until its teardown begins. Unlike
+  // `stopWatching`, which is only set once `subscribe` returns, it holds while the tokens already on the page are
+  // replayed, so a takeover or an adoption made then connects the element it should.
+  private subscribed = false;
 
   constructor(private readonly instance: ImpulseElement) {
     this.declarations = registeredFor(this.instance, TARGETS);
@@ -85,7 +91,13 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     }
 
     if (!this.stopWatching) {
-      this.stopWatching = router.subscribe(this.instance, this);
+      this.subscribed = true;
+      try {
+        this.stopWatching = router.subscribe(this.instance, this);
+      } catch (error) {
+        this.subscribed = false;
+        throw error;
+      }
     }
   }
 
@@ -93,8 +105,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     const stopWatching = this.stopWatching;
     if (!stopWatching) return;
     // Reset first so a throwing stop cannot block `start()` from creating a fresh watcher on reconnect, and so
-    // `adoptWaiting` can tell the unmatches that follow are a teardown.
+    // `adoptWaiting` and `handOver` can tell the unmatches that follow are a teardown.
     this.stopWatching = undefined;
+    this.subscribed = false;
     this.nowByKey.clear();
     try {
       stopWatching();
@@ -121,6 +134,12 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // A `@target()` key holds one element. A second one is kept waiting rather than dropped; `targetsByKey` is left
     // alone, so the field and the callbacks only ever see the target.
     if (!this.isKeyMultiple(key)) {
+      // A waiting element's further tokens join its wait: it is one claimant, already behind the target, and taking
+      // them for a new claim could hand it the key while its first token still waits.
+      if (this.isWaiting(key, element)) {
+        this.waitingByKey.add(key, token);
+        return;
+      }
       const [target] = this.targetsByKey.valuesForKey(key);
       if (target && this.takesOver(key, target, element)) {
         this.handOver(key, target, token);
@@ -128,7 +147,7 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
       }
       if (target || this.keptForMovedTarget(key, element)) {
         this.waitingByKey.add(key, token);
-        this.reportIfLeftWaiting(key, token);
+        this.reportIfLeftWaiting(key, element);
         // Should the moved Target not come back after all, the key is not left empty with a claimant waiting.
         if (!target) Promise.resolve().then(() => whileDelivering(() => this.adoptWaiting(key)));
         return;
@@ -172,9 +191,13 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
    * Tokens arrive in synchronous runs: a mutation batch, or the replay when the instance starts. A microtask queued
    * from inside a run is therefore invoked once every token in it has been delivered.
    */
-  private reportIfLeftWaiting(key: string, token: Token<T>) {
+  private reportIfLeftWaiting(key: string, element: T) {
+    // One report per element in a run, however often it starts waiting in it: moved, or adopted and displaced again.
+    if (this.reportsPending.has(key, element)) return;
+    this.reportsPending.add(key, element);
     Promise.resolve().then(() => {
-      if (!this.waitingByKey.has(key, token)) return;
+      this.reportsPending.delete(key, element);
+      if (!this.isWaiting(key, element)) return;
 
       reportUncaught(
         new Error(
@@ -234,8 +257,8 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
       this.invokeCallback(key, target, 'disconnected');
     } finally {
       this.targetsByKey.delete(key, target);
-      if (this.stopWatching) {
-        if (displaced[0]) this.reportIfLeftWaiting(key, displaced[0]);
+      if (this.subscribed) {
+        if (displaced[0]) this.reportIfLeftWaiting(key, target);
         this.tokensByElement.add(token.element, token);
         // Reported rather than thrown, as in `adoptWaiting`: it can run while a throwing `[key]Disconnected` unwinds.
         invokeReporting(() => this.connect(key, token.element));
@@ -274,9 +297,9 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
    */
   private adoptWaiting(key: string, departed?: Token<T>) {
     // Nothing is waiting behind almost every target that goes away, `@targets()` ones included. While stopping,
-    // `stop()` has cleared `stopWatching` and is unmatching every token, the waiting ones too, so there is nobody to
+    // `stop()` has cleared `subscribed` and is unmatching every token, the waiting ones too, so there is nobody to
     // adopt. And on the second look below, the key may have a target again.
-    if (!this.stopWatching || !this.waitingByKey.get(key) || this.targetsByKey.get(key)) return;
+    if (!this.subscribed || !this.waitingByKey.get(key) || this.targetsByKey.get(key)) return;
     if (departed && router.stillRoutesTo(this.instance, departed)) return;
 
     const current = this.waitingByKey.valuesForKey(key).filter((token) => router.stillRoutesTo(this.instance, token));
@@ -385,6 +408,11 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
   private isStillReferenced(element: T, content: string): boolean {
     return this.tokensByElement.valuesForKey(element).some((token) => token.content === content);
+  }
+
+  // Whether `element` has a token waiting behind the Target of the `@target()` key.
+  private isWaiting(key: string, element: T): boolean {
+    return this.waitingByKey.valuesForKey(key).some((token) => token.element === element);
   }
 
   private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {

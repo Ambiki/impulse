@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, registerElement, target } from '../src';
+import { ImpulseElement, registerElement, target, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
 
 describe('@target', () => {
@@ -303,6 +303,80 @@ describe('@target', () => {
       return panel;
     }
 
+    it('should hand the key to a claimant inserted ahead of the target before the element is defined', async () => {
+      // `el` keeps the router watching, so the tokens are indexed as they arrive and replayed in that order once the
+      // element is defined: the target first, then the claimant ahead of it, which takes over as it is replayed.
+      class LateTargetTest extends ImpulseElement {
+        @target() panel: HTMLElement | null;
+        panelConnectedSpy = Sinon.spy();
+        panelConnected(panel: HTMLElement) {
+          this.panelConnectedSpy(panel);
+        }
+      }
+      const late = document.createElement('late-target-test') as LateTargetTest;
+      late.innerHTML = '<div data-target="late-target-test.panel"></div>';
+      el.append(late);
+      await nextFrame();
+      const ahead = createPanel('late-target-test.panel');
+      late.prepend(ahead);
+      await nextFrame();
+
+      registerElement('late-target-test')(LateTargetTest);
+      await whenInitialized(late);
+      expect(late.panel).to.eq(ahead);
+      expect(late.panelConnectedSpy.lastCall.calledWith(ahead)).to.be.true;
+      expect(errors.reported.length).to.eq(1);
+    });
+
+    it('should keep a waiting element waiting when it lists the target a second time', async () => {
+      const waiting = await addWaitingPanel();
+      const fresh = await addWaitingPanel();
+      const connected = () => el.panelConnectedSpy.args.map(([panel]) => panel);
+
+      // In one task: the target and `waiting` leave, so `waiting` is adopted and then let go, a new claimant takes the
+      // key, `fresh` lists the target a second time, and `waiting` comes back ahead of everyone.
+      old.remove();
+      waiting.remove();
+      const latest = createPanel();
+      el.append(latest);
+      fresh.setAttribute('data-target', `${el.identifier}.panel ${el.identifier}.panel`);
+      fresh.before(waiting);
+      expect(el.panel).to.eq(waiting);
+      await nextFrame();
+
+      expect(el.panel).to.eq(waiting);
+      expect(connected()).not.to.include(fresh);
+
+      waiting.remove();
+      latest.remove();
+      await nextFrame();
+      expect(el.panel).to.eq(fresh);
+      expect(connected().filter((panel) => panel === fresh)).to.have.length(1);
+    });
+
+    it('should report a waiting element once when it is moved in the task that added it', async () => {
+      const fresh = createPanel();
+      el.append(fresh);
+      el.append(createPanel());
+      el.append(fresh);
+      await nextFrame();
+
+      // One report for each element left waiting.
+      expect(errors.reported.length).to.eq(2);
+    });
+
+    it('should report an element once when it waits, is adopted and is displaced in one task', async () => {
+      const fresh = createPanel();
+      el.append(fresh);
+      old.remove();
+      const ahead = createPanel();
+      el.prepend(ahead);
+      await nextFrame();
+
+      expect(el.panel).to.eq(ahead);
+      expect(errors.reported.length).to.eq(1);
+    });
+
     it('should adopt a replacement inserted before the old target is removed', async () => {
       const fresh = await addWaitingPanel();
       expect(el.panel).to.eq(old);
@@ -319,6 +393,13 @@ describe('@target', () => {
 
     it('should report a second element that is still there once the changes that added it are processed', async () => {
       await addWaitingPanel();
+
+      expect(errors.reported.length).to.eq(1);
+      expect(el.panel).to.eq(old);
+    });
+
+    it('should report a second element once, however many times it lists the target', async () => {
+      await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel`);
 
       expect(errors.reported.length).to.eq(1);
       expect(el.panel).to.eq(old);
