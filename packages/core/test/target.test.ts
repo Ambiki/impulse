@@ -355,6 +355,29 @@ describe('@target', () => {
       expect(connected().filter((panel) => panel === fresh)).to.have.length(1);
     });
 
+    it('should report a waiting element once when it is moved in the task that added it', async () => {
+      const fresh = createPanel();
+      el.append(fresh);
+      el.append(createPanel());
+      el.append(fresh);
+      await nextFrame();
+
+      // One report for each element left waiting.
+      expect(errors.reported.length).to.eq(2);
+    });
+
+    it('should report an element once when it waits, is adopted and is displaced in one task', async () => {
+      const fresh = createPanel();
+      el.append(fresh);
+      old.remove();
+      const ahead = createPanel();
+      el.prepend(ahead);
+      await nextFrame();
+
+      expect(el.panel).to.eq(ahead);
+      expect(errors.reported.length).to.eq(1);
+    });
+
     it('should adopt a replacement inserted before the old target is removed', async () => {
       const fresh = await addWaitingPanel();
       expect(el.panel).to.eq(old);

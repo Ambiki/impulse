@@ -33,6 +33,8 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
   // no `[key]Connected`; one of them is adopted when the target goes away, so a replacement inserted before the element
   // it replaces is removed is not lost.
   private waitingByKey: SetMap<string, Token<T>>;
+  // The elements each `@target()` key has a report scheduled for (see `reportIfLeftWaiting`).
+  private reportsPending = new SetMap<string, T>();
   // The `@targets()` fields' values, sorted on first read after a change and handed out until the next one.
   private orderedByKey = new Map<string, T[]>();
   // What each field read while DOM changes waited to be delivered, worked out from the DOM, with the
@@ -190,7 +192,11 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
    * from inside a run is therefore invoked once every token in it has been delivered.
    */
   private reportIfLeftWaiting(key: string, element: T) {
+    // One report per element in a run, however often it starts waiting in it: moved, or adopted and displaced again.
+    if (this.reportsPending.has(key, element)) return;
+    this.reportsPending.add(key, element);
     Promise.resolve().then(() => {
+      this.reportsPending.delete(key, element);
       if (!this.isWaiting(key, element)) return;
 
       reportUncaught(
