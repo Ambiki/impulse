@@ -329,6 +329,32 @@ describe('@target', () => {
       expect(errors.reported.length).to.eq(1);
     });
 
+    it('should keep a waiting element waiting when it lists the target a second time', async () => {
+      const waiting = await addWaitingPanel();
+      const fresh = await addWaitingPanel();
+      const connected = () => el.panelConnectedSpy.args.map(([panel]) => panel);
+
+      // In one task: the target and `waiting` leave, so `waiting` is adopted and then let go, a new claimant takes the
+      // key, `fresh` lists the target a second time, and `waiting` comes back ahead of everyone.
+      old.remove();
+      waiting.remove();
+      const latest = createPanel();
+      el.append(latest);
+      fresh.setAttribute('data-target', `${el.identifier}.panel ${el.identifier}.panel`);
+      fresh.before(waiting);
+      expect(el.panel).to.eq(waiting);
+      await nextFrame();
+
+      expect(el.panel).to.eq(waiting);
+      expect(connected()).not.to.include(fresh);
+
+      waiting.remove();
+      latest.remove();
+      await nextFrame();
+      expect(el.panel).to.eq(fresh);
+      expect(connected().filter((panel) => panel === fresh)).to.have.length(1);
+    });
+
     it('should adopt a replacement inserted before the old target is removed', async () => {
       const fresh = await addWaitingPanel();
       expect(el.panel).to.eq(old);

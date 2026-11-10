@@ -132,16 +132,20 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
     // A `@target()` key holds one element. A second one is kept waiting rather than dropped; `targetsByKey` is left
     // alone, so the field and the callbacks only ever see the target.
     if (!this.isKeyMultiple(key)) {
+      // A waiting element's further tokens join its wait: it is one claimant, already behind the target, and taking
+      // them for a new claim could hand it the key while its first token still waits.
+      if (this.isWaiting(key, element)) {
+        this.waitingByKey.add(key, token);
+        return;
+      }
       const [target] = this.targetsByKey.valuesForKey(key);
       if (target && this.takesOver(key, target, element)) {
         this.handOver(key, target, token);
         return;
       }
       if (target || this.keptForMovedTarget(key, element)) {
-        // An element listing the key twice waits once, and is reported once.
-        const alreadyWaiting = this.isWaiting(key, element);
         this.waitingByKey.add(key, token);
-        if (!alreadyWaiting) this.reportIfLeftWaiting(key, element);
+        this.reportIfLeftWaiting(key, element);
         // Should the moved Target not come back after all, the key is not left empty with a claimant waiting.
         if (!target) Promise.resolve().then(() => whileDelivering(() => this.adoptWaiting(key)));
         return;
