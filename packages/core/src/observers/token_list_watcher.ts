@@ -24,7 +24,8 @@ export interface TokenListWatcherDelegate<T> {
  *
  * Only elements contained within `scope` (or the `scope` element itself) are tracked. The returned `stop` function
  * synchronously fires `tokenUnmatched` for every currently-tracked token before deregistering. Every token is reported
- * and the watcher is deregistered even if the delegate throws; the first error is rethrown afterwards.
+ * and the watcher is deregistered even if the delegate throws; the first error is rethrown afterwards. Once `stop` has
+ * run, nothing more is tracked or reported, even when a delegate calls it part-way through an element's tokens.
  */
 export function watchTokenList<T extends Element = Element>(
   scope: Element,
@@ -32,12 +33,17 @@ export function watchTokenList<T extends Element = Element>(
   delegate: TokenListWatcherDelegate<T>,
 ): () => void {
   const elementTokens = new SetMap<Element, Token<T>>();
+  // An element's tokens are delivered one by one, and a delegate can stop the watcher part-way through them. Once it
+  // has, `stop` has unmatched every tracked token, so the rest are neither tracked nor delivered.
+  let stopped = false;
 
   const track = (element: Element, token: Token<T>) => {
+    if (stopped) return;
     elementTokens.add(element, token);
     delegate.tokenMatched?.(token);
   };
   const untrack = (element: Element, token: Token<T>) => {
+    if (stopped) return;
     elementTokens.delete(element, token);
     delegate.tokenUnmatched?.(token);
   };
@@ -64,6 +70,7 @@ export function watchTokenList<T extends Element = Element>(
   });
 
   return () => {
+    stopped = true;
     // The index is cleared before any delegate runs so a delegate that calls stop() again finds nothing left to do.
     // Every token is reported and the watcher is deregistered even if a delegate throws; the first error is rethrown
     // once that is done.
