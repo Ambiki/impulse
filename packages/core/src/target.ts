@@ -127,8 +127,10 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
         return;
       }
       if (target || this.keptForMovedTarget(key, element)) {
+        // An element listing the key twice waits once, and is reported once.
+        const alreadyWaiting = this.isWaiting(key, element);
         this.waitingByKey.add(key, token);
-        this.reportIfLeftWaiting(key, token);
+        if (!alreadyWaiting) this.reportIfLeftWaiting(key, element);
         // Should the moved Target not come back after all, the key is not left empty with a claimant waiting.
         if (!target) Promise.resolve().then(() => whileDelivering(() => this.adoptWaiting(key)));
         return;
@@ -172,9 +174,9 @@ export default class Target<T extends Element> implements TokenListWatcherDelega
    * Tokens arrive in synchronous runs: a mutation batch, or the replay when the instance starts. A microtask queued
    * from inside a run is therefore invoked once every token in it has been delivered.
    */
-  private reportIfLeftWaiting(key: string, token: Token<T>) {
+  private reportIfLeftWaiting(key: string, element: T) {
     Promise.resolve().then(() => {
-      if (!this.waitingByKey.has(key, token)) return;
+      if (!this.isWaiting(key, element)) return;
 
       reportUncaught(
         new Error(
@@ -235,7 +237,7 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
     } finally {
       this.targetsByKey.delete(key, target);
       if (this.stopWatching) {
-        if (displaced[0]) this.reportIfLeftWaiting(key, displaced[0]);
+        if (displaced[0]) this.reportIfLeftWaiting(key, target);
         this.tokensByElement.add(token.element, token);
         // Reported rather than thrown, as in `adoptWaiting`: it can run while a throwing `[key]Disconnected` unwinds.
         invokeReporting(() => this.connect(key, token.element));
@@ -385,6 +387,11 @@ Learn more about the @targets() decorator: https://ambiki.github.io/impulse/refe
 
   private isStillReferenced(element: T, content: string): boolean {
     return this.tokensByElement.valuesForKey(element).some((token) => token.content === content);
+  }
+
+  // Whether `element` has a token waiting behind the Target of the `@target()` key.
+  private isWaiting(key: string, element: T): boolean {
+    return this.waitingByKey.valuesForKey(key).some((token) => token.element === element);
   }
 
   private isValidIdKeyPair(identifier: string | undefined, key: string | undefined): boolean {

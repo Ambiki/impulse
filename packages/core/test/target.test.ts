@@ -324,6 +324,13 @@ describe('@target', () => {
       expect(el.panel).to.eq(old);
     });
 
+    it('should report a second element once, however many times it lists the target', async () => {
+      await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel`);
+
+      expect(errors.reported.length).to.eq(1);
+      expect(el.panel).to.eq(old);
+    });
+
     it('should report nothing when the replacement is inserted and the old target removed in one task', async () => {
       const fresh = createPanel();
       old.after(fresh);
