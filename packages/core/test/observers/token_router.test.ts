@@ -1,4 +1,3 @@
-import type { Token } from '../../src/observers/token_list_watcher';
 import { expect, fixture, html, nextFrame } from '@open-wc/testing';
 import Sinon from 'sinon';
 import TokenRouter from '../../src/observers/token_router';
@@ -17,11 +16,21 @@ function contents(spy: Sinon.SinonSpy): string[] {
   return spy.args.map(([token]) => token.content);
 }
 
+interface TestDescriptor {
+  identifier: string | undefined;
+  name: string | undefined;
+}
+
+function parseTest(content: string): TestDescriptor {
+  const [identifier, name] = content.split('.');
+  return { identifier, name };
+}
+
 describe('TokenRouter', () => {
   let root: HTMLElement;
   let outer: HTMLElement;
   let inner: HTMLElement;
-  let router: TokenRouter;
+  let router: TokenRouter<TestDescriptor>;
   const stops: Array<() => void> = [];
 
   function subscribe(owner: Element, delegate: Delegate) {
@@ -43,7 +52,7 @@ describe('TokenRouter', () => {
     `);
     outer = root.querySelector('x-outer')!;
     inner = root.querySelector('x-inner')!;
-    router = new TokenRouter('data-test', (content) => content.split('.')[0]);
+    router = new TokenRouter('data-test', parseTest);
   });
 
   afterEach(() => {
@@ -134,13 +143,74 @@ describe('TokenRouter', () => {
     expect(outerDelegate.tokenUnmatched.called).to.be.false;
   });
 
+  it('hands delegates the descriptor parsed from each token, parsing it once', async () => {
+    const parse = Sinon.spy(parseTest);
+    router = new TokenRouter('data-test', parse);
+    const outerDelegate = makeDelegate();
+    subscribe(outer, outerDelegate);
+
+    const [[token, descriptor]] = outerDelegate.tokenMatched.args;
+    expect(token.content).to.eq('x-outer.a');
+    expect(descriptor).to.deep.eq({ identifier: 'x-outer', name: 'a' });
+    // One call per token on the page: `x-outer.a`, `x-inner.stray` and `x-inner.b`.
+    expect(parse.callCount).to.eq(3);
+
+    root.querySelector('#a')!.remove();
+    await nextFrame();
+    expect(outerDelegate.tokenUnmatched.args[0][1]).to.equal(descriptor);
+    expect(parse.callCount).to.eq(3);
+  });
+
+  it('routes a token only to an owner whose tag name is its identifier, not one it matches as a selector', async () => {
+    const innerDelegate = makeDelegate();
+    subscribe(inner, innerDelegate);
+    innerDelegate.tokenMatched.resetHistory();
+
+    const span = document.createElement('span');
+    span.setAttribute('data-test', 'X-INNER.upper :is(x-inner).is x-inner.ok');
+    inner.append(span);
+    await nextFrame();
+    expect(contents(innerDelegate.tokenMatched)).to.deep.eq(['x-inner.ok']);
+  });
+
+  it('unmatches every token of an owner whose teardown stops the router part-way', () => {
+    const second = document.createElement('span');
+    second.setAttribute('data-test', 'x-outer.second');
+    outer.append(second);
+    const stopInner = subscribe(inner, makeDelegate());
+    // Unsubscribing `inner`, the last other subscriber, stops the router while `outer`'s tokens are being unmatched.
+    const outerDelegate = {
+      tokenMatched: Sinon.spy(),
+      tokenUnmatched: Sinon.spy((_token: unknown, _descriptor: TestDescriptor) => stopInner()),
+    };
+    const stopOuter = subscribe(outer, outerDelegate);
+
+    expect(() => stopOuter()).not.to.throw();
+    expect(contents(outerDelegate.tokenUnmatched)).to.deep.eq(['x-outer.a', 'x-outer.second']);
+    expect(outerDelegate.tokenUnmatched.args.map(([, descriptor]) => descriptor.name)).to.deep.eq(['a', 'second']);
+  });
+
+  it('names an owner by its tag name lowercased, as an Impulse element names itself', () => {
+    // `createElement` lowercases only ASCII letters, so this element's local name keeps its `À` while its tag name
+    // lowercased is `x-à`, the identifier an Impulse element of that name would have.
+    const owner = document.createElement('x-À');
+    const span = document.createElement('span');
+    span.setAttribute('data-test', 'x-À.local');
+    owner.append(span);
+    root.append(owner);
+    const delegate = makeDelegate();
+    subscribe(owner, delegate);
+
+    expect(delegate.tokenMatched.called).to.be.false;
+  });
+
   it('ignores tokens whose identifier has no matching ancestor', () => {
     const innerDelegate = makeDelegate();
     subscribe(inner, innerDelegate);
     expect(contents(innerDelegate.tokenMatched)).to.deep.eq(['x-inner.b']);
   });
 
-  it('ignores tokens whose identifier is not a valid selector', async () => {
+  it('ignores tokens whose identifier is not a tag name', async () => {
     const innerDelegate = makeDelegate();
     subscribe(inner, innerDelegate);
     innerDelegate.tokenMatched.resetHistory();
@@ -258,28 +328,35 @@ describe('TokenRouter', () => {
     expect(innerDelegate.tokenUnmatched.calledOnce).to.be.true;
   });
 
-  describe('stillRoutesTo', () => {
+  describe('routesTo', () => {
     let a: Element;
     let outerDelegate: Delegate;
-    let token: Token<Element>;
+    const namesA = (descriptor: TestDescriptor) => descriptor.name === 'a';
 
     beforeEach(() => {
       a = root.querySelector('#a')!;
       outerDelegate = makeDelegate();
       subscribe(outer, outerDelegate);
-      [token] = outerDelegate.tokenMatched.args[0];
     });
 
-    it('holds for the owner a token was routed to, and for no other', () => {
-      expect(token.content).to.eq('x-outer.a');
-      expect(router.stillRoutesTo(outer, token)).to.be.true;
-      expect(router.stillRoutesTo(inner, token)).to.be.false;
+    it('holds for the owner a token on the element would be routed to, and for no other', () => {
+      expect(router.routesTo(outer, a, namesA)).to.be.true;
+      expect(router.routesTo(inner, a, namesA)).to.be.false;
+      expect(router.routesTo(outer, a, (descriptor) => descriptor.name === 'other')).to.be.false;
+    });
+
+    it('does not hold for a token whose identifier only matches the owner as a selector', () => {
+      const span = document.createElement('span');
+      span.setAttribute('data-test', ':is(x-outer).a X-OUTER.a');
+      outer.append(span);
+
+      expect(router.routesTo(outer, span, namesA)).to.be.false;
     });
 
     it('stops holding as soon as the element leaves the owner, before the removal is delivered', () => {
       a.remove();
 
-      expect(router.stillRoutesTo(outer, token)).to.be.false;
+      expect(router.routesTo(outer, a, namesA)).to.be.false;
       expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
     });
 
@@ -287,13 +364,13 @@ describe('TokenRouter', () => {
       root.append(a);
 
       expect(a.isConnected).to.be.true;
-      expect(router.stillRoutesTo(outer, token)).to.be.false;
+      expect(router.routesTo(outer, a, namesA)).to.be.false;
     });
 
     it('stops holding as soon as the attribute no longer lists the token, before the change is delivered', () => {
       a.setAttribute('data-test', 'x-inner.stray');
 
-      expect(router.stillRoutesTo(outer, token)).to.be.false;
+      expect(router.routesTo(outer, a, namesA)).to.be.false;
       expect(outerDelegate.tokenUnmatched.notCalled).to.be.true;
     });
   });
