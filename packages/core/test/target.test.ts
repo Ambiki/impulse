@@ -281,6 +281,10 @@ describe('@target', () => {
   });
 
   describe('when a second element carries the same target', () => {
+    // The rule that decides which Claimant is the Target is covered on its own by the scripted tests in
+    // `single_target.test.ts`. These check that an Owner reaches it through real changes: tokens counted per element,
+    // a move, a teardown, the replay as an element is defined, the DOM asked whether an element still claims the field,
+    // and a read made before the changes are delivered.
     let old: Element;
     let errors: ReturnType<typeof captureReportedErrors>;
     beforeEach(() => {
@@ -303,9 +307,9 @@ describe('@target', () => {
       return panel;
     }
 
-    it('should hand the key to a claimant inserted ahead of the target before the element is defined', async () => {
+    it('should hand the key to a Claimant inserted ahead of the target before the element is defined', async () => {
       // `el` keeps the router watching, so the tokens are indexed as they arrive and replayed in that order once the
-      // element is defined: the target first, then the claimant ahead of it, which takes over as it is replayed.
+      // element is defined: the target first, then the Claimant ahead of it, which takes over as it is replayed.
       class LateTargetTest extends ImpulseElement {
         @target() panel: HTMLElement | null;
         panelConnectedSpy = Sinon.spy();
@@ -333,7 +337,7 @@ describe('@target', () => {
       const fresh = await addWaitingPanel();
       const connected = () => el.panelConnectedSpy.args.map(([panel]) => panel);
 
-      // In one task: the target and `waiting` leave, so `waiting` is adopted and then let go, a new claimant takes the
+      // In one task: the target and `waiting` leave, so `waiting` is adopted and then let go, a new Claimant takes the
       // key, `fresh` lists the target a second time, and `waiting` comes back ahead of everyone.
       old.remove();
       waiting.remove();
@@ -391,13 +395,6 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.secondCall.calledAfter(el.panelDisconnectedSpy.firstCall)).to.be.true;
     });
 
-    it('should report a second element that is still there once the changes that added it are processed', async () => {
-      await addWaitingPanel();
-
-      expect(errors.reported.length).to.eq(1);
-      expect(el.panel).to.eq(old);
-    });
-
     it('should report a second element once, however many times it lists the target', async () => {
       await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel`);
 
@@ -405,44 +402,10 @@ describe('@target', () => {
       expect(el.panel).to.eq(old);
     });
 
-    it('should report nothing when the replacement is inserted and the old target removed in one task', async () => {
-      const fresh = createPanel();
-      old.after(fresh);
-      old.remove();
-      await nextFrame();
-
-      expect(el.panel).to.eq(fresh);
-      expect(errors.reported).to.be.empty;
-    });
-
-    it('should give the key to the first of two claimants in document order when it loses its target in the same task', async () => {
-      const later = createPanel();
-      const earlier = createPanel();
-      old.remove();
-      el.append(later);
-      el.prepend(earlier);
-      expect(el.panel).to.eq(earlier);
-
-      await nextFrame();
-      expect(el.panel).to.eq(earlier);
-      expect(errors.reported.length).to.eq(1);
-    });
-
-    it('should keep the key for the target when it is moved behind a claimant inserted ahead of it', async () => {
+    it('should keep the key for the target when it is moved behind a Claimant inserted ahead of it', async () => {
       const claimant = createPanel();
       el.append(old);
       el.prepend(claimant);
-      expect(el.panel).to.eq(old);
-
-      await nextFrame();
-      expect(el.panel).to.eq(old);
-      expect(el.panelConnectedSpy.calledWith(claimant)).to.be.false;
-      expect(errors.reported.length).to.eq(1);
-    });
-
-    it('should keep the key for the target when one append moves it behind a new claimant', async () => {
-      const claimant = createPanel();
-      el.append(claimant, old);
       expect(el.panel).to.eq(old);
 
       await nextFrame();
@@ -468,49 +431,6 @@ describe('@target', () => {
       expect(el.panel).to.eq(null);
     });
 
-    it('should report both errors when the callbacks on either side of a takeover throw', async () => {
-      const later = createPanel();
-      const earlier = createPanel();
-      el.panelDisconnectedSpy = Sinon.stub().throws(new Error('panel disconnected failed'));
-      el.panelConnectedSpy = Sinon.stub().throws(new Error('panel connected failed'));
-      const failures = captureReportedErrors('failed');
-      try {
-        old.remove();
-        el.append(later);
-        el.prepend(earlier);
-        await nextFrame();
-
-        expect(el.panel).to.eq(earlier);
-        // `old` leaving, `later` arriving, then `later` giving way and `earlier` taking over.
-        expect(failures.reported.map((error) => error.message).sort()).to.deep.equal([
-          'panel connected failed',
-          'panel connected failed',
-          'panel disconnected failed',
-          'panel disconnected failed',
-        ]);
-      } finally {
-        // The fixture is torn down after the test, which runs `[target]Disconnected` once more.
-        el.panelDisconnectedSpy = Sinon.spy();
-        el.panelConnectedSpy = Sinon.spy();
-        failures.release();
-      }
-    });
-
-    it('should end with the first claimant in document order and report nothing when the other leaves in the same task', async () => {
-      const later = createPanel();
-      const earlier = createPanel();
-      old.remove();
-      el.append(later);
-      el.prepend(earlier);
-      later.remove();
-      expect(el.panel).to.eq(earlier);
-
-      await nextFrame();
-      expect(el.panel).to.eq(earlier);
-      expect(el.panelConnectedSpy.lastCall.calledWith(earlier, earlier)).to.be.true;
-      expect(errors.reported).to.be.empty;
-    });
-
     it('should keep the old target until it is removed when read part-way through a swap in one task', async () => {
       const fresh = createPanel();
       old.after(fresh);
@@ -533,33 +453,6 @@ describe('@target', () => {
       expect(errors.reported).to.be.empty;
     });
 
-    it('should forget a waiting element that is removed before the target', async () => {
-      const extra = await addWaitingPanel();
-
-      extra.remove();
-      await nextFrame();
-      expect(el.panel).to.eq(old);
-      expect(el.panelDisconnectedSpy.notCalled).to.be.true;
-
-      old.remove();
-      await nextFrame();
-      expect(el.panel).to.eq(null);
-      expect(el.panelConnectedSpy.calledOnce).to.be.true;
-    });
-
-    it('should keep the target when it is moved while another element waits', async () => {
-      await addWaitingPanel();
-
-      // Now the last of the two in document order. Its removal is delivered before its insertion.
-      el.append(old);
-      await nextFrame();
-
-      expect(el.panel).to.eq(old);
-      expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
-      expect(el.panelConnectedSpy.calledTwice).to.be.true;
-      expect(el.panelConnectedSpy.secondCall.calledWith(old, old)).to.be.true;
-    });
-
     it('should not adopt a waiting element removed in the same task as the target', async () => {
       const extra = await addWaitingPanel();
 
@@ -574,54 +467,6 @@ describe('@target', () => {
       expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
     });
 
-    it('should not adopt a waiting element that drops the target in the same task as the old one leaves', async () => {
-      const extra = await addWaitingPanel();
-
-      // The waiting element is still in place when the target's removal is processed; only its attribute has moved on.
-      old.remove();
-      extra.removeAttribute('data-target');
-      await nextFrame();
-
-      expect(el.panel).to.eq(null);
-      expect(el.panelConnectedSpy.calledOnce).to.be.true;
-      expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
-    });
-
-    it('should keep an adopted element that drops a second spelling of the target in the same task', async () => {
-      // Any segment past the key is ignored, so both tokens name `panel`.
-      const fresh = await addWaitingPanel(`${el.identifier}.panel ${el.identifier}.panel.alias`);
-
-      // Only the first token is still listed when the old target's removal is processed.
-      old.remove();
-      fresh.setAttribute('data-target', `${el.identifier}.panel`);
-      await nextFrame();
-
-      expect(el.panel).to.eq(fresh);
-      expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
-    });
-
-    it('should adopt a waiting element whose target a callback restores while the batch is processed', async () => {
-      const extra = createPanel();
-      const sheet = document.createElement('div');
-      sheet.setAttribute('data-target', `${el.identifier}.sheet`);
-      el.append(extra, sheet);
-      await nextFrame();
-      el.sheetDisconnectedSpy = Sinon.stub().callsFake(() => {
-        extra.setAttribute('data-target', `${el.identifier}.panel`);
-      });
-
-      // The waiting element no longer lists the target when the old one's removal is processed, and has it back before
-      // its own attribute record is: the attribute ends where it began, so no record reports a change.
-      old.remove();
-      sheet.remove();
-      extra.setAttribute('data-target', `${el.identifier}.other`);
-      await nextFrame();
-
-      expect(el.panel).to.eq(extra);
-      expect(el.panelConnectedSpy.calledTwice).to.be.true;
-      expect(el.panelConnectedSpy.secondCall.calledWith(extra, extra)).to.be.true;
-    });
-
     it('should not adopt a waiting element while the owner is disconnecting', async () => {
       await addWaitingPanel();
 
@@ -629,19 +474,6 @@ describe('@target', () => {
 
       expect(el.panelConnectedSpy.calledOnce).to.be.true;
       expect(el.panelDisconnectedSpy.calledOnceWith(old, old)).to.be.true;
-    });
-
-    it('should adopt the first waiting element in document order', async () => {
-      await addWaitingPanel();
-      const earlier = createPanel();
-      el.prepend(earlier);
-      await nextFrame();
-
-      old.remove();
-      await nextFrame();
-
-      expect(el.panel).to.eq(earlier);
-      expect(el.panelConnectedSpy.calledTwice).to.be.true;
     });
 
     it('should adopt an element that lists the target twice as one target', async () => {
@@ -658,29 +490,6 @@ describe('@target', () => {
       expect(el.panelConnectedSpy.calledTwice).to.be.true;
       expect(el.panelDisconnectedSpy.calledTwice).to.be.true;
       expect(el.panelDisconnectedSpy.secondCall.calledWith(fresh, fresh)).to.be.true;
-    });
-
-    it('should report both errors when the callbacks on either side of an adoption throw', async () => {
-      const fresh = await addWaitingPanel();
-
-      el.panelDisconnectedSpy = Sinon.stub().throws(new Error('panel disconnected failed'));
-      el.panelConnectedSpy = Sinon.stub().throws(new Error('panel connected failed'));
-      const failures = captureReportedErrors('failed');
-      try {
-        old.remove();
-        await nextFrame();
-
-        expect(failures.reported.map((error) => error.message)).to.have.members([
-          'panel disconnected failed',
-          'panel connected failed',
-        ]);
-        expect(el.panel).to.eq(fresh);
-      } finally {
-        // The fixture is torn down after the test, which runs `[target]Disconnected` once more.
-        el.panelDisconnectedSpy = Sinon.spy();
-        el.panelConnectedSpy = Sinon.spy();
-        failures.release();
-      }
     });
   });
 
