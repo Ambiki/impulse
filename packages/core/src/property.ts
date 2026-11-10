@@ -1,33 +1,33 @@
 import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { isDeepEqual } from './helpers/equality';
-import { invokeEach } from './helpers/invoke_each';
+import { invokeReporting } from './helpers/errors';
 import { camelize, dasherize, parseJSON } from './helpers/string';
 import { PROPERTIES, registered, registeredFor } from './registry';
 
 const properties = new WeakMap<Element, Property>();
 
-// The `@property()` fields of each class by the attribute they read, built on first use. Decorators have all run by
-// then, since a class is defined, and its attributes observed, only once its body has been evaluated.
-const fieldsByAttribute = new WeakMap<ReadonlyMap<string, PropertyDeclaration>, ReadonlyMap<string, string[]>>();
+// Each class's `keysByAttribute`, built on first use. Decorators have all run by then, since a class is defined, and
+// its attributes observed, only once its body has been evaluated.
+const attributeIndexes = new WeakMap<ReadonlyMap<string, PropertyDeclaration>, ReadonlyMap<string, string[]>>();
 
 /**
- * The fields declared in `declarations` by the attribute each reads: the field name dasherized, so `contentType`
- * reads `content-type` and `userID` reads `user-id`. Two fields can read one attribute (`fooURL` and `fooUrl`).
+ * The `@property()` keys in `declarations` by the attribute each reads: the key dasherized, so `contentType` reads
+ * `content-type` and `userID` reads `user-id`. Two keys can read one attribute (`fooURL` and `fooUrl`).
  */
-function fieldsReading(declarations: ReadonlyMap<string, PropertyDeclaration>): ReadonlyMap<string, string[]> {
-  const cached = fieldsByAttribute.get(declarations);
+function keysByAttribute(declarations: ReadonlyMap<string, PropertyDeclaration>): ReadonlyMap<string, string[]> {
+  const cached = attributeIndexes.get(declarations);
   if (cached) return cached;
 
-  const fields = new Map<string, string[]>();
+  const index = new Map<string, string[]>();
   for (const { key } of declarations.values()) {
     const attribute = dasherize(key);
-    const keys = fields.get(attribute);
+    const keys = index.get(attribute);
     if (keys) keys.push(key);
-    else fields.set(attribute, [key]);
+    else index.set(attribute, [key]);
   }
-  fieldsByAttribute.set(declarations, fields);
-  return fields;
+  attributeIndexes.set(declarations, index);
+  return index;
 }
 
 /**
@@ -35,7 +35,7 @@ function fieldsReading(declarations: ReadonlyMap<string, PropertyDeclaration>): 
  * fields read.
  */
 export function observedAttributes(proto: object): string[] {
-  return Array.from(fieldsReading(registered(proto, PROPERTIES)).keys());
+  return Array.from(keysByAttribute(registered(proto, PROPERTIES)).keys());
 }
 
 /**
@@ -91,15 +91,15 @@ export default class Property {
   /**
    * Invokes `[field]Changed(newValue, oldValue)` for each field that reads `attribute` and has the method, unless
    * `oldAttribute` and `newAttribute` read as the same value: `8_000` rewritten as `8000`, reformatted JSON, or an
-   * attribute removed while it read as the Default. Every field's callback runs even if an earlier one throws; the
-   * first error is rethrown afterwards.
+   * attribute removed while it read as the Default. A callback that throws is reported like an uncaught error, so the
+   * callbacks of other fields reading the same attribute still run.
    *
    * Throws for an attribute no field reads, such as one a subclass adds to `observedAttributes`, when the element has a
    * `[camelized attribute]Changed` method, since it would never be invoked.
    */
   attributeChanged(attribute: string, oldAttribute: string | null, newAttribute: string | null) {
     const instance = this.instance as unknown as Record<string, unknown>;
-    const keys = fieldsReading(this.declarations).get(attribute);
+    const keys = keysByAttribute(this.declarations).get(attribute);
     if (!keys) {
       const hasChangeCallback = typeof instance[`${camelize(attribute)}Changed`] === 'function';
       if (hasChangeCallback) {
@@ -110,14 +110,14 @@ export default class Property {
       return;
     }
 
-    invokeEach(keys, (key) => {
+    for (const key of keys) {
       const fn = instance[`${key}Changed`];
-      if (typeof fn !== 'function') return;
+      if (typeof fn !== 'function') continue;
       // Every field is bound by the time its attribute changes are reported: `start()` binds them before the element
       // can be Initialized.
       const change = this.bound.get(key)!.change(oldAttribute, newAttribute);
-      if (change) fn.call(this.instance, change.newValue, change.oldValue);
-    });
+      if (change) invokeReporting(() => fn.call(this.instance, change.newValue, change.oldValue));
+    }
   }
 }
 

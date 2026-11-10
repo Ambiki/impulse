@@ -624,6 +624,29 @@ describe('@property', () => {
     expect(element.fooUrlChanged.calledOnceWith(5, 0)).to.be.true;
   });
 
+  it('should report every throwing change callback of the fields that read the changed attribute', async () => {
+    @registerElement('property-shared-attribute-throw-test')
+    class SharedAttributeThrowTest extends ImpulseElement {
+      fooURLChanged = Sinon.fake.throws(new Error('fooURLChanged failed'));
+      fooUrlChanged = Sinon.fake.throws(new Error('fooUrlChanged failed'));
+      @property() fooURL: string;
+      @property() fooUrl: string;
+    }
+
+    const element = await fixture<SharedAttributeThrowTest>(
+      html`<property-shared-attribute-throw-test></property-shared-attribute-throw-test>`,
+    );
+    await whenInitialized(element);
+
+    const { reported, release } = captureReportedErrors('Changed failed');
+    try {
+      element.setAttribute('foo-url', 'a');
+    } finally {
+      release();
+    }
+    expect(reported.map((error) => error.message)).to.deep.equal(['fooURLChanged failed', 'fooUrlChanged failed']);
+  });
+
   it('should report a change callback for an observed attribute that no property reads', async () => {
     class ExtraAttributeTest extends ImpulseElement {
       static get observedAttributes() {

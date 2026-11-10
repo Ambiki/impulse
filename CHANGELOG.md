@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- A `@property()` whose name has an acronym calls its change callback by that name, such as `userIDChanged` for `userID` ([#238](https://github.com/Ambiki/impulse/pull/238))
+
 ### Fixed
 
-- `[property]Changed` is invoked for a `@property()` whose name has an acronym, such as `userIDChanged` for `userID` ([#238](https://github.com/Ambiki/impulse/pull/238))
+- Defining `userIdChanged` for a `@property() userID` no longer throws `Unregistered attribute changed` ([#238](https://github.com/Ambiki/impulse/pull/238))
 
 ## [2.0.0] - 2026-11-05
 
