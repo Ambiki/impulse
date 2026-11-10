@@ -1,6 +1,6 @@
 import { expect, fixture, html, nextFrame, waitUntil } from '@open-wc/testing';
 import Sinon from 'sinon';
-import { ImpulseElement, registerElement, target } from '../src';
+import { ImpulseElement, registerElement, target, whenInitialized } from '../src';
 import { captureReportedErrors } from './support/capture_reported_errors';
 
 describe('@target', () => {
@@ -322,8 +322,7 @@ describe('@target', () => {
       await nextFrame();
 
       registerElement('late-target-test')(LateTargetTest);
-      await waitUntil(() => late.hasAttribute('data-impulse-element'));
-      await nextFrame();
+      await whenInitialized(late);
       expect(late.panel).to.eq(ahead);
       expect(late.panelConnectedSpy.lastCall.calledWith(ahead)).to.be.true;
       expect(errors.reported.length).to.eq(1);
