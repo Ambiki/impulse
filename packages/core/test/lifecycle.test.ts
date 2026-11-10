@@ -472,7 +472,7 @@ describe('createLifecycle', () => {
       throwing.remove();
       throwing.insert();
       expect(throwing.log).to.deep.eq(['start a', 'start b', 'start c', 'connected']);
-      await nextFrame();
+      await rejections.caught();
       expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['start b failed']);
     } finally {
       rejections.release();
@@ -488,7 +488,7 @@ describe('createLifecycle', () => {
         b: {},
       });
       rejecting.insert();
-      await nextFrame();
+      await rejections.caught();
       expect(rejecting.log).to.deep.eq(['start a', 'start waiting', 'stop waiting', 'stop a']);
       expect(rejecting.lifecycle.isInitialized(rejecting.host)).to.be.false;
       expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['wait failed']);
@@ -516,7 +516,7 @@ describe('createLifecycle', () => {
       throwing.insert();
       expect(throwing.log).to.deep.eq(['start a', 'start b', 'stop b', 'stop a']);
       expect(reported.reported.map((error) => error.message)).to.deep.eq(['stop a failed']);
-      await nextFrame();
+      await rejections.caught();
       expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['start b failed']);
     } finally {
       reported.release();
