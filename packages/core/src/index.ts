@@ -5,5 +5,4 @@ export * from './decorators/target';
 export * from './element';
 export * from './events';
 export * from './lazy_import';
-export * from './lifecycle';
 export * from './watchers';

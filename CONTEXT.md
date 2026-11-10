@@ -39,6 +39,11 @@ A document is Parsed once the parser has inserted its last element (`readyState`
 an element can be in the document while its children are not.
 _Avoid_: Ready, DOM ready, loaded (the `load` event comes later), complete
 
+**Phase**:
+Where an Impulse element is in its lifecycle: idle, initializing, Initialized, or tearing down. An element is in
+exactly one Phase at a time, and only the Initialized Phase makes it Initialized.
+_Avoid_: State, status, stage
+
 **Self-contained selector**:
 A selector whose match against an element depends only on that element's tag name and its own attributes, so nothing
 else in the document (ancestors, siblings, focus, user input) can make it start or stop matching. A Simple selector is
@@ -49,6 +54,12 @@ _Avoid_: Filterable selector, local selector
 The smallest piece a selector can be cut into: a tag name, `*`, one `#id`, one `.class`, one `[attribute]`, or one
 pseudo-class. `a.link[href]` holds three.
 _Avoid_: Simple, token, atom, part
+
+**Step**:
+One piece of an Impulse element's initialization, such as starting its targets: started in a fixed order as the element
+initializes, with an optional counterpart stopped in the reverse order when the element is torn down or its
+initialization is abandoned.
+_Avoid_: Hook, stage, task
 
 **Subject**:
 The element a selector is about: the rightmost compound of each comma-separated part. `.button > a[data-x]` has the
