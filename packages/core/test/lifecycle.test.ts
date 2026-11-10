@@ -2,6 +2,7 @@ import type { Lifecycle, Step } from '../src/lifecycle';
 import { expect, nextFrame, waitUntil } from '@open-wc/testing';
 import { ImpulseElement, isInitialized, registerElement, target, targets, whenInitialized } from '../src';
 import { createLifecycle } from '../src/lifecycle';
+import { captureUnhandledRejections } from './support/capture_unhandled_rejections';
 
 let counter = 0;
 
@@ -30,6 +31,9 @@ describe('createLifecycle', () => {
     move: (parent: HTMLElement) => void;
   }
 
+  // The roots `script` inserts, removed after each test.
+  const roots: HTMLElement[] = [];
+
   /** A promise the test settles, so an init held by a Step moves on when the test says. */
   function gate() {
     let open!: () => void;
@@ -45,12 +49,13 @@ describe('createLifecycle', () => {
    */
   function script(
     steps: Record<string, StepScript> = { a: {}, b: {} },
-    hooks: { connected?: (host: HTMLElement) => void; disconnected?: (host: HTMLElement) => void } = {},
+    callbacks: { connected?: (host: HTMLElement) => void; disconnected?: (host: HTMLElement) => void } = {},
   ): Script {
     counter += 1;
     const log: string[] = [];
     const root = document.createElement('div');
     document.body.append(root);
+    roots.push(root);
     const host = document.createElement(`lifecycle-host-${counter}`);
     const lifecycle = createLifecycle<HTMLElement>({
       steps: Object.entries(steps).map(([name, { wait, onStart, onStop, stopless }]): Step<HTMLElement> => ({
@@ -68,11 +73,11 @@ describe('createLifecycle', () => {
       })),
       connected: (element) => {
         log.push('connected');
-        hooks.connected?.(element);
+        callbacks.connected?.(element);
       },
       disconnected: (element) => {
         log.push('disconnected');
-        hooks.disconnected?.(element);
+        callbacks.disconnected?.(element);
       },
       isHost: () => true,
     });
@@ -94,7 +99,7 @@ describe('createLifecycle', () => {
   }
 
   afterEach(() => {
-    document.body.querySelectorAll(':scope > div').forEach((root) => root.remove());
+    for (const root of roots.splice(0)) root.remove();
   });
 
   it('starts every Step in order, then calls connected() with the host Initialized', () => {
@@ -424,22 +429,7 @@ describe('createLifecycle', () => {
   });
 
   it('resolves whenInitialized() before calling connected(), so a connected() that throws leaves no one waiting', async () => {
-    // The init's promise rejects with nobody awaiting it. The test runner reports that as an error thrown outside a test,
-    // logging a line and then the error, which would print under "Browser logs", so both are dropped here.
-    const rejections: unknown[] = [];
-    const onRejection = (event: PromiseRejectionEvent) => {
-      if (!(event.reason instanceof Error) || event.reason.message !== 'connected failed') return;
-      rejections.push(event.reason);
-      event.preventDefault();
-    };
-    const consoleError = console.error;
-    console.error = (...args: unknown[]) => {
-      const [first] = args;
-      if (typeof first === 'string' && first.startsWith('An error was thrown in a Promise outside a test')) return;
-      if (first instanceof Error && first.message === 'connected failed') return;
-      consoleError.apply(console, args);
-    };
-    window.addEventListener('unhandledrejection', onRejection);
+    const rejections = captureUnhandledRejections('connected failed');
     try {
       const throwing = script({ a: {} }, {
         connected: () => {
@@ -451,10 +441,9 @@ describe('createLifecycle', () => {
       expect(await ready).to.eq(throwing.host);
       expect(throwing.lifecycle.isInitialized(throwing.host)).to.be.true;
       await nextFrame();
-      expect(rejections).to.have.length(1);
+      expect(rejections.rejected).to.have.length(1);
     } finally {
-      window.removeEventListener('unhandledrejection', onRejection);
-      console.error = consoleError;
+      rejections.release();
     }
   });
 
@@ -541,7 +530,7 @@ describe('whenInitialized', () => {
     document.body.appendChild(element);
 
     try {
-      // Called before `_asyncConnect` has set the marker attribute.
+      // Called before the init has set the marker attribute.
       expect(element.hasAttribute('data-impulse-element')).to.be.false;
       const resolved = await whenInitialized(element);
       expect(resolved).to.eq(element);

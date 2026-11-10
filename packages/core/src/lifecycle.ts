@@ -89,12 +89,17 @@ export function createLifecycle<H extends Element>({
   // a page of M Initialized elements cost O(N * M). A registration here costs a `WeakMap` set, and the init notifies
   // its waiters itself.
   const waiters = new WeakMap<Element, Set<(element: Element) => void>>();
+  // The `stop` of each of the first `count` Steps that has one, the last Step's first.
+  const stopsOf = (count: number) => {
+    const stops: Array<(host: H) => void> = [];
+    for (let index = count - 1; index >= 0; index -= 1) {
+      const { stop } = steps[index];
+      if (stop) stops.push(stop);
+    }
+    return stops;
+  };
   // A teardown's calls, in order: `disconnected`, then every Step's `stop` in reverse.
-  const teardown: Array<(host: H) => void> = [disconnected];
-  for (let index = steps.length - 1; index >= 0; index -= 1) {
-    const { stop } = steps[index];
-    if (stop) teardown.push(stop);
-  }
+  const teardown = [disconnected, ...stopsOf(steps.length)];
 
   async function initialize(host: H) {
     // The `initializing` Phase is replaced inside this function (by `initialized` before `connected`, and by idle in the
@@ -137,24 +142,19 @@ export function createLifecycle<H extends Element>({
    */
   function abandon(host: H, started: number) {
     phases.delete(host);
-    const stops: Array<(host: H) => void> = [];
-    for (let index = started - 1; index >= 0; index -= 1) {
-      const { stop } = steps[index];
-      if (stop) stops.push(stop);
-    }
-    invokeEach(stops, (stop) => stop(host));
+    invokeEach(stopsOf(started), (stop) => stop(host));
   }
 
   function connect(host: H) {
-    const phase = phases.get(host);
+    const current = phases.get(host);
     // A reconnect during a teardown is only recorded: the teardown starts the fresh init once it has returned.
-    if (phase?.phase === 'tearingDown') {
-      phase.reconnected = true;
+    if (current?.phase === 'tearingDown') {
+      current.reconnected = true;
       return;
     }
     // Only an idle host starts an init. A reconnect while one is initializing must not start a second; the pending init
     // finishes on its own.
-    if (!phase) void initialize(host);
+    if (!current) void initialize(host);
   }
 
   function disconnect(host: H) {
@@ -181,8 +181,8 @@ export function createLifecycle<H extends Element>({
   }
 
   function reportsChanges(host: H): boolean {
-    const phase = phases.get(host);
-    return phase === INITIALIZED || phase?.phase === 'tearingDown';
+    const current = phases.get(host);
+    return current === INITIALIZED || current?.phase === 'tearingDown';
   }
 
   function isInitialized(element: Element): boolean {

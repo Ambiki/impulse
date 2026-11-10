@@ -35,8 +35,7 @@ describe('ImpulseElement connection order', () => {
     registerElement(parentTag)(Parent);
     document.body.appendChild(wrapper);
 
-    // Yield so the parent's `_asyncConnect` has a chance to suspend at
-    // `_resolveUndefinedElements()` before we register the child class.
+    // Yield so the parent's init has a chance to reach the descendant wait before we register the child class.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     registerElement(childTag)(Child);
@@ -104,7 +103,7 @@ describe('ImpulseElement connection order', () => {
     document.body.appendChild(wrapper);
 
     try {
-      // Give `_asyncConnect` time to run past `_resolveUndefinedElements`.
+      // Give the init time to run past the descendant wait.
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(warn.called).to.be.false;
     } finally {
@@ -128,11 +127,10 @@ describe('ImpulseElement connection order', () => {
     document.body.appendChild(element);
 
     try {
-      // `connectedCallback` runs synchronously inside `appendChild` (a [CEReactions] operation), and
-      // `property.start()` is the first statement of `_asyncConnect`, before `await whenParsed()`. So the
-      // attribute-backed getter must already be live here, with no `await`. This guards against a future
-      // refactor moving `property.start()` back below the await, where this would read the raw field
-      // default (`'default'`) because the accessor would not yet be defined.
+      // `connectedCallback` runs synchronously inside `appendChild` (a [CEReactions] operation), and the properties
+      // Step is the first Step, ahead of the Parsed wait. So the attribute-backed getter must already be live here,
+      // with no `await`. This guards against a future refactor moving that Step below the wait, where this would read
+      // the raw field default (`'default'`) because the accessor would not yet be defined.
       expect(element.message).to.eq('from-attribute');
     } finally {
       element.remove();
