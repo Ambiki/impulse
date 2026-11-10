@@ -1,0 +1,581 @@
+import { expect, fixture, html, nextFrame } from '@open-wc/testing';
+import Sinon from 'sinon';
+import { connected, disconnected } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
+import { simulateInteractive, simulateParsing } from './support/parsing';
+
+describe('connected', () => {
+  it('invokes when element is already present', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    connected('.selector', callback);
+
+    await nextFrame();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('invokes synchronously for an element already present once the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsed-present"></div>`);
+    const stop = connected('.parsed-present', callback);
+    const invokedSynchronously = callback.calledOnceWith(root);
+    stop();
+
+    expect(invokedSynchronously).to.be.true;
+  });
+
+  it('invokes when element is added', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    connected('#selector', callback);
+
+    const element = document.createElement('div');
+    element.setAttribute('id', 'selector');
+    root.append(element);
+    await nextFrame();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('invokes for the subject of a combinator selector added later', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<form></form>`);
+    const stop = connected('form > button', callback);
+
+    const button = document.createElement('button');
+    root.append(button);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(button)).to.be.true;
+  });
+
+  it('invokes for every part of a selector list added later', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = connected('span, b', callback);
+
+    const span = document.createElement('span');
+    const b = document.createElement('b');
+    root.append(span, b);
+    await nextFrame();
+    stop();
+    expect(callback.calledTwice).to.be.true;
+    expect(callback.calledWith(span)).to.be.true;
+    expect(callback.calledWith(b)).to.be.true;
+  });
+
+  it('invokes when the selector is added', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    connected('.selector', callback);
+
+    root.setAttribute('class', 'selector');
+    await nextFrame();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('does not invoke if element does not match the selector', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    connected('#selector', callback);
+
+    const element = document.createElement('div');
+    element.setAttribute('id', 'input');
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+
+  it('invokes the return function when element is removed', async () => {
+    const connectedCallback = Sinon.spy();
+    const disconnectedCallback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    connected('.selector', (element) => {
+      connectedCallback(element);
+      return () => {
+        disconnectedCallback(element);
+      };
+    });
+
+    await nextFrame();
+    expect(connectedCallback.calledOnceWith(root)).to.be.true;
+
+    root.remove();
+    await nextFrame();
+    expect(disconnectedCallback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('runs pending cleanups when stopped while elements are still connected', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`<div class="stop-cleanup"></div>`);
+    const stop = connected('.stop-cleanup', () => cleanup);
+
+    await nextFrame();
+    expect(cleanup.called).to.be.false;
+
+    stop();
+    expect(cleanup.calledOnce).to.be.true;
+    expect(root.isConnected).to.be.true;
+  });
+
+  it('runs each pending cleanup exactly once across removed and still-connected elements', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="stop-mixed"></div>
+        <div class="stop-mixed"></div>
+      </div>
+    `);
+    const stop = connected('.stop-mixed', (element) => () => cleanup(element));
+    const [removed, kept] = Array.from(root.querySelectorAll('.stop-mixed'));
+
+    await nextFrame();
+    removed.remove();
+    await nextFrame();
+    expect(cleanup.calledOnceWith(removed)).to.be.true;
+
+    stop();
+    expect(cleanup.calledTwice).to.be.true;
+    expect(cleanup.calledWith(kept)).to.be.true;
+  });
+
+  it('stops observing even if a cleanup throws', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div><div class="stop-throws"></div></div>`);
+    const stop = connected('.stop-throws', (element) => {
+      callback(element);
+      return () => {
+        throw new Error('cleanup failed');
+      };
+    });
+
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+    expect(stop).to.throw('cleanup failed');
+
+    const late = document.createElement('div');
+    late.classList.add('stop-throws');
+    root.append(late);
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('runs every pending cleanup even if an earlier one throws', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="stop-partial"></div>
+        <div class="stop-partial"></div>
+      </div>
+    `);
+    const [first, second] = Array.from(root.querySelectorAll('.stop-partial'));
+    const stop = connected('.stop-partial', (element) => () => {
+      cleanup(element);
+      if (element === first) throw new Error('first cleanup failed');
+    });
+
+    await nextFrame();
+    expect(stop).to.throw('first cleanup failed');
+    expect(cleanup.calledTwice).to.be.true;
+    expect(cleanup.calledWith(second)).to.be.true;
+  });
+
+  it('does not rerun a cleanup on stop for an element already disconnected', async () => {
+    const cleanup = Sinon.spy();
+    const root = await fixture(html`<div class="stop-once"></div>`);
+    const stop = connected('.stop-once', () => cleanup);
+
+    await nextFrame();
+    root.remove();
+    await nextFrame();
+    expect(cleanup.calledOnce).to.be.true;
+
+    stop();
+    expect(cleanup.calledOnce).to.be.true;
+  });
+
+  it('still invokes other watchers in the same batch when one callback throws', async () => {
+    const good = Sinon.spy();
+    const errors = captureReportedErrors('bad watcher');
+    let stopBad = () => {};
+    let stopGood = () => {};
+    try {
+      stopBad = connected('.batch-bad', () => {
+        throw new Error('bad watcher');
+      });
+      stopGood = connected('.batch-good', good);
+      const root = await fixture(html`<div></div>`);
+      const bad = document.createElement('div');
+      bad.className = 'batch-bad';
+      const ok = document.createElement('div');
+      ok.className = 'batch-good';
+      root.append(bad, ok);
+      await nextFrame();
+
+      expect(errors.reported.length).to.eq(1);
+      expect(good.calledOnceWith(ok)).to.be.true;
+    } finally {
+      stopBad();
+      stopGood();
+      errors.release();
+    }
+  });
+
+  it('does not invoke when an attribute change makes a detached element match', async () => {
+    const callback = Sinon.spy();
+    const stop = connected('.detached-attr', callback);
+    const element = await fixture(html`<div></div>`);
+
+    element.remove();
+    element.classList.add('detached-attr');
+    await nextFrame();
+    stop();
+    expect(callback.called).to.be.false;
+  });
+
+  it('does not invoke when stopped', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = connected('#selector', callback);
+
+    stop();
+
+    const element = document.createElement('div');
+    element.setAttribute('id', 'selector');
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+
+  it('does not invoke the disconnected function when an unrelated attribute is removed', async () => {
+    const disconnectedCallback = Sinon.spy();
+    const root = await fixture(html`<div data-toggle="tooltip" title="Title"></div>`);
+    connected('[data-toggle="tooltip"]', () => {
+      return () => {
+        disconnectedCallback();
+      };
+    });
+
+    root.removeAttribute('title');
+    await nextFrame();
+    expect(disconnectedCallback.called).to.be.false;
+  });
+
+  it('invokes multiple cleanup functions', async () => {
+    const disconnectedCallback = Sinon.spy();
+    const root = await fixture(html`
+      <div>
+        <div class="element"></div>
+        <div class="element"></div>
+      </div>
+    `);
+
+    connected('.element', () => {
+      return () => disconnectedCallback();
+    });
+
+    const elements = root.querySelectorAll<HTMLElement>('.element');
+    elements[0].remove();
+    elements[1].remove();
+    await nextFrame();
+
+    expect(disconnectedCallback.calledTwice).to.be.true;
+  });
+
+  // Firefox has no mutation record for a node leaving a child that the same `replaceChildren` call removes.
+  it('invokes the cleanup function when replaceChildren lifts an element out from under the ancestor it matched by', async () => {
+    const root = await fixture(html`
+      <div>
+        <section class="lifted-open"><span class="lifted-item"></span></section>
+      </div>
+    `);
+    const item = root.querySelector('span')!;
+    const disconnectedCallback = Sinon.spy();
+    const stop = connected('.lifted-open .lifted-item', (element) => () => disconnectedCallback(element));
+    try {
+      await nextFrame();
+      root.replaceChildren(item);
+      await nextFrame();
+
+      expect(disconnectedCallback.calledOnceWith(item)).to.be.true;
+    } finally {
+      stop();
+    }
+  });
+
+  it('disconnects a later match that a callback run by the first scan removes before calling connected again', async () => {
+    const root = await fixture(html`
+      <div>
+        <div id="scanned1" class="scanned"></div>
+        <div id="scanned2" class="scanned"></div>
+      </div>
+    `);
+    const live = new Set<string>();
+    const stops: (() => void)[] = [];
+    stops.push(connected('.scanned', (element) => {
+      live.add(element.id);
+      if (element.id === 'scanned1') {
+        root.querySelector('#scanned2')!.remove();
+        stops.push(connected('.scanned-elsewhere', () => {}));
+      }
+      return () => live.delete(element.id);
+    }));
+    try {
+      await nextFrame();
+
+      expect(Array.from(live)).to.deep.equal(['scanned1']);
+    } finally {
+      for (const stop of stops) stop();
+    }
+  });
+});
+
+describe('shared observer', () => {
+  it('does not create a new MutationObserver per connected() call', async () => {
+    const observeSpy = Sinon.spy(MutationObserver.prototype, 'observe');
+    try {
+      const stops = [
+        connected('.shared-a', () => {}),
+        connected('.shared-b', () => {}),
+        connected('.shared-c', () => {}),
+        connected('.shared-d', () => {}),
+        connected('.shared-e', () => {}),
+      ];
+      try {
+        expect(observeSpy.callCount).to.be.at.most(1);
+      } finally {
+        stops.forEach((stop) => stop());
+      }
+    } finally {
+      observeSpy.restore();
+    }
+  });
+});
+
+describe('connected before the document is Parsed', () => {
+  let finishParsing: () => void;
+
+  beforeEach(() => {
+    finishParsing = simulateParsing();
+  });
+
+  afterEach(() => {
+    finishParsing();
+  });
+
+  it('waits until the document is Parsed to invoke for an element already present', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-present"></div>`);
+    const stop = connected('.parsing-present', callback);
+
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    finishParsing();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('waits until the document is Parsed to invoke for an element inserted while parsing', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = connected('.parsing-inserted', callback);
+
+    const element = document.createElement('div');
+    element.className = 'parsing-inserted';
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    finishParsing();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('stops invoking once a callback stops its own watcher during the scan on Parsed', async () => {
+    const callback = Sinon.spy();
+    await fixture(html`
+      <div>
+        <div class="parsing-self-stop"></div>
+        <div class="parsing-self-stop"></div>
+        <div class="parsing-self-stop"></div>
+      </div>
+    `);
+    const stop = connected('.parsing-self-stop', () => {
+      callback();
+      stop();
+    });
+
+    finishParsing();
+    await nextFrame();
+    expect(callback.calledOnce).to.be.true;
+  });
+
+  it('invokes once for a watcher registered after the parse but before DOMContentLoaded', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-interactive"></div>`);
+    // A watcher still waiting from the parse, so DOMContentLoaded walks the document.
+    const stopPending = connected('.parsing-interactive-pending', () => {});
+
+    simulateInteractive();
+    const stop = connected('.parsing-interactive', callback);
+    finishParsing();
+    await nextFrame();
+    stop();
+    stopPending();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('never invokes when stopped before the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-stopped"></div>`);
+    const stop = connected('.parsing-stopped', callback);
+    stop();
+
+    finishParsing();
+    await nextFrame();
+    const element = document.createElement('div');
+    element.className = 'parsing-stopped';
+    root.append(element);
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+});
+
+describe('disconnected', () => {
+  it('invokes when element is removed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    disconnected('.selector', callback);
+
+    await nextFrame();
+    expect(callback.called).to.be.false;
+
+    root.remove();
+    await nextFrame();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('invokes when the selector value is removed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    disconnected('.selector', callback);
+
+    root.setAttribute('class', '');
+    await nextFrame();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('invokes when the selector itself is removed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    disconnected('.selector', callback);
+
+    root.removeAttribute('class');
+    await nextFrame();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('does not invoke when stopped', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="selector"></div>`);
+    const stop = disconnected('.selector', callback);
+
+    stop();
+
+    root.remove();
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+
+  it('does not invoke when an unrelated attribute is removed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div data-toggle="tooltip" title="Title"></div>`);
+    disconnected('[data-toggle="tooltip"]', callback);
+
+    root.removeAttribute('title');
+    await nextFrame();
+    expect(callback.called).to.be.false;
+  });
+});
+
+describe('disconnected before the document is Parsed', () => {
+  let finishParsing: () => void;
+
+  beforeEach(() => {
+    finishParsing = simulateParsing();
+  });
+
+  afterEach(() => {
+    finishParsing();
+  });
+
+  it('invokes for an element present while parsing once it is removed after the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div class="parsing-removed-later"></div>`);
+    const stop = disconnected('.parsing-removed-later', callback);
+
+    finishParsing();
+    await nextFrame();
+    root.remove();
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('never invokes for an element inserted and removed before the document is Parsed', async () => {
+    const callback = Sinon.spy();
+    const root = await fixture(html`<div></div>`);
+    const stop = disconnected('.parsing-transient', callback);
+
+    const element = document.createElement('div');
+    element.className = 'parsing-transient';
+    root.append(element);
+    await nextFrame();
+    element.remove();
+    await nextFrame();
+
+    finishParsing();
+    await nextFrame();
+    stop();
+    expect(callback.called).to.be.false;
+  });
+});
+
+describe('an invalid selector', () => {
+  it('throws without stopping other watchers', async () => {
+    const root = await fixture(html`<div></div>`);
+    const callback = Sinon.spy();
+    const stop = connected('.invalid-good', callback);
+    expect(() => connected('div:nope', () => {})).to.throw();
+
+    const element = document.createElement('div');
+    element.className = 'invalid-good';
+    root.append(element);
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(element)).to.be.true;
+  });
+
+  it('throws while the document is loading, and still matches the watchers waiting with it', async () => {
+    const root = await fixture(html`<div class="invalid-waiting"></div>`);
+    const finishParsing = simulateParsing();
+    const callback = Sinon.spy();
+    let stop = () => {};
+    try {
+      stop = connected('.invalid-waiting', callback);
+      expect(() => connected('div:nope', () => {})).to.throw();
+    } finally {
+      finishParsing();
+    }
+
+    await nextFrame();
+    stop();
+    expect(callback.calledOnceWith(root)).to.be.true;
+  });
+
+  it('throws from disconnected as it does from connected', () => {
+    expect(() => disconnected('div:nope', () => {})).to.throw();
+  });
+});
