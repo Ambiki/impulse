@@ -1,10 +1,42 @@
 import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { isDeepEqual } from './helpers/equality';
-import { dasherize, parseJSON } from './helpers/string';
-import { PROPERTIES, registeredFor } from './registry';
+import { invokeReporting } from './helpers/errors';
+import { camelize, dasherize, parseJSON } from './helpers/string';
+import { PROPERTIES, registered, registeredFor } from './registry';
 
 const properties = new WeakMap<Element, Property>();
+
+// Each class's `keysByAttribute`, built on first use. Decorators have all run by then, since a class is defined, and
+// its attributes observed, only once its body has been evaluated.
+const attributeIndexes = new WeakMap<ReadonlyMap<string, PropertyDeclaration>, ReadonlyMap<string, string[]>>();
+
+/**
+ * The `@property()` keys in `declarations` by the attribute each reads: the key dasherized, so `contentType` reads
+ * `content-type` and `userID` reads `user-id`. Two keys can read one attribute (`fooURL` and `fooUrl`).
+ */
+function keysByAttribute(declarations: ReadonlyMap<string, PropertyDeclaration>): ReadonlyMap<string, string[]> {
+  const cached = attributeIndexes.get(declarations);
+  if (cached) return cached;
+
+  const index = new Map<string, string[]>();
+  for (const { key } of declarations.values()) {
+    const attribute = dasherize(key);
+    const keys = index.get(attribute);
+    if (keys) keys.push(key);
+    else index.set(attribute, [key]);
+  }
+  attributeIndexes.set(declarations, index);
+  return index;
+}
+
+/**
+ * The attributes an element of the class with prototype `proto` observes: one for each attribute its `@property()`
+ * fields read.
+ */
+export function observedAttributes(proto: object): string[] {
+  return Array.from(keysByAttribute(registered(proto, PROPERTIES)).keys());
+}
 
 /**
  * Binds every `@property()` of `element` now, taking the value each holds as its Default. `registerElement`'s subclass
@@ -57,18 +89,35 @@ export default class Property {
   }
 
   /**
-   * Returns the values `[property]Changed` receives when the attribute of the property `key` goes from `oldAttribute`
-   * to `newAttribute`, or `null` when both read as the same value, so nothing changed: `8_000` rewritten as `8000`,
-   * reformatted JSON, or an attribute removed while it read as the Default.
+   * Invokes `[field]Changed(newValue, oldValue)` for each field that reads `attribute` and has the method, unless
+   * `oldAttribute` and `newAttribute` read as the same value: `8_000` rewritten as `8000`, reformatted JSON, or an
+   * attribute removed while it read as the Default. A callback that throws is reported like an uncaught error, so the
+   * callbacks of other fields reading the same attribute still run.
+   *
+   * Throws for an attribute no field reads, such as one a subclass adds to `observedAttributes`, when the element has a
+   * `[camelized attribute]Changed` method, since it would never be invoked.
    */
-  change(key: string, oldAttribute: string | null, newAttribute: string | null) {
-    const property = this.bound.get(key);
-    if (!property) {
-      throw new Error(
-        `Unregistered attribute changed: ${dasherize(key)}. Register the attribute using the @property() decorator.`,
-      );
+  attributeChanged(attribute: string, oldAttribute: string | null, newAttribute: string | null) {
+    const instance = this.instance as unknown as Record<string, unknown>;
+    const keys = keysByAttribute(this.declarations).get(attribute);
+    if (!keys) {
+      const hasChangeCallback = typeof instance[`${camelize(attribute)}Changed`] === 'function';
+      if (hasChangeCallback) {
+        throw new Error(
+          `Unregistered attribute changed: ${attribute}. Register the attribute using the @property() decorator.`,
+        );
+      }
+      return;
     }
-    return property.change(oldAttribute, newAttribute);
+
+    for (const key of keys) {
+      const fn = instance[`${key}Changed`];
+      if (typeof fn !== 'function') continue;
+      // Every field is bound by the time its attribute changes are reported: `start()` binds them before the element
+      // can be Initialized.
+      const change = this.bound.get(key)!.change(oldAttribute, newAttribute);
+      if (change) invokeReporting(() => fn.call(this.instance, change.newValue, change.oldValue));
+    }
   }
 }
 

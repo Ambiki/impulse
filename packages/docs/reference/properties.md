@@ -146,5 +146,6 @@ export default class LazyLoadElement extends ImpulseElement {
 }
 ```
 
-Write acronyms as words: `fooUrl`, not `fooURL`. The attribute for `fooURL` is `foo-url`, which maps back to `fooUrl`,
-so a `fooURLChanged` callback would never run.
+An acronym dasherizes as one word: `fooURL` reads the `foo-url` attribute, and its change callback is `fooURLChanged`.
+Two properties that dasherize alike, such as `fooURL` and `fooUrl`, read the same attribute, and a change to it calls
+both callbacks.
