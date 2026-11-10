@@ -1,4 +1,4 @@
-import { expect, nextFrame } from '@open-wc/testing';
+import { expect } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { captureUnhandledRejections } from './capture_unhandled_rejections';
 
@@ -19,7 +19,7 @@ describe('captureUnhandledRejections', () => {
     const rejections = captureUnhandledRejections('captured');
     try {
       void Promise.reject(new Error('captured'));
-      await nextFrame();
+      await rejections.caught();
       expect(rejections.rejected.map((error) => error.message)).to.deep.equal(['captured']);
       expect(consoleError.called).to.be.false;
     } finally {

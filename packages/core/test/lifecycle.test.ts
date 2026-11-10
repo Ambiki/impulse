@@ -440,8 +440,8 @@ describe('createLifecycle', () => {
       throwing.insert();
       expect(await ready).to.eq(throwing.host);
       expect(throwing.lifecycle.isInitialized(throwing.host)).to.be.true;
-      await nextFrame();
-      expect(rejections.rejected).to.have.length(1);
+      await rejections.caught();
+      expect(rejections.rejected.map((error) => error.message)).to.deep.eq(['connected failed']);
     } finally {
       rejections.release();
     }
