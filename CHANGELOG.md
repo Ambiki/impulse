@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A second element claiming a `@target()` field is reported once, however many times it lists the field ([#243](https://github.com/Ambiki/impulse/pull/243))
 - An element whose initialization throws stops whatever it had started, instead of leaving its targets and actions running ([#241](https://github.com/Ambiki/impulse/pull/241))
 - Defining `userIdChanged` for a `@property() userID` no longer throws `Unregistered attribute changed` ([#238](https://github.com/Ambiki/impulse/pull/238))
 
