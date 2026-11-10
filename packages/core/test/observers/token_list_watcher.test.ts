@@ -251,4 +251,59 @@ describe('watchTokenList', () => {
     await nextFrame();
     expect(throwing.tokenMatched.called).to.be.false;
   });
+
+  describe('when a delegate stops the watcher part-way through an element\'s tokens', () => {
+    let stopOther: () => void;
+    let matched: string[];
+    let unmatched: string[];
+    afterEach(() => stopOther?.());
+
+    function watchStoppingOn(kind: 'matched' | 'unmatched') {
+      matched = [];
+      unmatched = [];
+      stopOther = watchTokenList(scope, 'data-other', {
+        tokenMatched: (token) => {
+          matched.push(token.content);
+          if (kind === 'matched') stopOther();
+        },
+        tokenUnmatched: (token) => {
+          unmatched.push(token.content);
+          if (kind === 'unmatched') stopOther();
+        },
+      });
+    }
+
+    it('matches no more of the tokens of an element that is added', async () => {
+      watchStoppingOn('matched');
+      const element = document.createElement('span');
+      element.setAttribute('data-other', 'a b c');
+      scope.append(element);
+      await nextFrame();
+
+      expect(matched).to.deep.eq(['a']);
+      expect(unmatched).to.deep.eq(['a']);
+    });
+
+    it('matches no more of the tokens added to an element\'s attribute', async () => {
+      const element = document.createElement('span');
+      scope.append(element);
+      watchStoppingOn('matched');
+      element.setAttribute('data-other', 'a b c');
+      await nextFrame();
+
+      expect(matched).to.deep.eq(['a']);
+      expect(unmatched).to.deep.eq(['a']);
+    });
+
+    it('unmatches each token of an element that is removed once', async () => {
+      const element = document.createElement('span');
+      element.setAttribute('data-other', 'a b c');
+      scope.append(element);
+      watchStoppingOn('unmatched');
+      element.remove();
+      await nextFrame();
+
+      expect(unmatched).to.deep.eq(['a', 'b', 'c']);
+    });
+  });
 });
