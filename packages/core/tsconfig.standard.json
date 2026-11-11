@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "useDefineForClassFields": true,
+    "experimentalDecorators": false
+  },
+  "include": ["src", "test"],
+  "exclude": ["test/**/*.legacy.test.ts"]
+}

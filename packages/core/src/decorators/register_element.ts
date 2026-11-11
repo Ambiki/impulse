@@ -25,7 +25,7 @@ import { bindProperties } from '../property';
  * ```
  */
 export function registerElement(name: string) {
-  return <T extends CustomElementConstructor>(ctor: T): T => {
+  return <T extends CustomElementConstructor>(ctor: T, context?: ClassDecoratorContext): T => {
     const registered = class extends ctor {
       constructor(...args: any[]) {
         super(...args);
@@ -37,13 +37,21 @@ export function registerElement(name: string) {
     };
     Object.defineProperty(registered, 'name', { value: ctor.name });
 
-    try {
-      window.customElements.define(name, registered);
-      // @ts-expect-error Register
-      window[ctor.name] = customElements.get(name);
-    } catch (error: unknown) {
-      if (!(error instanceof DOMException && error.name === 'NotSupportedError')) throw error;
-    }
+    const define = () => {
+      try {
+        window.customElements.define(name, registered);
+        // @ts-expect-error Register
+        window[ctor.name] = customElements.get(name);
+      } catch (error: unknown) {
+        if (!(error instanceof DOMException && error.name === 'NotSupportedError')) throw error;
+      }
+    };
+    // A standard decorator runs before the class is complete: its `Symbol.metadata` is attached, and its static fields
+    // set, only once its class decorators return. `define()` reads `observedAttributes` and upgrades the elements
+    // already in the page, so it waits for the class to be complete. A legacy decorator, or a call, gets a complete
+    // class.
+    if (context) context.addInitializer(define);
+    else define();
     return registered;
   };
 }

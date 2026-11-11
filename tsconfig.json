@@ -19,5 +19,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["packages/core", "packages/playground", "packages/docs"]
+  "include": ["packages/core", "packages/playground", "packages/docs"],
+  "exclude": ["packages/core/test/**/*.standard.test.ts"]
 }

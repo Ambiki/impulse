@@ -18,6 +18,8 @@ jobs:
         run: |
           yarn install --frozen-lockfile
           yarn lint
+      - name: Typecheck with legacy and standard decorators
+        run: yarn typecheck
 
   test:
     needs:
@@ -29,8 +31,11 @@ jobs:
         # The project setups the suite is compiled as; see packages/core/web-test-runner.profiles.js.
         profile:
           - esbuild-legacy
+          - esbuild-standard
           - tsc-legacy
+          - tsc-standard
           - babel-legacy
+          - babel-standard
     name: test (${{ matrix.profile }})
     env:
       PROFILE: ${{ matrix.profile }}
