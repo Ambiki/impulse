@@ -19,7 +19,10 @@ jobs:
           yarn install --frozen-lockfile
           yarn lint
       - name: Typecheck with legacy and standard decorators
-        run: yarn typecheck
+        # The playground imports @ambiki/impulse, whose types are the built ones.
+        run: |
+          yarn build
+          yarn typecheck
 
   test:
     needs:
