@@ -19,6 +19,19 @@ function libraryOptions() {
   return options;
 }
 
+/**
+ * The `compilerOptions` of a `test/profiles/*.tsconfig.json`: the configurations `getting-started.md` documents, which
+ * a test keeps it in step with.
+ */
+export function documentedOptions(convention) {
+  const configPath = path.join(root, 'test', 'profiles', `${convention}.tsconfig.json`);
+  return ts.readConfigFile(configPath, ts.sys.readFile).config.compilerOptions;
+}
+
+function tscOptions(compilerOptions) {
+  return ts.convertCompilerOptionsFromJson(compilerOptions, root).options;
+}
+
 function tsc(compilerOptions) {
   return async (code, fileName) => ts.transpileModule(code, {
     fileName,
@@ -54,29 +67,26 @@ function babel(plugins) {
 }
 
 const PROFILES = {
+  // Set, as impulse_view_components compiles its fields.
   'esbuild-legacy': {
     convention: 'legacy',
     compile: esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
   },
-  // Set, so standard decorators run with both field semantics: tsc-standard and babel-standard [[Define]] fields.
+  // The documented setup plus `useDefineForClassFields: false`, so standard decorators run with both field semantics:
+  // tsc-standard and babel-standard [[Define]] fields.
   'esbuild-standard': {
     convention: 'standard',
-    compile: esbuild('es2020', { useDefineForClassFields: false }),
+    compile: esbuild('es2020', { ...documentedOptions('standard'), useDefineForClassFields: false }),
   },
-  // impulse_view_components
+  // The documented setup. TypeScript's default target is the latest, so fields are [[Define]]d.
   'tsc-legacy': {
     convention: 'legacy',
-    compile: tsc({
-      target: ts.ScriptTarget.ES2020,
-      module: ts.ModuleKind.ESNext,
-      experimentalDecorators: true,
-      useDefineForClassFields: false,
-    }),
+    compile: tsc(tscOptions(documentedOptions('legacy'))),
   },
-  // TypeScript's defaults: standard decorators, and [[Define]] once the target is ES2022.
+  // The documented setup: TypeScript's defaults.
   'tsc-standard': {
     convention: 'standard',
-    compile: tsc({ target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }),
+    compile: tsc(tscOptions(documentedOptions('standard'))),
   },
   // ambiki: the class-properties transform defines fields, so decorated fields are [[Define]]d too.
   'babel-legacy': {

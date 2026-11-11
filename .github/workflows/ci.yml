@@ -23,6 +23,8 @@ jobs:
         run: |
           yarn build
           yarn typecheck
+      - name: Check the documented tsconfigs
+        run: yarn test:docs
 
   test:
     needs:

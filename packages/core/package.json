@@ -44,6 +44,7 @@
     "clean": "rm -fr dist",
     "prepublishOnly": "cp ../../README.md . && yarn clean && yarn build",
     "test": "web-test-runner",
+    "test:docs": "node --test test/getting_started.node.test.js",
     "test:watch": "web-test-runner --watch"
   },
   "devDependencies": {

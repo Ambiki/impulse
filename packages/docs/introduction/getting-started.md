@@ -22,28 +22,42 @@ $ bun add @ambiki/impulse
 
 :::
 
-Impulse's `@registerElement()`, `@target()`, `@targets()`, and `@property()` decorators use TypeScript's legacy
-decorator convention, so turn on `experimentalDecorators`. Disable `strictPropertyInitialization` as well, so that
-declaring a target or a property without an initializer is not an error.
+Impulse's `@registerElement()`, `@property()`, `@target()`, and `@targets()` decorators work with either of
+TypeScript's decorator conventions: the standard decorators TypeScript 5 and later compile by default, or the legacy
+ones that `experimentalDecorators` turns on. With either, disable `strictPropertyInitialization`, so that declaring a
+target or a property without an initializer is not an error.
 
-```json
+::: code-group
+
+```json [Standard decorators]
 {
   "compilerOptions": {
     "strict": true,
-    "experimentalDecorators": true,
-    "strictPropertyInitialization": false,
-    "useDefineForClassFields": false
+    "strictPropertyInitialization": false
   }
 }
 ```
 
-::: warning
-`experimentalDecorators` is required. TypeScript 5 and later default to the standard (stage 3) decorators, which
-Impulse does not support yet — see [issue #183](https://github.com/Ambiki/impulse/issues/183). Without the flag, every
-`@property()`, `@target()`, and `@targets()` fails to compile with `TS1240: Unable to resolve signature of property
-decorator when called as an expression`, and they throw at runtime because a standard decorator is handed a different
-set of arguments.
+```json [Legacy decorators]
+{
+  "compilerOptions": {
+    "strict": true,
+    "experimentalDecorators": true,
+    "strictPropertyInitialization": false
+  }
+}
+```
+
 :::
+
+`useDefineForClassFields` can take either value. Standard decorators need TypeScript 5.2 or later, the first version to
+pass them decorator metadata. They keep what they declare on `Symbol.metadata`, which Impulse defines when the browser
+doesn't.
+
+Other compilers follow the same choice. esbuild, and Vite with it, reads `experimentalDecorators` from your
+`tsconfig.json`, and supports standard decorators from 0.21. With Babel, use `@babel/plugin-proposal-decorators` with
+`version: '2023-11'` for standard decorators, or `version: 'legacy'` for legacy ones, which also need
+`@babel/plugin-transform-class-properties` after it.
 
 ## Loading your elements
 
