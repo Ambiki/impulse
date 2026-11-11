@@ -32,4 +32,5 @@ Defaults, and any later assignment, before the element connects or after, goes t
 The class registered for a tag name is a subclass of the one declared. With the decorator, the class name refers to
 the subclass, but `registerElement(name)(Class)` registers only the class it returns, so `new Class()` throws. A
 subclass shares the decorated class's `@property()` and `@target()` registrations, since those live on the prototype
-that declared them.
+that declared them. ([ADR 0007](0007-declarations-live-on-symbol-metadata.md) moves them to the class's
+`Symbol.metadata`, which the subclass inherits instead.)
