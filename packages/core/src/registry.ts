@@ -1,6 +1,11 @@
 import type { PropertyDeclaration } from './decorators/property';
 import type { TargetDeclaration } from './decorators/target';
 
+// Standard decorators hand a class's metadata object to its decorators only when `Symbol.metadata` exists (tsc), or
+// keep it under `Symbol.for('Symbol.metadata')` when it doesn't (esbuild, Babel). Defining it as that registered symbol
+// makes every emitter agree. One defined before Impulse loaded (by Lit, say) is kept, so it is read at call time.
+(Symbol as unknown as { metadata?: symbol }).metadata ??= Symbol.for('Symbol.metadata');
+
 const REGISTRIES = Symbol.for('impulse');
 
 declare const entryType: unique symbol;
@@ -13,9 +18,9 @@ export interface RegistryEntry {
 }
 
 /**
- * A named collection of class-level registrations, held on the prototype the decorator ran against. The token carries
- * the entry type, so a registry can only ever be written and read with matching values: passing {@link TARGETS} where
- * {@link PropertyDeclaration} entries are expected is a type error rather than a silently empty map.
+ * A named collection of Declarations of one kind. The token carries the entry type, so a registry can only ever be
+ * written and read with matching values: passing {@link TARGETS} where {@link PropertyDeclaration} entries are expected
+ * is a type error rather than a silently empty map.
  */
 export interface Registry<T extends RegistryEntry> {
   readonly name: string;
@@ -37,67 +42,110 @@ export const PROPERTIES: Registry<PropertyDeclaration> = { name: 'property' };
 export const TARGETS: Registry<TargetDeclaration> = { name: 'target' };
 
 /**
- * Records `entry` under `registry` on `proto`, keyed by its field name. The index is built here, once per field when
- * the class is defined, so a lookup on an instance hot path (an attribute change, a matched target token) is a single
- * `Map#get` rather than a scan. Registering the same key again replaces the earlier entry.
- *
- * Registrations live on the prototype that declared them and are not shared with a subclass, so a decorator can never
- * write into a superclass' map.
+ * A class's Declarations, kept on its metadata object.
  */
-export function register<T extends RegistryEntry>(proto: object, registry: Registry<T>, entry: T): void {
-  let registries = ownRegistries<T>(proto);
-  if (!registries) {
-    registries = new Map();
-    Object.defineProperty(proto, REGISTRIES, { value: registries, configurable: true });
-  }
+interface Registries {
+  /** Each registry's entries by field name: the ones the class inherits, and its own in their place. */
+  readonly entries: Map<string, Map<string, RegistryEntry>>;
+  /** The fields the class declares itself. */
+  readonly declared: Set<string>;
+}
 
-  let entries = registries.get(registry.name);
+function metadataKey(): symbol {
+  return (Symbol as unknown as { metadata: symbol }).metadata;
+}
+
+/**
+ * The metadata object a legacy decorator records `ctor`'s Declarations on: its own `Symbol.metadata`, created the way
+ * the standard emitters create it, chained to its superclass's. So a class compiled either way reads its superclass's
+ * Declarations through the chain, whichever way the superclass was compiled.
+ */
+export function classMetadata(ctor: object): object {
+  const key = metadataKey();
+  if (!Object.hasOwn(ctor, key)) {
+    const inherited = (Object.getPrototypeOf(ctor) as Record<symbol, object | null | undefined>)[key] ?? null;
+    Object.defineProperty(ctor, key, {
+      value: Object.create(inherited),
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return (ctor as Record<symbol, object>)[key];
+}
+
+/**
+ * Records `entry` under `registry` on `metadata`, keyed by its field name. A field has one Declaration, so it replaces
+ * an inherited Declaration of the same field, of any kind. The index is built here, once per field when the class is
+ * defined, so a lookup on an instance hot path (an attribute change, a matched target token) is a single `Map#get`.
+ *
+ * Throws for a field the class has declared already.
+ */
+export function register<T extends RegistryEntry>(metadata: object, registry: Registry<T>, entry: T): void {
+  const registries = ownRegistries(metadata) ?? createRegistries(metadata);
+  if (registries.declared.has(entry.key)) {
+    throw new TypeError(
+      `The field "${entry.key}" is declared twice in one class. Declare it with one of @property(), @target(), or ` +
+      `@targets().`,
+    );
+  }
+  registries.declared.add(entry.key);
+
+  for (const [name, entries] of registries.entries) {
+    if (name !== registry.name) entries.delete(entry.key);
+  }
+  let entries = registries.entries.get(registry.name);
   if (!entries) {
-    entries = new Map<string, T>();
-    registries.set(registry.name, entries);
+    entries = new Map();
+    registries.entries.set(registry.name, entries);
   }
-
   entries.set(entry.key, entry);
 }
 
 /**
- * The entries recorded under `registry` on `proto` by field name, in declaration order, or an empty map when nothing
- * was registered. Reading never allocates on the prototype, so asking about a class that declared nothing leaves it
- * untouched.
+ * The entries recorded under `registry` for the class `ctor` by field name, inherited ones included, or an empty map
+ * when there are none. Reading never allocates on the class or its metadata.
  *
  * The miss returns a fresh map rather than a shared empty one: `ReadonlyMap` is erased at runtime, so a single cast
  * on a shared instance would leak entries into every class that declared nothing.
  */
-export function registered<T extends RegistryEntry>(proto: object, registry: Registry<T>): ReadonlyMap<string, T> {
-  return ownRegistries<T>(proto)?.get(registry.name) ?? new Map<string, T>();
+export function registered<T extends RegistryEntry>(ctor: object, registry: Registry<T>): ReadonlyMap<string, T> {
+  const metadata = (ctor as Record<symbol, object | null | undefined>)[metadataKey()];
+  // Through the metadata chain: the nearest class with Declarations of its own holds the inherited ones too.
+  const registries = metadata ? (metadata as Record<symbol, Registries | undefined>)[REGISTRIES] : undefined;
+  return (registries?.entries.get(registry.name) as ReadonlyMap<string, T> | undefined) ?? new Map<string, T>();
 }
 
 /**
- * The entries recorded under `registry` on the class of `instance` — {@link registered} for callers holding an
- * element rather than a prototype.
+ * The entries recorded under `registry` for the class of `instance`: {@link registered} for callers holding an element
+ * rather than a class.
  *
  * Safe to call once from a field initializer and keep: an upgraded custom element has its prototype swapped inside
  * `super()`, before any field initializer runs, so construction already sees the class the element ended up as. The
- * map handed back is the prototype's own, so it is a reference to hold rather than a copy to rebuild.
+ * map handed back is the class's own, so it is a reference to hold rather than a copy to rebuild.
  */
 export function registeredFor<T extends RegistryEntry>(
   instance: object,
   registry: Registry<T>,
 ): ReadonlyMap<string, T> {
-  return registered(Object.getPrototypeOf(instance), registry);
+  return registered((Object.getPrototypeOf(instance) as { constructor: object }).constructor, registry);
+}
+
+function ownRegistries(metadata: object): Registries | undefined {
+  if (!Object.hasOwn(metadata, REGISTRIES)) return;
+  return (metadata as Record<symbol, Registries>)[REGISTRIES];
 }
 
 /**
- * Makes `to` read the registrations declared on `from`, for a subclass that stands in for the class that declared
- * them, such as the one `registerElement` registers. `to` shares `from`'s maps rather than copying them, so a
- * registration made against `to` lands in `from`'s maps too. Nothing declares fields on that subclass, so none is.
+ * Gives `metadata` its own Declarations, starting from a copy of the ones it inherits. A class is only defined once
+ * its superclass is, so the superclass's are final by then.
  */
-export function shareRegistrations(from: object, to: object): void {
-  const registries = ownRegistries(from);
-  if (registries) Object.defineProperty(to, REGISTRIES, { value: registries, configurable: true });
-}
-
-function ownRegistries<T extends RegistryEntry>(proto: object): Map<string, Map<string, T>> | undefined {
-  if (!Object.hasOwn(proto, REGISTRIES)) return;
-  return (proto as Record<symbol, Map<string, Map<string, T>>>)[REGISTRIES];
+function createRegistries(metadata: object): Registries {
+  const inherited = (metadata as Record<symbol, Registries | undefined>)[REGISTRIES];
+  const registries: Registries = {
+    entries: new Map(Array.from(inherited?.entries ?? [], ([name, entries]) => [name, new Map(entries)])),
+    declared: new Set(),
+  };
+  Object.defineProperty(metadata, REGISTRIES, { value: registries, configurable: true });
+  return registries;
 }

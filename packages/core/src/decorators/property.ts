@@ -1,4 +1,6 @@
-import { PROPERTIES, register } from '../registry';
+import type { FieldDecorator } from './field';
+import { PROPERTIES } from '../registry';
+import { fieldDecorator } from './field';
 
 /**
  * A single `@property()` declaration: the field name and the constructor its attribute value is converted with.
@@ -42,8 +44,6 @@ export type PropertyConstructor =
  * }
  * ```
  */
-export function property({ type = String }: { type?: PropertyConstructor } = {}) {
-  return (ctor: any, key: string) => {
-    register(ctor, PROPERTIES, { key, type });
-  };
+export function property({ type = String }: { type?: PropertyConstructor } = {}): FieldDecorator {
+  return fieldDecorator('@property()', PROPERTIES, (key) => ({ key, type }));
 }

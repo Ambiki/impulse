@@ -1,5 +1,4 @@
 import { bindProperties } from '../property';
-import { shareRegistrations } from '../registry';
 
 /**
  * Registers the decorated class as a custom element, so every `<name>` in the document is upgraded to an instance of
@@ -37,7 +36,6 @@ export function registerElement(name: string) {
       }
     };
     Object.defineProperty(registered, 'name', { value: ctor.name });
-    shareRegistrations(ctor.prototype, registered.prototype);
 
     try {
       window.customElements.define(name, registered);
