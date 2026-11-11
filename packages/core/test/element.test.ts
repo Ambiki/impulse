@@ -116,13 +116,13 @@ describe('ImpulseElement connection order', () => {
     counter += 1;
     const tag = `sync-property-${counter}`;
 
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       @property({ type: String }) message = 'default';
     }
 
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element & { message: string };
+    const element = document.createElement(tag) as TestElement & { message: string };
     element.setAttribute('message', 'from-attribute');
     document.body.appendChild(element);
 
@@ -183,11 +183,11 @@ describe('ImpulseElement connection order', () => {
     counter += 1;
     const tag = `marker-element-${counter}`;
 
-    class Element extends ImpulseElement {}
+    class TestElement extends ImpulseElement {}
 
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     document.body.appendChild(element);
 
     try {
@@ -210,13 +210,13 @@ describe('ImpulseElement before the document is Parsed', () => {
     const tag = `parsing-element-${counter}`;
     const connectedSpy = Sinon.spy();
 
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       connected() {
         connectedSpy();
       }
     }
 
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
     const finishParsing = simulateParsing();
     const element = document.createElement(tag);
     document.body.appendChild(element);
@@ -241,7 +241,7 @@ describe('ImpulseElement teardown', () => {
   it('still tears down and re-initializes on reconnect when disconnected() throws', async () => {
     counter += 1;
     const tag = `teardown-throws-${counter}`;
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       connectedSpy = Sinon.spy();
       connected() {
         this.connectedSpy();
@@ -251,9 +251,9 @@ describe('ImpulseElement teardown', () => {
         throw new Error('disconnected failed');
       }
     }
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     const errors = captureReportedErrors('disconnected failed');
     try {
       document.body.appendChild(element);
@@ -279,7 +279,7 @@ describe('ImpulseElement teardown', () => {
   it('re-creates the target watcher on reconnect when a target disconnected callback throws', async () => {
     counter += 1;
     const tag = `target-teardown-throws-${counter}`;
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       @target() panel!: HTMLElement;
       panelConnectedSpy = Sinon.spy();
       panelConnected() {
@@ -290,9 +290,9 @@ describe('ImpulseElement teardown', () => {
         throw new Error('panel disconnected failed');
       }
     }
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     element.innerHTML = `<div data-target="${tag}.panel"></div>`;
     const errors = captureReportedErrors('panel disconnected failed');
     try {
@@ -319,16 +319,16 @@ describe('ImpulseElement teardown', () => {
   it('invokes [property]Changed for an attribute that disconnected() changes', async () => {
     counter += 1;
     const tag = `teardown-property-${counter}`;
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       @property() state = 'open';
       stateChanged = Sinon.fake();
       disconnected() {
         this.state = 'closed';
       }
     }
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     document.body.append(element);
     try {
       await whenInitialized(element);
@@ -344,7 +344,7 @@ describe('ImpulseElement teardown', () => {
     const tag = `teardown-move-property-${counter}`;
     const connectedSpy = Sinon.spy();
     const disconnectedSpy = Sinon.spy();
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       @property() state = 'open';
       connected() {
         connectedSpy();
@@ -357,11 +357,11 @@ describe('ImpulseElement teardown', () => {
         this.state = 'closed';
       }
     }
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
     const a = await fixture(html`<div></div>`);
     const b = await fixture(html`<div></div>`);
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     a.append(element);
     await waitUntil(() => connectedSpy.calledOnce, 'element should initialize', { timeout: CONNECTION_TIMEOUT_MS });
 
@@ -378,16 +378,16 @@ describe('ImpulseElement callback errors', () => {
   it('reports a duplicate @target and still finishes initializing', async () => {
     counter += 1;
     const tag = `duplicate-target-${counter}`;
-    class Element extends ImpulseElement {
+    class TestElement extends ImpulseElement {
       @target() panel!: HTMLElement;
       connectedSpy = Sinon.spy();
       connected() {
         this.connectedSpy();
       }
     }
-    registerElement(tag)(Element);
+    registerElement(tag)(TestElement);
 
-    const element = document.createElement(tag) as Element;
+    const element = document.createElement(tag) as TestElement;
     element.innerHTML = `
       <div data-target="${tag}.panel"></div>
       <div data-target="${tag}.panel"></div>

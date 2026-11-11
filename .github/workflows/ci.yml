@@ -23,6 +23,17 @@ jobs:
     needs:
       - lint
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The project setups the suite is compiled as; see packages/core/web-test-runner.profiles.js.
+        profile:
+          - esbuild-legacy
+          - tsc-legacy
+          - babel-legacy
+    name: test (${{ matrix.profile }})
+    env:
+      PROFILE: ${{ matrix.profile }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
