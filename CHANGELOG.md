@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `connected()` or `disconnected()` callback no longer runs after its `stop()` when another callback for the same element called it ([#251](https://github.com/Ambiki/impulse/pull/251))
 - Moving the only element with targets from one of its own target callbacks no longer leaves an element removed meanwhile in its target fields or bound to its actions ([#248](https://github.com/Ambiki/impulse/pull/248))
 - An element defined after a claimant was inserted ahead of its `@target()` Target gives that claimant the field, instead of leaving it empty ([#243](https://github.com/Ambiki/impulse/pull/243))
 - An element waiting for a `@target()` field no longer takes it over when it lists the field a second time ([#243](https://github.com/Ambiki/impulse/pull/243))
