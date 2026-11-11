@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support for TypeScript's standard decorators, alongside `experimentalDecorators` ([#255](https://github.com/Ambiki/impulse/pull/255))
+
 ### Changed
 
 - `@property()`, `@target()`, and `@targets()` throw when a class declares a field twice, or when they decorate a static member, a method, an accessor, or a field named by a symbol ([#254](https://github.com/Ambiki/impulse/pull/254))
