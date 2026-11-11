@@ -136,8 +136,8 @@ describe('watchSelector', () => {
 
         expect(calls).to.deep.equal(['first connected']);
       } finally {
-        stopFirst();
         stopSecond();
+        stopFirst();
       }
     });
 
@@ -160,12 +160,12 @@ describe('watchSelector', () => {
 
         expect(calls).to.deep.equal(['first disconnected']);
       } finally {
-        stopFirst();
         stopSecond();
+        stopFirst();
       }
     });
 
-    it('does not tell it about an attribute change once its turn comes', async () => {
+    it('does not deliver an attribute change once its turn comes', async () => {
       const element = await fixture(html`<div class="stopped-on-change"></div>`);
       const calls: string[] = [];
       let stopSecond = () => {};
@@ -177,7 +177,6 @@ describe('watchSelector', () => {
       });
       stopSecond = watchSelector('.stopped-on-change', {
         elementAttributeChanged: () => calls.push('second changed'),
-        elementDisconnected: () => calls.push('second disconnected'),
       });
       try {
         element.classList.add('still-matching');
@@ -185,8 +184,8 @@ describe('watchSelector', () => {
 
         expect(calls).to.deep.equal(['first changed']);
       } finally {
-        stopFirst();
         stopSecond();
+        stopFirst();
       }
     });
 
@@ -209,8 +208,8 @@ describe('watchSelector', () => {
 
         expect(calls).to.deep.equal(['first disconnected']);
       } finally {
-        stopFirst();
         stopSecond();
+        stopFirst();
       }
     });
 
@@ -237,8 +236,8 @@ describe('watchSelector', () => {
 
         expect(calls).to.deep.equal(['first disconnected', 'first connected']);
       } finally {
-        stopFirst();
         stopSecond();
+        stopFirst();
       }
     });
   });

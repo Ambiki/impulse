@@ -375,9 +375,9 @@ function walkMoved(node: Node, batch: number) {
   for (const element of watcherIndex.querySubjects(root)) visitDisconnectOlder(element, batch);
 }
 
-// Each visit walks a list of watchers taken before its first callback, and a callback can stop a watcher further down
-// it. A stopped watcher tracks nothing, so the disconnects pass it over with any other watcher no longer tracking the
-// element, and `visitConnect` must not match the element for it again.
+// The visits below each walk a list of watchers taken before their first callback, and a callback can stop a watcher
+// further down that list. A stopped watcher tracks nothing, so the disconnects skip it like any other watcher no longer
+// tracking the element, and a connect checks the flag so as not to match the element for it again.
 function visitConnect(element: Element) {
   if (!element.isConnected) return;
   for (const { value: watcher } of watcherIndex.matches(element)) {
@@ -417,8 +417,8 @@ function processAttributeChange(element: Element, attributeName: string | null) 
 
   // Watchers that were already matching: each either still matches, and hears about the change, or stops matching.
   // Snapshotted first, so a callback that registers a watcher does not have it visited as though it had been matching
-  // all along, and one that disconnects the element does not cut the iteration short. A watcher a callback has stopped
-  // since no longer tracks the element, and is passed over.
+  // all along, and one that disconnects the element does not cut the iteration short. A watcher that no longer tracks
+  // the element by its turn, as when a callback before it stopped it, is skipped.
   const tracked = watchersByElement.get(element);
   if (tracked) {
     for (const watcher of Array.from(tracked)) {

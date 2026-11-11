@@ -350,8 +350,8 @@ describe('connected', () => {
 
       expect(log).to.deep.equal(['first']);
     } finally {
-      stopFirst();
       stopSecond();
+      stopFirst();
     }
   });
 });
