@@ -27,6 +27,17 @@ describe('Declaring a field with standard decorators', () => {
     }).to.throw(TypeError, '@target() can only decorate a public instance field, not the accessor "panel".');
   });
 
+  it('throws for a field named by a symbol', () => {
+    const size = Symbol('size');
+    expect(() => {
+      class Symbolic extends ImpulseElement {
+        // @ts-expect-error A Declaration is looked up by a string name.
+        @property() [size] = 1;
+      }
+      return Symbolic;
+    }).to.throw(TypeError, '@property() can only decorate a public instance field, not the field Symbol(size).');
+  });
+
   it('throws when the compiler hands it no metadata', () => {
     const context = {
       kind: 'field',

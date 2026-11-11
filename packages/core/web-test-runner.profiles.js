@@ -53,7 +53,7 @@ function babel(plugins) {
   };
 }
 
-export const PROFILES = {
+const PROFILES = {
   'esbuild-legacy': {
     convention: 'legacy',
     compile: esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
@@ -91,7 +91,7 @@ export const PROFILES = {
   },
 };
 
-export function profile(name) {
+function profile(name) {
   const found = PROFILES[name];
   if (!found) throw new Error(`Unknown test profile "${name}". Expected one of: ${Object.keys(PROFILES).join(', ')}.`);
   return found;
