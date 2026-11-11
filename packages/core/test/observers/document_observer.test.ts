@@ -111,6 +111,138 @@ describe('watchSelector', () => {
     });
   });
 
+  describe('stopped by another watcher\'s callback for the same element', () => {
+    it('does not connect the element once its turn comes', async () => {
+      const root = await fixture(html`<div></div>`);
+      const calls: string[] = [];
+      let stopSecond = () => {};
+      const stopFirst = watchSelector('.stopped-on-connect', {
+        elementConnected: () => {
+          calls.push('first connected');
+          stopSecond();
+        },
+      });
+      stopSecond = watchSelector('.stopped-on-connect', {
+        elementConnected: () => calls.push('second connected'),
+        elementDisconnected: () => calls.push('second disconnected'),
+      });
+      try {
+        const element = document.createElement('div');
+        element.className = 'stopped-on-connect';
+        root.append(element);
+        await nextFrame();
+        element.remove();
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['first connected']);
+      } finally {
+        stopFirst();
+        stopSecond();
+      }
+    });
+
+    it('does not disconnect the element once its turn comes', async () => {
+      const element = await fixture(html`<div class="stopped-on-disconnect"></div>`);
+      const calls: string[] = [];
+      let stopSecond = () => {};
+      const stopFirst = watchSelector('.stopped-on-disconnect', {
+        elementDisconnected: () => {
+          calls.push('first disconnected');
+          stopSecond();
+        },
+      });
+      stopSecond = watchSelector('.stopped-on-disconnect', {
+        elementDisconnected: () => calls.push('second disconnected'),
+      });
+      try {
+        element.remove();
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['first disconnected']);
+      } finally {
+        stopFirst();
+        stopSecond();
+      }
+    });
+
+    it('does not tell it about an attribute change once its turn comes', async () => {
+      const element = await fixture(html`<div class="stopped-on-change"></div>`);
+      const calls: string[] = [];
+      let stopSecond = () => {};
+      const stopFirst = watchSelector('.stopped-on-change', {
+        elementAttributeChanged: () => {
+          calls.push('first changed');
+          stopSecond();
+        },
+      });
+      stopSecond = watchSelector('.stopped-on-change', {
+        elementAttributeChanged: () => calls.push('second changed'),
+        elementDisconnected: () => calls.push('second disconnected'),
+      });
+      try {
+        element.classList.add('still-matching');
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['first changed']);
+      } finally {
+        stopFirst();
+        stopSecond();
+      }
+    });
+
+    it('does not disconnect the element when an attribute change ends the match', async () => {
+      const element = await fixture(html`<div class="stopped-on-unmatch"></div>`);
+      const calls: string[] = [];
+      let stopSecond = () => {};
+      const stopFirst = watchSelector('.stopped-on-unmatch', {
+        elementDisconnected: () => {
+          calls.push('first disconnected');
+          stopSecond();
+        },
+      });
+      stopSecond = watchSelector('.stopped-on-unmatch', {
+        elementDisconnected: () => calls.push('second disconnected'),
+      });
+      try {
+        element.classList.remove('stopped-on-unmatch');
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['first disconnected']);
+      } finally {
+        stopFirst();
+        stopSecond();
+      }
+    });
+
+    it('neither disconnects nor connects the element when replaceChildren moves it', async () => {
+      const root = await fixture(html`<div><section><b class="stopped-on-move"></b></section></div>`);
+      const item = root.querySelector('b')!;
+      const calls: string[] = [];
+      let stopSecond = () => {};
+      const stopFirst = watchSelector('.stopped-on-move', {
+        elementConnected: () => calls.push('first connected'),
+        elementDisconnected: () => {
+          calls.push('first disconnected');
+          stopSecond();
+        },
+      });
+      stopSecond = watchSelector('.stopped-on-move', {
+        elementConnected: () => calls.push('second connected'),
+        elementDisconnected: () => calls.push('second disconnected'),
+      });
+      try {
+        calls.length = 0;
+        root.replaceChildren(item);
+        await nextFrame();
+
+        expect(calls).to.deep.equal(['first disconnected', 'first connected']);
+      } finally {
+        stopFirst();
+        stopSecond();
+      }
+    });
+  });
+
   describe('detached elements', () => {
     it('does not fire elementConnected when an attribute change makes a detached element match', async () => {
       const elementConnected = Sinon.spy();

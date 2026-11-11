@@ -25,6 +25,9 @@ interface RegisteredWatcher {
   // Each tracked element, with the number of the batch that was current when it was matched.
   elements: Map<Element, number>;
   attributes: string[] | null;
+  // Whether the cleanup `watchSelector` returns has run. A delivery can still hold the watcher in a list it took
+  // before a callback stopped it.
+  stopped: boolean;
 }
 
 const watcherIndex = new SelectorSet<RegisteredWatcher>();
@@ -84,6 +87,7 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
       undefined,
     elements: new Map(),
     attributes: selectorAttributes(selector),
+    stopped: false,
   };
 
   if (document.readyState === 'loading') {
@@ -99,11 +103,10 @@ export function watchSelector<T extends Element = Element>(selector: string, wat
     });
   }
 
-  let stopped = false;
   return () => {
     // The attribute counts are not idempotent the way the index is, so a second call must not reach them.
-    if (stopped) return;
-    stopped = true;
+    if (registered.stopped) return;
+    registered.stopped = true;
     // A watcher stopped before the document is Parsed never joined the index, so it has nothing there to undo.
     if (pendingWatchers?.delete(registered)) return;
     watcherIndex.delete(selector, registered);
@@ -372,24 +375,32 @@ function walkMoved(node: Node, batch: number) {
   for (const element of watcherIndex.querySubjects(root)) visitDisconnectOlder(element, batch);
 }
 
+// Each visit walks a list of watchers taken before its first callback, and a callback can stop a watcher further down
+// it. A stopped watcher tracks nothing, so the disconnects pass it over with any other watcher no longer tracking the
+// element, and `visitConnect` must not match the element for it again.
 function visitConnect(element: Element) {
   if (!element.isConnected) return;
   for (const { value: watcher } of watcherIndex.matches(element)) {
-    if (!watcher.elements.has(element) && element.matches(watcher.selector)) connect(element, watcher);
+    if (!watcher.stopped && !watcher.elements.has(element) && element.matches(watcher.selector)) {
+      connect(element, watcher);
+    }
   }
 }
 
 function visitDisconnect(element: Element) {
   const watchers = watchersByElement.get(element);
   if (!watchers) return;
-  for (const watcher of Array.from(watchers)) disconnect(element, watcher);
+  for (const watcher of Array.from(watchers)) {
+    if (watcher.elements.has(element)) disconnect(element, watcher);
+  }
 }
 
 function visitDisconnectOlder(element: Element, batch: number) {
   const watchers = watchersByElement.get(element);
   if (!watchers) return;
   for (const watcher of Array.from(watchers)) {
-    if (watcher.elements.get(element)! < batch) disconnect(element, watcher);
+    const matched = watcher.elements.get(element);
+    if (matched !== undefined && matched < batch) disconnect(element, watcher);
   }
 }
 
@@ -406,10 +417,12 @@ function processAttributeChange(element: Element, attributeName: string | null) 
 
   // Watchers that were already matching: each either still matches, and hears about the change, or stops matching.
   // Snapshotted first, so a callback that registers a watcher does not have it visited as though it had been matching
-  // all along, and one that disconnects the element does not cut the iteration short.
+  // all along, and one that disconnects the element does not cut the iteration short. A watcher a callback has stopped
+  // since no longer tracks the element, and is passed over.
   const tracked = watchersByElement.get(element);
   if (tracked) {
     for (const watcher of Array.from(tracked)) {
+      if (!watcher.elements.has(element)) continue;
       if (element.matches(watcher.selector)) {
         invokeReporting(() => watcher.elementAttributeChanged?.(element, attributeName ?? ''));
       } else {

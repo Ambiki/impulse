@@ -327,6 +327,33 @@ describe('connected', () => {
       for (const stop of stops) stop();
     }
   });
+
+  it('does not invoke a callback whose watcher another callback stopped for the same element', async () => {
+    const root = await fixture(html`<div></div>`);
+    const log: string[] = [];
+    let stopSecond = () => {};
+    const stopFirst = connected('.stopped-by-first', () => {
+      log.push('first');
+      stopSecond();
+    });
+    stopSecond = connected('.stopped-by-first', () => {
+      log.push('second');
+      return () => log.push('second cleanup');
+    });
+    try {
+      const element = document.createElement('div');
+      element.className = 'stopped-by-first';
+      root.append(element);
+      await nextFrame();
+      element.remove();
+      await nextFrame();
+
+      expect(log).to.deep.equal(['first']);
+    } finally {
+      stopFirst();
+      stopSecond();
+    }
+  });
 });
 
 describe('shared observer', () => {
