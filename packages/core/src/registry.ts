@@ -44,7 +44,7 @@ export const TARGETS: Registry<TargetDeclaration> = { name: 'target' };
 /**
  * A class's Declarations, kept on its metadata object.
  */
-interface Registries {
+interface ClassDeclarations {
   /** Each registry's entries by field name: the ones the class inherits, and its own in their place. */
   readonly entries: Map<string, Map<string, RegistryEntry>>;
   /** The fields the class declares itself. */
@@ -82,7 +82,7 @@ export function classMetadata(ctor: object): object {
  * Throws for a field the class has declared already.
  */
 export function register<T extends RegistryEntry>(metadata: object, registry: Registry<T>, entry: T): void {
-  const registries = ownRegistries(metadata) ?? createRegistries(metadata);
+  const registries = ownDeclarations(metadata) ?? createDeclarations(metadata);
   if (registries.declared.has(entry.key)) {
     throw new TypeError(
       `The field "${entry.key}" is declared twice in one class. Declare it with one of @property(), @target(), or ` +
@@ -112,7 +112,7 @@ export function register<T extends RegistryEntry>(metadata: object, registry: Re
 export function registered<T extends RegistryEntry>(ctor: object, registry: Registry<T>): ReadonlyMap<string, T> {
   const metadata = (ctor as Record<symbol, object | null | undefined>)[metadataKey()];
   // Through the metadata chain: the nearest class with Declarations of its own holds the inherited ones too.
-  const registries = metadata ? (metadata as Record<symbol, Registries | undefined>)[REGISTRIES] : undefined;
+  const registries = metadata ? (metadata as Record<symbol, ClassDeclarations | undefined>)[REGISTRIES] : undefined;
   return (registries?.entries.get(registry.name) as ReadonlyMap<string, T> | undefined) ?? new Map<string, T>();
 }
 
@@ -131,18 +131,18 @@ export function registeredFor<T extends RegistryEntry>(
   return registered((Object.getPrototypeOf(instance) as { constructor: object }).constructor, registry);
 }
 
-function ownRegistries(metadata: object): Registries | undefined {
+function ownDeclarations(metadata: object): ClassDeclarations | undefined {
   if (!Object.hasOwn(metadata, REGISTRIES)) return;
-  return (metadata as Record<symbol, Registries>)[REGISTRIES];
+  return (metadata as Record<symbol, ClassDeclarations>)[REGISTRIES];
 }
 
 /**
  * Gives `metadata` its own Declarations, starting from a copy of the ones it inherits. A class is only defined once
  * its superclass is, so the superclass's are final by then.
  */
-function createRegistries(metadata: object): Registries {
-  const inherited = (metadata as Record<symbol, Registries | undefined>)[REGISTRIES];
-  const registries: Registries = {
+function createDeclarations(metadata: object): ClassDeclarations {
+  const inherited = (metadata as Record<symbol, ClassDeclarations | undefined>)[REGISTRIES];
+  const registries: ClassDeclarations = {
     entries: new Map(Array.from(inherited?.entries ?? [], ([name, entries]) => [name, new Map(entries)])),
     declared: new Set(),
   };

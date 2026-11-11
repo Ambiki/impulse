@@ -30,5 +30,5 @@ class carries. Impulse mutates a global when it loads.
 A standard `@registerElement` defines the element from a class `context.addInitializer`, which runs once the class is
 complete and its metadata attached, rather than from the decorator body, where `Symbol.metadata` would still resolve to
 the superclass's and the class's static fields would not be set yet. The subclass that `registerElement` registers (see
-[ADR 0005](0005-property-defaults-live-in-javascript.md)) needs no shared registrations: it reads the decorated class's
-Declarations through the metadata chain.
+[ADR 0005](0005-property-defaults-live-in-javascript.md)) is handed nothing: it reads the decorated class's Declarations
+through the metadata chain.

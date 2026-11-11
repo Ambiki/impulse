@@ -5,8 +5,11 @@ import { classMetadata, PROPERTIES, register, registered, TARGETS } from '../src
 const metadataKey = (Symbol as unknown as { metadata: symbol }).metadata;
 
 describe('registry', () => {
-  it('defines Symbol.metadata as the symbol the emitters fall back to', () => {
-    expect(metadataKey).to.equal(Symbol.for('Symbol.metadata'));
+  it('defines Symbol.metadata, as the symbol the emitters fall back to unless the engine has its own', () => {
+    expect(metadataKey).to.be.a('symbol');
+    // An engine's own well-known symbol, like one a polyfill defines with `Symbol()`, is not in the global registry.
+    const engineDefined = Symbol.keyFor(metadataKey) === undefined;
+    expect(engineDefined || metadataKey === Symbol.for('Symbol.metadata')).to.be.true;
   });
 
   it('returns an empty map for a class with no Declarations', () => {
@@ -23,7 +26,7 @@ describe('registry', () => {
     expect(Object.getOwnPropertySymbols(Unregistered)).to.deep.equal([]);
   });
 
-  it('reads back every registered entry, in the order registered', () => {
+  it('reads back every Declaration, in the order declared', () => {
     class Element {}
     register(classMetadata(Element), PROPERTIES, { key: 'src', type: String });
     register(classMetadata(Element), PROPERTIES, { key: 'open', type: Boolean });
@@ -40,7 +43,7 @@ describe('registry', () => {
     expect(registered(Element, TARGETS).get('missing')).to.equal(undefined);
   });
 
-  it('throws when a class registers the same field twice', () => {
+  it('throws when a class declares the same field twice', () => {
     class Element {}
     register(classMetadata(Element), PROPERTIES, { key: 'label', type: String });
 
@@ -85,7 +88,7 @@ describe('registry', () => {
   });
 
   describe('a subclass', () => {
-    it('reads the entries of the classes it extends', () => {
+    it('reads the Declarations of the classes it extends', () => {
       class Base {}
       register(classMetadata(Base), PROPERTIES, { key: 'src', type: String });
       class Middle extends Base {}
@@ -96,7 +99,7 @@ describe('registry', () => {
       expect(Array.from(registered(Leaf, PROPERTIES).keys())).to.deep.equal(['src', 'open']);
     });
 
-    it('replaces an inherited entry of the same field, in any registry', () => {
+    it('replaces an inherited Declaration of the same field, in any registry', () => {
       class Base {}
       register(classMetadata(Base), PROPERTIES, { key: 'src', type: String });
       register(classMetadata(Base), PROPERTIES, { key: 'label', type: String });
@@ -108,7 +111,7 @@ describe('registry', () => {
       expect(Array.from(registered(Child, TARGETS).values())).to.deep.equal([{ key: 'label', multiple: false }]);
     });
 
-    it('leaves the entries of the classes it extends alone', () => {
+    it('leaves the Declarations of the classes it extends alone', () => {
       class Base {}
       register(classMetadata(Base), PROPERTIES, { key: 'src', type: String });
       class Child extends Base {}
@@ -118,14 +121,19 @@ describe('registry', () => {
       expect(Array.from(registered(Base, PROPERTIES).values())).to.deep.equal([{ key: 'src', type: String }]);
     });
 
-    it('reads entries made on metadata a standard emitter created', () => {
+    it('reads Declarations recorded on metadata a standard emitter created', () => {
       class Base {}
       register(classMetadata(Base), PROPERTIES, { key: 'src', type: String });
       class Child extends Base {}
       // What a standard emitter defines on a class once its decorators have run.
       const metadata = Object.create((Base as unknown as Record<symbol, object>)[metadataKey]);
       register(metadata, PROPERTIES, { key: 'open', type: Boolean });
-      Object.defineProperty(Child, metadataKey, { value: metadata, enumerable: true, configurable: true, writable: true });
+      Object.defineProperty(Child, metadataKey, {
+        value: metadata,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
 
       expect(classMetadata(Child)).to.equal(metadata);
       expect(Array.from(registered(Child, PROPERTIES).keys())).to.deep.equal(['src', 'open']);
