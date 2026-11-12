@@ -50,14 +50,16 @@ target or a property without an initializer is not an error.
 
 :::
 
-`useDefineForClassFields` can take either value. Standard decorators need TypeScript 5.2 or later, the first version to
-pass them decorator metadata. They keep what they declare on `Symbol.metadata`, which Impulse defines when the browser
-doesn't.
+`useDefineForClassFields` can take either value. Impulse's types need TypeScript 5.0 or later, and standard decorators
+need 5.2 or later, the first version to pass them decorator metadata. They keep what they declare on `Symbol.metadata`,
+which Impulse defines when the browser doesn't.
 
-Other compilers follow the same choice. esbuild, and Vite with it, reads `experimentalDecorators` from your
-`tsconfig.json`, and supports standard decorators from 0.21. With Babel, use `@babel/plugin-proposal-decorators` with
-`version: '2023-11'` for standard decorators, or `version: 'legacy'` for legacy ones, which also need
-`@babel/plugin-transform-class-properties` after it.
+Other compilers follow the same choice. esbuild, and Vite 7 and earlier with it, reads `experimentalDecorators` from
+your `tsconfig.json`, and supports standard decorators from 0.21. Vite 8 compiles TypeScript with Oxc, which handles
+legacy decorators but can't compile standard ones yet, so with Vite 8 use legacy decorators, or compile standard ones
+with Babel as [Vite's migration guide](https://vite.dev/guide/migration) shows. With Babel, use
+`@babel/plugin-proposal-decorators` with `version: '2023-11'` for standard decorators, or `version: 'legacy'` for legacy
+ones, which also need `@babel/plugin-transform-class-properties` after it.
 
 ## Loading your elements
 
