@@ -12,10 +12,11 @@ on:
   # The publish workflow runs CI on the release's commit before publishing.
   workflow_call:
 
-# A new push to a pull request cancels the run still going for its previous push. Runs on main always finish.
+# A new push to a pull request cancels the run still going for its previous push. Every other run gets a group of its
+# own, so it always finishes: in a group shared by main's runs, a newer push would cancel a run still waiting to start.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -32,13 +33,14 @@ jobs:
           yarn install --frozen-lockfile
           yarn lint
       - name: Typecheck with legacy and standard decorators
-        # This and the next step also run after ESLint fails, so every check reports its errors in one run. The
-        # playground imports @ambiki/impulse, whose types are the built ones.
+        # Also after ESLint fails, so every check reports its errors in one run.
         if: ${{ !cancelled() }}
+        # The playground imports @ambiki/impulse, whose types are the built ones.
         run: |
           yarn build
           yarn typecheck
       - name: Check the documented tsconfigs
+        # Also after an earlier check fails.
         if: ${{ !cancelled() }}
         run: yarn test:docs
 
@@ -62,6 +64,7 @@ jobs:
     # downloads the browsers that version needs.
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
+      # The runner's user, as Playwright's CI docs set it up.
       options: --user 1001
     env:
       PROFILE: ${{ matrix.profile }}

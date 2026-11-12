@@ -5,10 +5,30 @@ on:
     types:
       - published
 
+permissions:
+  contents: read
+
 jobs:
-  # A release can be cut from a branch other than main, like 2.0.0's rcs from the v2.0.0 branch, whose commits CI never
-  # ran on.
+  check_version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # npm takes the version, and the prerelease dist-tag, from package.json, so a release whose tag doesn't match it
+      # publishes nothing.
+      - name: Check the version matches the tag
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(node -p "require('./packages/core/package.json').version")
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::Release $TAG doesn't match packages/core/package.json ($version)"
+            exit 1
+          fi
+
+  # A release can be cut from a branch other than main, where CI hasn't run on its commit.
   ci:
+    needs: check_version
     uses: ./.github/workflows/ci.yml
 
   publish:
@@ -22,7 +42,8 @@ jobs:
           node-version-file: .tool-versions
           cache: yarn
           registry-url: "https://registry.npmjs.org"
-      - run: yarn install --frozen-lockfile
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
