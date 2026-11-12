@@ -53,7 +53,7 @@ export class ImpulseElement extends HTMLElement {
   }
 
   static get observedAttributes(): string[] {
-    return observedAttributes(this.prototype);
+    return observedAttributes(this);
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {

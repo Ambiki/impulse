@@ -1,4 +1,6 @@
-import { register, TARGETS } from '../registry';
+import type { FieldDecorator } from './field';
+import { TARGETS } from '../registry';
+import { fieldDecorator } from './field';
 
 /**
  * A single `@target()` / `@targets()` declaration: the field name, and whether it collects every matching element or
@@ -42,10 +44,8 @@ export interface TargetDeclaration {
  * </greet-user>
  * ```
  */
-export function target() {
-  return (ctor: any, key: string) => {
-    register(ctor, TARGETS, { key, multiple: false });
-  };
+export function target(): FieldDecorator {
+  return fieldDecorator('@target()', TARGETS, (key) => ({ key, multiple: false }));
 }
 
 /**
@@ -67,8 +67,6 @@ export function target() {
  * </greet-user>
  * ```
  */
-export function targets() {
-  return (ctor: any, key: string) => {
-    register(ctor, TARGETS, { key, multiple: true });
-  };
+export function targets(): FieldDecorator {
+  return fieldDecorator('@targets()', TARGETS, (key) => ({ key, multiple: true }));
 }

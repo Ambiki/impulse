@@ -17,6 +17,12 @@ A run of Simple selectors with no combinator between them, all of which must mat
 one Compound of three; `.open a.link` is two.
 _Avoid_: Compound selector, segment, clause
 
+**Declaration**:
+A field an Impulse element class marks with `@property()`, `@target()`, or `@targets()`. A class has the Declarations
+of every class it extends as well as its own. A field has at most one Declaration: a class declares it once, and
+declaring it again in a subclass replaces the inherited one, whatever kind either is.
+_Avoid_: Registration, entry, decorated field
+
 **Default**:
 The value a property reads as while its attribute is missing or can't be read as its type: the value it holds once the
 element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript: an element

@@ -31,11 +31,11 @@ function keysByAttribute(declarations: ReadonlyMap<string, PropertyDeclaration>)
 }
 
 /**
- * The attributes an element of the class with prototype `proto` observes: one for each attribute its `@property()`
- * fields read.
+ * The attributes an element of the class `ctor` observes: one for each attribute its `@property()` fields read,
+ * inherited ones included.
  */
-export function observedAttributes(proto: object): string[] {
-  return Array.from(keysByAttribute(registered(proto, PROPERTIES)).keys());
+export function observedAttributes(ctor: object): string[] {
+  return Array.from(keysByAttribute(registered(ctor, PROPERTIES)).keys());
 }
 
 /**
