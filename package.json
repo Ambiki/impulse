@@ -17,6 +17,7 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "yarn workspace @ambiki/impulse test",
+    "test:docs": "yarn workspace @ambiki/impulse test:docs",
     "test:watch": "yarn workspace @ambiki/impulse test:watch",
     "typecheck": "tsc -p tsconfig.json && tsc -p packages/core/tsconfig.standard.json"
   },
