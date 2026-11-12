@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { documentedOptions } from '../web-test-runner.profiles.js';
 
-// The test profiles compile with the `tsconfig.json` that getting-started.md tells readers to use, so the documented
-// setups are the ones CI builds. This keeps the two from drifting apart.
+// tsc-legacy and tsc-standard compile with exactly the `tsconfig.json` that getting-started.md tells readers to use, and
+// esbuild-standard with the standard one under Set, so the documented setups are the ones CI builds. This keeps the two
+// from drifting apart.
 
 const guide = readFileSync(new URL('../../docs/introduction/getting-started.md', import.meta.url), 'utf8');
 
@@ -18,11 +19,11 @@ function documented(label) {
 }
 
 describe('getting-started.md', () => {
-  it('documents the tsconfig the standard decorator profiles compile with', () => {
+  it('documents the tsconfig tsc-standard compiles with, and esbuild-standard starts from', () => {
     assert.deepEqual(documented('Standard decorators'), documentedOptions('standard'));
   });
 
-  it('documents the tsconfig the legacy decorator profile compiles with', () => {
+  it('documents the tsconfig tsc-legacy compiles with', () => {
     assert.deepEqual(documented('Legacy decorators'), documentedOptions('legacy'));
   });
 });
