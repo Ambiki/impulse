@@ -28,7 +28,8 @@ A legacy-compiled class gets an own `Symbol.metadata` property it didn't have be
 class carries. Impulse mutates a global when it loads.
 
 A standard `@registerElement` defines the element from a class `context.addInitializer`, which runs once the class is
-complete and its metadata attached, rather than from the decorator body, where `Symbol.metadata` would still resolve to
-the superclass's and the class's static fields would not be set yet. The subclass that `registerElement` registers (see
-[ADR 0005](0005-property-defaults-live-in-javascript.md)) is handed nothing: it reads the decorated class's Declarations
-through the metadata chain.
+complete, rather than from the decorator body, where the class's static fields would not be set yet. The subclass that
+`registerElement` registers (see [ADR 0005](0005-property-defaults-live-in-javascript.md)) reads the decorated class's
+Declarations through the metadata chain when legacy decorators compiled it. With standard ones, it is given the class's
+metadata object as its own `Symbol.metadata`: the emitters attach that object to the class the outermost class
+decorator returns, which is not the registered subclass when another class decorator replaces it.

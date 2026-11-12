@@ -9,7 +9,6 @@ function wrapped<T extends abstract new (...args: any[]) => object>(ctor: T, _co
 
 describe('@registerElement with standard decorators', () => {
   it('keeps the Declarations when another class decorator replaces the class it returns', async () => {
-    // The emitters attach the class's metadata to the class the outermost decorator returns.
     @wrapped
     @registerElement('register-element-wrapped-test')
     class WrappedTest extends ImpulseElement {

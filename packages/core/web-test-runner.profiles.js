@@ -58,7 +58,7 @@ const PROFILES = {
     convention: 'legacy',
     compile: esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
   },
-  // Set, so standard decorators are run with both field semantics: tsc-standard and babel-standard [[Define]] them.
+  // Set, so standard decorators run with both field semantics: tsc-standard and babel-standard [[Define]] fields.
   'esbuild-standard': {
     convention: 'standard',
     compile: esbuild('es2020', { useDefineForClassFields: false }),
