@@ -46,8 +46,10 @@ export function fieldDecorator<T extends RegistryEntry>(
     }
     if (!context.metadata) {
       throw new TypeError(
-        `${decorator} needs decorator metadata, which this compiler does not provide. Compile with TypeScript 5.2 or ` +
-        `later, esbuild 0.21 or later, or Babel's 2023-11 decorators, or use legacy decorators.`,
+        `${decorator} needs decorator metadata, which it was not handed. Compile with TypeScript 5.2 or later, ` +
+        `esbuild 0.21 or later, or Babel's 2023-11 decorators, or use legacy decorators. TypeScript also needs ` +
+        `Symbol.metadata, which Impulse defines when it loads, so a class evaluated before Impulse (in an import ` +
+        `cycle, say) gets none.`,
       );
     }
     register(context.metadata, registry, declarationFor(context.name as string));
