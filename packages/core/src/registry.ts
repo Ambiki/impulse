@@ -64,14 +64,17 @@ export function classMetadata(ctor: object): object {
   const key = metadataKey();
   if (!Object.hasOwn(ctor, key)) {
     const inherited = (Object.getPrototypeOf(ctor) as Record<symbol, object | null | undefined>)[key] ?? null;
-    Object.defineProperty(ctor, key, {
-      value: Object.create(inherited),
-      enumerable: true,
-      configurable: true,
-      writable: true,
-    });
+    attachMetadata(ctor, Object.create(inherited));
   }
   return (ctor as Record<symbol, object>)[key];
+}
+
+/**
+ * Makes `metadata` the class `ctor`'s own `Symbol.metadata`, as the standard emitters attach it: writable and
+ * configurable, so an emitter that attaches it again afterwards still can.
+ */
+export function attachMetadata(ctor: object, metadata: object): void {
+  Object.defineProperty(ctor, metadataKey(), { value: metadata, enumerable: true, configurable: true, writable: true });
 }
 
 /**

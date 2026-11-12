@@ -1,4 +1,5 @@
 import { bindProperties } from '../property';
+import { attachMetadata } from '../registry';
 
 /**
  * Registers the decorated class as a custom element, so every `<name>` in the document is upgraded to an instance of
@@ -36,6 +37,10 @@ export function registerElement(name: string) {
       }
     };
     Object.defineProperty(registered, 'name', { value: ctor.name });
+    // The emitters attach a class's metadata to the class its outermost class decorator returns, which is not
+    // `registered` when another class decorator replaces it in turn. The element is a `registered`, so it reads its
+    // Declarations through `registered`'s own.
+    if (context?.metadata) attachMetadata(registered, context.metadata);
 
     const define = () => {
       try {
