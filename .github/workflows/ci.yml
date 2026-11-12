@@ -4,10 +4,23 @@ on:
   pull_request:
     branches:
       - main
+  # A pull request can only restore the yarn cache saved by its own runs or by main's, so runs on main save it for every
+  # new pull request.
+  push:
+    branches:
+      - main
+  # The publish workflow runs CI on the release's commit before publishing.
+  workflow_call:
+
+# A new push to a pull request cancels the run still going for its previous push. Runs on main always finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,17 +32,19 @@ jobs:
           yarn install --frozen-lockfile
           yarn lint
       - name: Typecheck with legacy and standard decorators
-        # The playground imports @ambiki/impulse, whose types are the built ones.
+        # This and the next step also run after ESLint fails, so every check reports its errors in one run. The
+        # playground imports @ambiki/impulse, whose types are the built ones.
+        if: ${{ !cancelled() }}
         run: |
           yarn build
           yarn typecheck
       - name: Check the documented tsconfigs
+        if: ${{ !cancelled() }}
         run: yarn test:docs
 
   test:
-    needs:
-      - lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +57,12 @@ jobs:
           - babel-legacy
           - babel-standard
     name: test (${{ matrix.profile }})
+    # The image comes with the browsers and the system packages they need, so the job doesn't install them from
+    # Ubuntu's mirrors. Keep its version in step with `playwright` in yarn.lock. On a mismatch, `playwright install`
+    # downloads the browsers that version needs.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
     env:
       PROFILE: ${{ matrix.profile }}
     steps:
@@ -53,5 +74,5 @@ jobs:
       - name: Run test
         run: |
           yarn install --frozen-lockfile
-          npx playwright install --with-deps chromium firefox webkit
+          yarn playwright install chromium firefox webkit
           yarn test

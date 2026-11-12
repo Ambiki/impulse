@@ -6,23 +6,28 @@ on:
       - published
 
 jobs:
+  # A release can be cut from a branch other than main, like 2.0.0's rcs from the v2.0.0 branch, whose commits CI never
+  # ran on.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version-file: .tool-versions
+          cache: yarn
           registry-url: "https://registry.npmjs.org"
-      - name: Run test
-        run: |
-          yarn install --frozen-lockfile
-          npx playwright install --with-deps chromium firefox webkit
-          yarn test
+      - run: yarn install --frozen-lockfile
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # A prerelease goes to the dist-tag named by its identifier (2.0.0-rc.0 -> rc), never latest.
+        # `prepublishOnly` builds dist/. A prerelease goes to the dist-tag named by its identifier (2.0.0-rc.0 -> rc),
+        # never latest.
         run: |
           version=$(node -p "require('./package.json').version")
           prerelease=${version#*-}
