@@ -112,6 +112,147 @@ describe('ImpulseElement connection order', () => {
     }
   });
 
+  it('initializes once a customized built-in descendant is defined', async () => {
+    counter += 1;
+    const parentTag = `built-in-parent-${counter}`;
+    const buttonName = `built-in-button-${counter}`;
+
+    class Parent extends ImpulseElement {
+      @target() button!: HTMLButtonElement;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <button is="${buttonName}" data-target="${parentTag}.button"></button>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    // Yield so the parent's init has a chance to reach the descendant wait before the button is defined.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    customElements.define(buttonName, class extends HTMLButtonElement {}, { extends: 'button' });
+
+    try {
+      const parent = await whenInitialized(wrapper.firstElementChild as Parent, { timeout: CONNECTION_TIMEOUT_MS });
+      expect(parent.button).to.eq(wrapper.querySelector('button'));
+    } finally {
+      wrapper.remove();
+    }
+  });
+
+  it('waits for a customized built-in descendant to be defined before invoking targetConnected', async function () {
+    counter += 1;
+    const parentTag = `built-in-awaiter-${counter}`;
+    const buttonName = `built-in-awaited-${counter}`;
+
+    class Button extends HTMLButtonElement {
+      get label() {
+        return 'from-definition';
+      }
+    }
+
+    class Parent extends ImpulseElement {
+      @target() button!: Button;
+      capturedLabel: string | undefined = '<unset>';
+      buttonConnected(button: Button) {
+        this.capturedLabel = button.label;
+      }
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <button is="${buttonName}" data-target="${parentTag}.button"></button>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    // Yield so the parent's init has a chance to reach the descendant wait before the button is defined.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    customElements.define(buttonName, Button, { extends: 'button' });
+
+    try {
+      // WebKit does not implement customized built-ins: the button is never undefined there, and never upgraded.
+      if (!(wrapper.querySelector('button') instanceof Button)) this.skip();
+
+      const parent = wrapper.firstElementChild as Parent;
+      await waitUntil(() => parent.capturedLabel !== '<unset>', 'buttonConnected should fire', { timeout: CONNECTION_TIMEOUT_MS });
+      expect(parent.capturedLabel).to.eq('from-definition');
+    } finally {
+      wrapper.remove();
+    }
+  });
+
+  it('initializes once a descendant custom element with an is attribute is defined', async () => {
+    counter += 1;
+    const parentTag = `is-attribute-parent-${counter}`;
+    const childTag = `is-attribute-child-${counter}`;
+
+    class Parent extends ImpulseElement {
+      @target() child!: HTMLElement;
+    }
+
+    const wrapper = document.createElement('div');
+    // An autonomous custom element is defined under its tag name, whatever its `is` says.
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <${childTag} is="never-defined-${counter}" data-target="${parentTag}.child"></${childTag}>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    // Yield so the parent's init has a chance to reach the descendant wait before the child is defined.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    customElements.define(childTag, class extends HTMLElement {});
+
+    try {
+      const parent = await whenInitialized(wrapper.firstElementChild as Parent, { timeout: CONNECTION_TIMEOUT_MS });
+      expect(parent.child).to.eq(wrapper.querySelector(childTag));
+    } finally {
+      wrapper.remove();
+    }
+  });
+
+  it('initializes with a customized built-in descendant whose is was not set by an attribute', async () => {
+    counter += 1;
+    const parentTag = `is-option-parent-${counter}`;
+    const warn = Sinon.stub(console, 'warn');
+
+    class Parent extends ImpulseElement {
+      @target() button!: HTMLButtonElement;
+    }
+
+    registerElement(parentTag)(Parent);
+
+    // `createElement()` records the name without writing an `is` attribute, so nothing on the button says which
+    // definition it is waiting for.
+    const button = document.createElement('button', { is: `is-option-button-${counter}` });
+    button.setAttribute('data-target', `${parentTag}.button`);
+    const parent = document.createElement(parentTag) as Parent;
+    parent.append(button);
+    document.body.append(parent);
+
+    try {
+      await whenInitialized(parent, { timeout: CONNECTION_TIMEOUT_MS });
+      expect(parent.button).to.eq(button);
+      // There was no wait to warn about.
+      expect(warn.called).to.be.false;
+    } finally {
+      warn.restore();
+      parent.remove();
+    }
+  });
+
   it('makes @property accessors live synchronously on connect, before yielding to whenParsed', () => {
     counter += 1;
     const tag = `sync-property-${counter}`;

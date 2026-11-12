@@ -97,9 +97,17 @@ export class ImpulseElement extends HTMLElement {
   }
 
   private _resolveUndefinedElements() {
-    const undefinedElements = Array.from(this.querySelectorAll(':not(:defined)'));
+    const names: string[] = [];
+    for (const element of this.querySelectorAll(':not(:defined)')) {
+      // An autonomous custom element is defined under its tag name, whatever its `is` says. Any other undefined element
+      // is a customized built-in (`<button is="fancy-button">`), defined under its `is` and never under `button`, which
+      // `whenDefined` rejects as a name. One whose `is` came from `createElement()` has no attribute to read the name
+      // from, so it is not waited for.
+      const name = element.localName.includes('-') ? element.localName : element.getAttribute('is');
+      if (name !== null) names.push(name);
+    }
     const migrated = (this.constructor as typeof ImpulseElement).migratedToWhenInitialized;
-    if (undefinedElements.length > 0 && !migrated) {
+    if (names.length > 0 && !migrated) {
       console.warn(
         `[impulse] <${this.identifier}> waits for descendant custom elements to be defined before invoking target ` +
         `connected callbacks. This is deprecated and will be removed in the next major version. If a connected ` +
@@ -107,8 +115,7 @@ export class ImpulseElement extends HTMLElement {
         `Set ImpulseElement.migratedToWhenInitialized = true to silence this warning.`,
       );
     }
-    const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
-    return Promise.all(promises);
+    return Promise.all(names.map((name) => customElements.whenDefined(name)));
   }
 }
 
