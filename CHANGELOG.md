@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- An element with a customized built-in descendant (`<button is="…">`) that is not defined yet initializes once it is, instead of never initializing ([#261](https://github.com/Ambiki/impulse/pull/261))
+- An element with a descendant whose `is` is not defined, such as `<button is="fancy-button">` or `<tr is="vue:row">`, initializes instead of never doing so ([#261](https://github.com/Ambiki/impulse/pull/261))
 - A subclass inherits the `@property()`, `@target()`, and `@targets()` fields of the classes it extends ([#254](https://github.com/Ambiki/impulse/pull/254))
 - A `connected()` or `disconnected()` callback no longer runs after its `stop()` when another callback for the same element called it ([#251](https://github.com/Ambiki/impulse/pull/251))
 - Moving the only element with targets from one of its own target callbacks no longer leaves an element removed meanwhile in its target fields or bound to its actions ([#248](https://github.com/Ambiki/impulse/pull/248))

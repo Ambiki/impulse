@@ -157,7 +157,7 @@ describe('ImpulseElement connection order', () => {
 
     class Parent extends ImpulseElement {
       @target() button!: Button;
-      capturedLabel: string | undefined = '<unset>';
+      capturedLabel = '<unset>';
       buttonConnected(button: Button) {
         this.capturedLabel = button.label;
       }
@@ -200,7 +200,7 @@ describe('ImpulseElement connection order', () => {
     }
 
     const wrapper = document.createElement('div');
-    // An autonomous custom element is defined under its tag name, whatever its `is` says.
+    // Nothing is ever defined under the child's `is`: defining its tag name is what defines it.
     wrapper.innerHTML = `
       <${parentTag}>
         <${childTag} is="never-defined-${counter}" data-target="${parentTag}.child"></${childTag}>
@@ -250,6 +250,35 @@ describe('ImpulseElement connection order', () => {
     } finally {
       warn.restore();
       parent.remove();
+    }
+  });
+
+  it('initializes with a descendant whose is can never name a definition', async () => {
+    counter += 1;
+    const parentTag = `invalid-is-parent-${counter}`;
+    const warn = Sinon.stub(console, 'warn');
+
+    class Parent extends ImpulseElement {
+      @target() row!: HTMLElement;
+    }
+
+    const wrapper = document.createElement('div');
+    // Vue's in-DOM templates write `is="vue:…"`, which is not a name the registry accepts.
+    wrapper.innerHTML = `
+      <${parentTag}>
+        <div is="vue:row" data-target="${parentTag}.row"></div>
+      </${parentTag}>
+    `;
+
+    registerElement(parentTag)(Parent);
+    document.body.appendChild(wrapper);
+
+    try {
+      const parent = await whenInitialized(wrapper.firstElementChild as Parent, { timeout: CONNECTION_TIMEOUT_MS });
+      expect(parent.row).to.eq(wrapper.querySelector('[is]'));
+    } finally {
+      warn.restore();
+      wrapper.remove();
     }
   });
 
