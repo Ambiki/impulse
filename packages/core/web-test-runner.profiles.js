@@ -58,9 +58,10 @@ const PROFILES = {
     convention: 'legacy',
     compile: esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
   },
+  // Set, so standard decorators are run with both field semantics: tsc-standard and babel-standard [[Define]] them.
   'esbuild-standard': {
     convention: 'standard',
-    compile: esbuild('es2020', { useDefineForClassFields: true }),
+    compile: esbuild('es2020', { useDefineForClassFields: false }),
   },
   // impulse_view_components
   'tsc-legacy': {
