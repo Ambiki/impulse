@@ -27,4 +27,28 @@ describe('@registerElement', () => {
     expect(element).not.to.be.instanceOf(SecondTest);
     expect(element).to.have.property('name', 'first');
   });
+
+  it('should upgrade the elements already in the page once the class is complete', () => {
+    const existing = document.createElement('register-element-upgrade-test');
+    existing.setAttribute('size', 'large');
+    document.body.append(existing);
+
+    try {
+      @registerElement('register-element-upgrade-test')
+      class UpgradeTest extends ImpulseElement {
+        static sizes = ['small', 'large'];
+        // Read while the element is upgraded, which is when `customElements.define()` runs.
+        sizesWhenConstructed = (this.constructor as typeof UpgradeTest).sizes;
+        @property() size = 'small';
+      }
+
+      const upgraded = existing as UpgradeTest;
+      expect(upgraded).to.be.instanceOf(UpgradeTest);
+      expect(upgraded.sizesWhenConstructed).to.deep.equal(['small', 'large']);
+      expect(UpgradeTest.observedAttributes).to.deep.equal(['size']);
+      expect(upgraded.size).to.equal('large');
+    } finally {
+      existing.remove();
+    }
+  });
 });

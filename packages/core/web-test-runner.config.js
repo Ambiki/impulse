@@ -1,5 +1,5 @@
 import { playwrightLauncher } from '@web/test-runner-playwright';
-import { profilePlugin } from './web-test-runner.profiles.js';
+import { profileFiles, profilePlugin } from './web-test-runner.profiles.js';
 
 // `PROFILE=tsc-legacy yarn test` runs the suite compiled as another project setup would; see the profiles file.
 const profile = process.env.PROFILE ?? 'esbuild-legacy';
@@ -7,7 +7,7 @@ const profile = process.env.PROFILE ?? 'esbuild-legacy';
 // https://modern-web.dev/docs/test-runner/cli-and-configuration/
 export default {
   rootDir: '.',
-  files: ['./test/**/*.test.ts'],
+  files: profileFiles(profile),
   browsers: [
     playwrightLauncher({ product: 'chromium' }),
     playwrightLauncher({ product: 'firefox' }),

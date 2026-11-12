@@ -17,7 +17,8 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "yarn workspace @ambiki/impulse test",
-    "test:watch": "yarn workspace @ambiki/impulse test:watch"
+    "test:watch": "yarn workspace @ambiki/impulse test:watch",
+    "typecheck": "tsc -p tsconfig.json && tsc -p packages/core/tsconfig.standard.json"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.2.0",

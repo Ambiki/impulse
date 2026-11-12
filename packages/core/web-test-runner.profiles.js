@@ -53,31 +53,66 @@ function babel(plugins) {
   };
 }
 
-export const PROFILES = {
-  'esbuild-legacy': esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
+const PROFILES = {
+  'esbuild-legacy': {
+    convention: 'legacy',
+    compile: esbuild('es2020', { experimentalDecorators: true, useDefineForClassFields: false }),
+  },
+  // Set, so standard decorators run with both field semantics: tsc-standard and babel-standard [[Define]] fields.
+  'esbuild-standard': {
+    convention: 'standard',
+    compile: esbuild('es2020', { useDefineForClassFields: false }),
+  },
   // impulse_view_components
-  'tsc-legacy': tsc({
-    target: ts.ScriptTarget.ES2020,
-    module: ts.ModuleKind.ESNext,
-    experimentalDecorators: true,
-    useDefineForClassFields: false,
-  }),
+  'tsc-legacy': {
+    convention: 'legacy',
+    compile: tsc({
+      target: ts.ScriptTarget.ES2020,
+      module: ts.ModuleKind.ESNext,
+      experimentalDecorators: true,
+      useDefineForClassFields: false,
+    }),
+  },
+  // TypeScript's defaults: standard decorators, and [[Define]] once the target is ES2022.
+  'tsc-standard': {
+    convention: 'standard',
+    compile: tsc({ target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }),
+  },
   // ambiki: the class-properties transform defines fields, so decorated fields are [[Define]]d too.
-  'babel-legacy': babel([
-    ['@babel/plugin-proposal-decorators', { version: 'legacy' }],
-    '@babel/plugin-transform-class-properties',
-  ]),
+  'babel-legacy': {
+    convention: 'legacy',
+    compile: babel([
+      ['@babel/plugin-proposal-decorators', { version: 'legacy' }],
+      '@babel/plugin-transform-class-properties',
+    ]),
+  },
+  'babel-standard': {
+    convention: 'standard',
+    compile: babel([['@babel/plugin-proposal-decorators', { version: '2023-11' }]]),
+  },
 };
+
+function profile(name) {
+  const found = PROFILES[name];
+  if (!found) throw new Error(`Unknown test profile "${name}". Expected one of: ${Object.keys(PROFILES).join(', ')}.`);
+  return found;
+}
+
+/**
+ * The test files a profile runs: every one, except those that only the other decorator convention can compile
+ * (`*.legacy.test.ts` and `*.standard.test.ts`).
+ */
+export function profileFiles(name) {
+  const other = profile(name).convention === 'legacy' ? 'standard' : 'legacy';
+  return ['./test/**/*.test.ts', `!./test/**/*.${other}.test.ts`];
+}
 
 /**
  * A web-test-runner plugin that serves every `.ts` file as JavaScript: `src` compiled like the published build, and
  * everything else (the tests) compiled by the named profile.
  */
 export function profilePlugin(name) {
-  const compileTest = PROFILES[name];
-  if (!compileTest) {
-    throw new Error(`Unknown test profile "${name}". Expected one of: ${Object.keys(PROFILES).join(', ')}.`);
-  }
+  const compileTest = profile(name).compile;
   const compileLibrary = tsc(libraryOptions());
 
   return {

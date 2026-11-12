@@ -3,10 +3,23 @@ import type { Registry, RegistryEntry } from '../registry';
 import { classMetadata, register } from '../registry';
 
 /**
- * A decorator for a public instance field of an Impulse element. TypeScript hands a method or accessor decorator its
- * property descriptor as a third argument, so typing that argument as `undefined` rejects them at compile time.
+ * A decorator for a public instance field of an Impulse element, in either decorator convention.
  */
-export type FieldDecorator = (proto: ImpulseElement, key: string, descriptor?: undefined) => void;
+export interface FieldDecorator {
+  /**
+   * Legacy (`experimentalDecorators`). TypeScript hands a method or accessor decorator its property descriptor as a
+   * third argument, so typing that argument as `undefined` rejects them at compile time.
+   */
+  (proto: ImpulseElement, key: string, descriptor?: undefined): void;
+  /**
+   * Standard. The literal `name`, `private`, and `static` TypeScript gives the context reject the members a Declaration
+   * can't be made for at compile time.
+   */
+  <This extends ImpulseElement, Value>(
+    value: undefined,
+    context: ClassFieldDecoratorContext<This, Value> & { name: string; private: false; static: false },
+  ): void;
+}
 
 /**
  * A decorator that records each field it decorates under `registry`, as the Declaration `declarationFor` makes for the
@@ -20,21 +33,68 @@ export function fieldDecorator<T extends RegistryEntry>(
   registry: Registry<T>,
   declarationFor: (key: string) => T,
 ): FieldDecorator {
-  return (proto: unknown, key: unknown, descriptor?: unknown) => {
-    const misplaced = legacyMisplacement(proto, key, descriptor);
+  return (protoOrValue: unknown, keyOrContext: unknown, descriptor?: unknown) => {
+    const context = isDecoratorContext(keyOrContext) ? keyOrContext : undefined;
+    const misplaced = context ?
+      standardMisplacement(context) :
+      legacyMisplacement(protoOrValue, keyOrContext, descriptor);
     if (misplaced) throw new TypeError(`${decorator} can only decorate a public instance field, not ${misplaced}.`);
 
-    register(classMetadata((proto as object).constructor), registry, declarationFor(key as string));
+    if (!context) {
+      register(classMetadata((protoOrValue as object).constructor), registry, declarationFor(keyOrContext as string));
+      return;
+    }
+    if (!context.metadata) {
+      throw new TypeError(
+        `${decorator} needs decorator metadata, which the compiler did not provide. Compile with TypeScript 5.2 or ` +
+        `later, esbuild 0.21 or later, or Babel's 2023-11 decorators, or use legacy decorators. TypeScript provides ` +
+        `it only once Impulse has loaded and defined Symbol.metadata, which an import cycle can prevent.`,
+      );
+    }
+    register(context.metadata, registry, declarationFor(context.name as string));
   };
 }
 
 /**
+ * Whether a decorator was handed a standard decorator's context, rather than a legacy one's field name.
+ */
+function isDecoratorContext(value: unknown): value is DecoratorContext {
+  return typeof value === 'object' && value !== null && 'kind' in value;
+}
+
+function describeName(name: string | symbol | undefined): string {
+  return typeof name === 'symbol' ? name.toString() : `"${String(name)}"`;
+}
+
+/**
+ * What a standard decorator was placed on, when it is not a public instance field named by a string.
+ */
+function standardMisplacement(context: DecoratorContext): string | undefined {
+  const name = describeName(context.name);
+  switch (context.kind) {
+    case 'field':
+      break;
+    case 'class':
+      return `the class ${name}`;
+    case 'method':
+      return `the ${context.static ? 'static member' : 'method'} ${name}`;
+    default:
+      return `the ${context.static ? 'static member' : 'accessor'} ${name}`;
+  }
+  if (context.static) return `the static member ${name}`;
+  if (context.private) return `the private field ${name}`;
+  if (typeof context.name === 'symbol') return `the field ${name}`;
+}
+
+/**
  * What a legacy decorator was placed on, when it is not a public instance field named by a string. A static member's
- * decorator is handed the class rather than its prototype.
+ * decorator is handed the class rather than its prototype, and a class decorator only the class.
  */
 function legacyMisplacement(proto: unknown, key: unknown, descriptor: unknown): string | undefined {
-  const name = typeof key === 'symbol' ? key.toString() : `"${String(key)}"`;
-  if (typeof proto === 'function') return `the static member ${name}`;
+  const name = describeName(key as string | symbol | undefined);
+  if (typeof proto === 'function') {
+    return key === undefined ? `the class ${describeName(proto.name)}` : `the static member ${name}`;
+  }
   if (!isFieldDescriptor(descriptor)) {
     return `${typeof (descriptor as PropertyDescriptor).value === 'function' ? 'the method' : 'the accessor'} ${name}`;
   }
