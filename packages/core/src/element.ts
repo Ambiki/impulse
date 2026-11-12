@@ -97,9 +97,16 @@ export class ImpulseElement extends HTMLElement {
   }
 
   private _resolveUndefinedElements() {
-    const undefinedElements = Array.from(this.querySelectorAll(':not(:defined)'));
+    const definitionNames: string[] = [];
+    for (const element of this.querySelectorAll(':not(:defined)')) {
+      // An autonomous custom element is defined under its tag name, whatever its `is` says. Any other undefined element
+      // is a customized built-in (`<button is="fancy-button">`), defined under its `is` and never under `button`. One
+      // whose `is` came from `createElement()` has no attribute to read the name from, so it is not waited for.
+      const name = element.localName.includes('-') ? element.localName : element.getAttribute('is');
+      if (name !== null) definitionNames.push(name);
+    }
     const migrated = (this.constructor as typeof ImpulseElement).migratedToWhenInitialized;
-    if (undefinedElements.length > 0 && !migrated) {
+    if (definitionNames.length > 0 && !migrated) {
       console.warn(
         `[impulse] <${this.identifier}> waits for descendant custom elements to be defined before invoking target ` +
         `connected callbacks. This is deprecated and will be removed in the next major version. If a connected ` +
@@ -107,8 +114,9 @@ export class ImpulseElement extends HTMLElement {
         `Set ImpulseElement.migratedToWhenInitialized = true to silence this warning.`,
       );
     }
-    const promises = undefinedElements.map((element) => customElements.whenDefined(element.localName));
-    return Promise.all(promises);
+    // `whenDefined` rejects a name that no definition can have, such as the `vue:row` of `<tr is="vue:row">`. Nothing
+    // will ever define that element, so there is nothing to wait for.
+    return Promise.all(definitionNames.map((name) => customElements.whenDefined(name).catch(() => {})));
   }
 }
 
