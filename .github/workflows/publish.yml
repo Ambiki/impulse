@@ -1,9 +1,9 @@
 name: Publish
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v[0-9]*"
 
 permissions:
   contents: read
@@ -14,27 +14,29 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      # npm takes the version, and the prerelease dist-tag, from package.json, so a release whose tag doesn't match it
-      # publishes nothing.
+      # npm takes the version, and the prerelease dist-tag, from package.json, so a tag that doesn't match it publishes
+      # nothing.
       - name: Check the version matches the tag
-        env:
-          TAG: ${{ github.event.release.tag_name }}
         run: |
           version=$(node -p "require('./packages/core/package.json').version")
-          if [ "v$version" != "$TAG" ]; then
-            echo "::error::Release $TAG doesn't match packages/core/package.json ($version)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match packages/core/package.json ($version)"
             exit 1
           fi
 
-  # A release can be cut from a branch other than main, where CI hasn't run on its commit.
+  # A release can be tagged on a branch other than main, where CI hasn't run on its commit.
   ci:
     needs: check_version
     uses: ./.github/workflows/ci.yml
 
+  # Authenticates as a trusted publisher, set up in the package's settings at npmjs.com. npm adds provenance on its own.
   publish:
     needs: ci
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,16 +47,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
       - name: Publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # `prepublishOnly` builds dist/. A prerelease goes to the dist-tag named by its identifier (2.0.0-rc.0 -> rc),
-        # never latest.
+        # Trusted publishing needs npm 11.5.1 or later, and Node 22 comes with npm 10. `prepublishOnly` builds dist/. A
+        # prerelease goes to the dist-tag named by its identifier (2.0.0-rc.0 -> rc), never latest.
         run: |
           version=$(node -p "require('./package.json').version")
           prerelease=${version#*-}
           if [ "$prerelease" = "$version" ]; then
-            npm publish
+            npx --yes npm@11 publish
           else
-            npm publish --tag "${prerelease%%.*}"
+            npx --yes npm@11 publish --tag "${prerelease%%.*}"
           fi
         working-directory: ./packages/core
