@@ -7,16 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0-rc.1] - 2026-11-17
+
+### Changed
+
+- `recordEvents()` takes its event types from the DOM's event maps, so `events` and `waitFor()` are typed and a misspelled type fails to compile ([#273](https://github.com/Ambiki/impulse/pull/273))
+
 ## [2.2.0-rc.0] - 2026-11-17
 
 ### Added
 
 - `recordEvents()` in `@ambiki/impulse/testing`, to record and wait for the events an element dispatches ([#265](https://github.com/Ambiki/impulse/pull/265))
 - `@ambiki/impulse/testing`, with `fixture()`, `whenSettled()`, and `cleanup()` for testing elements ([#264](https://github.com/Ambiki/impulse/pull/264))
-
-### Changed
-
-- `recordEvents()` takes its event types from the DOM's event maps, so `events` and `waitFor()` are typed and a misspelled type fails to compile ([#273](https://github.com/Ambiki/impulse/pull/273))
 
 ## [2.1.0] - 2026-11-13
 
@@ -228,7 +230,8 @@ Same as 2.0.0-rc.3. Changes since 1.1.0 are listed under the `2.0.0-rc.*` sectio
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v2.2.0-rc.0...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.2.0-rc.1...HEAD
+[2.2.0-rc.1]: https://github.com/Ambiki/impulse/compare/v2.2.0-rc.0...v2.2.0-rc.1
 [2.2.0-rc.0]: https://github.com/Ambiki/impulse/compare/v2.1.0...v2.2.0-rc.0
 [2.1.0]: https://github.com/Ambiki/impulse/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Ambiki/impulse/compare/v1.1.0...v2.0.0
