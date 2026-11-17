@@ -167,17 +167,19 @@ export default class BlogPostElement extends ImpulseElement {
 }
 ```
 
-`fromAttribute` returns `undefined` or `null` for an attribute it can't read, such as `published-at="soon"`, and the
+`fromAttribute` returns `undefined` or `null` for an attribute it cannot read, such as `published-at="soon"`, and the
 property then reads its [default](#default-property-values), as it does for the built-in types. It is never called for
-a missing attribute, which reads the default without asking.
+a missing attribute, which reads as the default.
 
 `toAttribute` returns the attribute to write. It is never called with `null` or `undefined`, since assigning either
 removes the attribute. It can return `null` to remove the attribute too, after which the property reads its default,
 so return `null` only for a value equal to the default. That default is its second argument, which is how a `Boolean`
 writes `false` as `flip="false"` when it defaults to `true`.
 
-An error either function throws reaches whoever read or assigned the property, so return `undefined` for input you
-can't read rather than throwing.
+An error either function throws as you read or assign the property reaches your code. One thrown as the attribute
+changes, while the old and new values are read for the change callback, is reported like an uncaught error, and the
+change callbacks of other properties reading that attribute still run. Return `undefined` for input you cannot read
+rather than throwing.
 
 ### Comparing values
 
@@ -205,9 +207,13 @@ Without a default, a property of your own type reads `null` while its attribute 
 without a default reads that instead.
 
 A default, or an `emptyValue`, is read as the attribute holding it would be: written with `toAttribute` and read back
-with `fromAttribute`. Every read is a fresh value, so mutating what the property returns never changes the default. A
-default that doesn't survive the trip, because `toAttribute` writes it as `null` or `fromAttribute` can't read it back,
-reads as itself.
+with `fromAttribute`. Every read is a fresh value, so mutating what the property returns never changes the default.
+
+A default that does not survive the trip, because `toAttribute` writes it as `null` or `fromAttribute` cannot read it
+back, reads as itself when it is a primitive, such as a number. An object would have to be handed out itself, where a
+mutation would change the default, or for an `emptyValue` the default of every element using the type, so reading one
+throws a `TypeError` instead. A type that writes an empty `Set` as `null`, for example, cannot name an empty `Set` as
+its `emptyValue`.
 
 ::: tip Coming from Lit?
 Lit's `converter` is `type` here, and its `hasChanged` is the type's `isEqual`, which lives in the type because how two
