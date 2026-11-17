@@ -7,8 +7,8 @@ const { fixture } = require('@ambiki/impulse/testing');
 
 const NOT_REGISTERED =
   '[impulse] @ambiki/impulse/testing was imported before the test runner defined afterEach (from Jest\'s setupFiles, ' +
-  'say), so cleanup() does not run after each test. Import it from a test file or from setupFilesAfterEnv instead, ' +
-  'or call afterEach(cleanup) yourself.';
+  'say), so it did not register cleanup() to run after each test. Import it from a test file or from ' +
+  'setupFilesAfterEnv instead.';
 
 /** Runs `callback` while the runner has no `afterEach`, which is put back afterwards. */
 function withoutAfterEach(callback) {
@@ -38,14 +38,14 @@ function importBeforeAfterEach() {
   });
 }
 
-describe('the testing entry point, imported before the runner has `afterEach`', () => {
-  let warn;
-  beforeEach(() => {
-    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
-  });
-  afterEach(() => warn.mockRestore());
+let warn;
+beforeEach(() => {
+  warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+});
+afterEach(() => warn.mockRestore());
 
-  it('warns, from the first fixture only, that `cleanup()` does not run after each test', async () => {
+describe('the testing entry point, imported before the runner has `afterEach`', () => {
+  it('warns, from the first fixture only, that it did not register `cleanup()`', async () => {
     const testing = importBeforeAfterEach();
 
     try {
@@ -71,13 +71,8 @@ describe('the testing entry point, imported before the runner has `afterEach`', 
 
 describe('the testing entry point, imported once the runner has `afterEach`', () => {
   it('says nothing', async () => {
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await fixture('<p></p>');
 
-    try {
-      await fixture('<p></p>');
-      expect(warn.mock.calls).toEqual([]);
-    } finally {
-      warn.mockRestore();
-    }
+    expect(warn.mock.calls).toEqual([]);
   });
 });
