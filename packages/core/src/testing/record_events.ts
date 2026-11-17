@@ -1,4 +1,4 @@
-import { DEFAULT_TIMEOUT, startDeadline } from './timers';
+import { DEFAULT_TIMEOUT, nextTask, startDeadline } from './timers';
 
 /** The events of the types a test names that reach one target, in the order they were dispatched. */
 export interface Recording {
@@ -9,7 +9,8 @@ export interface Recording {
   /**
    * Resolves with the earliest recorded `type` event that an earlier `waitFor()` has not handed out. It resolves at
    * once when that event was dispatched before the call, so there is no listening too late, and two calls resolve with
-   * two different events. Rejects at the deadline (1000ms unless `timeout` says otherwise; `Infinity` means none),
+   * two different events. It never resolves while the event is still being dispatched, so every listener has run by
+   * the time the test goes on. Rejects at the deadline (1000ms unless `timeout` says otherwise; `Infinity` means none),
    * naming the types recorded, at once for a type the Recording does not keep, and once the Recording is stopped.
    */
   waitFor: (type: string, options?: { timeout?: number }) => Promise<Event>;
@@ -84,7 +85,7 @@ export function recordEvents(
     }
     const [waiter] = waiters.splice(index, 1);
     waiter.clearDeadline();
-    waiter.resolve(event);
+    void afterDispatch(event).then(waiter.resolve);
   };
 
   const recording: Recording = {
@@ -94,7 +95,7 @@ export function recordEvents(
     },
     waitFor(type, { timeout = DEFAULT_TIMEOUT } = {}) {
       const index = unclaimed.findIndex((event) => event.type === type);
-      if (index !== -1) return Promise.resolve(unclaimed.splice(index, 1)[0]);
+      if (index !== -1) return afterDispatch(unclaimed.splice(index, 1)[0]);
       if (!kept.has(type)) {
         return Promise.reject(new Error(`"${type}" is not one of the types recorded: ${Array.from(kept).join(', ')}.`));
       }
@@ -125,6 +126,16 @@ export function recordEvents(
   for (const type of kept) target.addEventListener(type, listener, true);
   recordings.add(recording);
   return recording;
+}
+
+/**
+ * Resolves with `event` once its dispatch is over: at once when it already is, and otherwise in a later task. The
+ * browser runs microtasks between the listeners of an event it dispatches itself (`toggle`, `transitionend`), so a wait
+ * resolved while the event is still being dispatched would resume the test before the listeners yet to run, which for a
+ * Recording, listening in the capture phase, is nearly all of them.
+ */
+function afterDispatch(event: Event): Promise<Event> {
+  return event.eventPhase === Event.NONE ? Promise.resolve(event) : nextTask().then(() => event);
 }
 
 /** Stops every Recording. */

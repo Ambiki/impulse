@@ -144,6 +144,40 @@ describe('recordEvents', () => {
       expect(await Promise.all(waits)).to.eql([first, second, third]);
     });
 
+    // The browser runs microtasks between the listeners of an event it dispatches itself, such as `toggle`. A wait that
+    // resolved while the event was still being dispatched would resume the test ahead of the listeners yet to run.
+    it('resolves once every listener has run, for an event the browser dispatches', async () => {
+      const details = appendMarkup<HTMLDetailsElement>('<details><summary>Options</summary></details>');
+      const order: string[] = [];
+      details.addEventListener('toggle', () => order.push('listener'));
+      const recording = recordEvents(details, ['toggle']);
+
+      details.open = true;
+      await recording.waitFor('toggle');
+      expect(order).to.eql(['listener']);
+    });
+
+    it('resolves once every listener has run, when called while the event is being dispatched', async () => {
+      const details = appendMarkup<HTMLDetailsElement>('<details><summary>Options</summary></details>');
+      const order: string[] = [];
+      const recording = recordEvents(details, ['toggle']);
+      // A capturing listener added after the Recording's: the event is recorded by now, and the listener below it has
+      // yet to run.
+      const resumed = new Promise<void>((resolve) => {
+        details.addEventListener('toggle', () => {
+          void recording.waitFor('toggle').then(() => {
+            order.push('test');
+            resolve();
+          });
+        }, true);
+      });
+      details.addEventListener('toggle', () => order.push('listener'));
+
+      details.open = true;
+      await resumed;
+      expect(order).to.eql(['listener', 'test']);
+    });
+
     it('rejects at the deadline, naming the type and what was recorded', async () => {
       const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a', 'record:b']);
