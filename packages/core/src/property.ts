@@ -223,7 +223,12 @@ class BoundProperty {
   private readonly type: AnyPropertyType;
   private readonly defaultValue: unknown;
 
-  constructor(private readonly element: Element, key: string, type: PropertyConstructor, defaultValue: unknown) {
+  constructor(
+    private readonly element: Element,
+    private readonly key: string,
+    type: PropertyConstructor,
+    defaultValue: unknown,
+  ) {
     this.attributeName = dasherize(key);
     this.type = PROPERTY_TYPES.get(type)!;
     this.defaultValue = defaultValue ?? this.type.emptyValue;
@@ -255,22 +260,40 @@ class BoundProperty {
    * Default, and so does one that does not parse as the Type.
    */
   private read(attribute: string | null) {
-    const value = attribute === null ? undefined : this.type.fromAttribute(attribute);
+    const value = this.parse(attribute);
     return isNothing(value) ? this.readDefault() : value;
   }
 
   /**
    * The Default, read as an attribute holding it would be: written with the Type and parsed back. A missing attribute
    * therefore reads the same as one holding the Default, and every read is a fresh value, so mutating what the getter
-   * returns never changes the Default. A Default that does not survive the trip reads as itself.
+   * returns never changes the Default.
+   *
+   * A Default that does not survive the trip, because the Type writes it as no attribute or cannot read back what it
+   * wrote, reads as itself when it is a primitive, which nothing can mutate. An object is never handed out itself, so
+   * reading one throws.
    */
   private readDefault() {
-    const attribute = this.type.toAttribute(this.defaultValue, this.defaultValue);
-    const value = attribute === null ? undefined : this.type.fromAttribute(attribute);
-    return isNothing(value) ? this.defaultValue : value;
+    const value = this.parse(this.type.toAttribute(this.defaultValue, this.defaultValue));
+    if (!isNothing(value)) return value;
+    if (!isMutable(this.defaultValue)) return this.defaultValue;
+    throw new TypeError(
+      `@property() on the field "${this.key}" cannot read its Default, since its Type does not write it as an ` +
+      `attribute it reads back, and handing out the object itself would let a mutation change the Default.`,
+    );
+  }
+
+  /** The value `attribute` holds, or nothing when it is missing or does not parse as the Type. */
+  private parse(attribute: string | null) {
+    return attribute === null ? undefined : this.type.fromAttribute(attribute);
   }
 }
 
 function isNothing(value: unknown): value is null | undefined {
   return value === null || value === undefined;
+}
+
+/** Whether `value` can be changed in place, as an object or function can and a primitive cannot. */
+function isMutable(value: unknown): value is object {
+  return (typeof value === 'object' && value !== null) || typeof value === 'function';
 }

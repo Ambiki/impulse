@@ -164,6 +164,30 @@ describe('@property', () => {
     element.remove();
   });
 
+  it('should throw rather than hand out an object default that its type cannot write and read back', async () => {
+    @registerElement('property-unreadable-default-test')
+    class UnreadableDefaultTest extends ImpulseElement {
+      @property({ type: Object }) config = ['dark'];
+      @property({ type: Array }) items = { first: 'one' };
+    }
+
+    const element = document.createElement('property-unreadable-default-test') as UnreadableDefaultTest;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(() => element.config).to.throw(
+      TypeError,
+      '@property() on the field "config" cannot read its Default, since its Type does not write it as an attribute ' +
+      'it reads back, and handing out the object itself would let a mutation change the Default.',
+    );
+    expect(() => element.items).to.throw(TypeError, '@property() on the field "items" cannot read its Default');
+
+    // An attribute it can read is unaffected.
+    element.setAttribute('config', '{ "theme": "dark" }');
+    expect(element.config).to.deep.equal({ theme: 'dark' });
+    element.remove();
+  });
+
   it('should read the default after a Number is assigned NaN', () => {
     el.session = Number.NaN;
     expect(el).to.have.property('session', 12);

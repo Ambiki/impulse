@@ -10,9 +10,11 @@ when they write the same attribute. That is right for any Type: two values that 
 apart through it, and a Type that doesn't write canonically (a Set in insertion order) costs an extra callback, never a
 missed one.
 
-A Type never sees "nothing". A missing attribute reads as the Default without asking the Type, and a `fromAttribute`
-that returns `null` or `undefined` means the attribute doesn't parse, so the property reads the Default too. Assigning
-`null` or `undefined` removes the attribute without asking the Type, and Impulse compares a `null` value itself.
+A Type is never handed nothing to read, write, or compare. `fromAttribute` is never called for a missing attribute,
+which reads as the Default, and its returning `null` or `undefined` means the attribute doesn't parse, so the property
+reads the Default too. Assigning `null` or `undefined` removes the attribute without calling `toAttribute`, and Impulse
+compares a `null` value itself rather than calling `isEqual`. Only `toAttribute`'s second argument, the Default, can be
+`null`.
 
 ## Considered Options
 
@@ -30,6 +32,12 @@ that returns `null` or `undefined` means the attribute doesn't parse, so the pro
 Lit's `converter` is `type` here, and its `hasChanged` is the Type's `isEqual`.
 
 A Type has no `copy`. A missing attribute reads as the Default sent through `toAttribute` and back through
-`fromAttribute`, or as the Default itself when that gives nothing, so it reads exactly as an attribute holding the
-Default would, and mutating what the getter returns never reaches the Default. For the built-ins this changes only a
-Default of the wrong type: `@property() count = 5` reads `"5"`, as a `String` would parse it.
+`fromAttribute`, so it reads exactly as an attribute holding the Default would, and mutating what the getter returns
+never reaches the Default. A Default that doesn't survive the trip, because the Type writes it as no attribute or can't
+read back what it wrote, reads as itself only when it is a primitive. An object is never handed out itself, since a
+mutation would change the Default, and for an `emptyValue` every element using the Type, so reading one throws a
+`TypeError` naming the field.
+
+For the built-ins this changes only a Default of the wrong type, or `-0`: `@property() count = 5` reads `"5"`, as a
+`String` would parse it, a `Number` Default of `-0` reads `0`, and an Array Default of an object, or an Object Default
+of an array, throws when read instead of reading a copy of itself.
