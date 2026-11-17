@@ -28,6 +28,12 @@
       "import": "./dist/index.js",
       "require": "./dist/index.umd.js",
       "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing.js",
+      "require": "./dist/testing.cjs",
+      "default": "./dist/testing.js"
     }
   },
   "main": "dist/index.umd.js",
@@ -45,6 +51,7 @@
     "prepublishOnly": "cp ../../README.md . && yarn clean && yarn build",
     "test": "web-test-runner",
     "test:docs": "node --test test/getting_started.node.test.js",
+    "test:jsdom": "jest --config jest.config.cjs",
     "test:watch": "web-test-runner --watch"
   },
   "devDependencies": {
@@ -57,6 +64,8 @@
     "@web/test-runner": "^0.17.0",
     "@web/test-runner-playwright": "^0.11.1",
     "esbuild": "^0.25.12",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
     "sinon": "^15.2.0"
   }
 }

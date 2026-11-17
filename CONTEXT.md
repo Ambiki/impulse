@@ -61,6 +61,12 @@ else in the document (ancestors, siblings, focus, user input) can make it start 
 usually one, but the two are different ideas: `:hover` is a Simple selector and is not self-contained.
 _Avoid_: Filterable selector, local selector
 
+**Settled**:
+A document Impulse has nothing left to do in: no change is waiting to be delivered, no connected custom element is
+undefined, and every connected Impulse element is Initialized. It is a state of the whole document, shadow trees
+included, never of a subtree. A custom element whose name can never be defined does not count.
+_Avoid_: Idle (a Phase), stable, flushed, ready
+
 **Simple selector**:
 The smallest piece a selector can be cut into: a tag name, `*`, one `#id`, one `.class`, one `[attribute]`, or one
 pseudo-class. `a.link[href]` holds three.
@@ -88,6 +94,18 @@ A selector registered with the shared document observer, together with the callb
 matching it once the document is Parsed. One Watcher serves every caller that registered it, however many components
 are live.
 _Avoid_: Observer, listener, subscription, handler
+
+### Testing
+
+**Fixture**:
+The markup a test puts in the document to exercise, held in a container of its own and removed when the test ends.
+_Avoid_: Mount, render, harness (a harness drives one particular element)
+
+**Recording**:
+The events of the types a test names that reach one target, in the order they were dispatched, from the moment the
+test starts it until the test ends or stops it. It keeps events bubbling up from descendants unless the test asks for
+the target's own only.
+_Avoid_: Spy, listener, event log
 
 ### Benchmarking
 

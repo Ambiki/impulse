@@ -44,6 +44,23 @@ jobs:
         if: ${{ !cancelled() }}
         run: yarn test:docs
 
+  # The testing entry point's tests, in jsdom as Jest runs them: against the build, loaded through `require`.
+  test-jsdom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: test (jsdom)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .tool-versions
+          cache: yarn
+      - name: Run test
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+          yarn test:jsdom
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
