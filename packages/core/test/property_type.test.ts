@@ -2,6 +2,7 @@ import type { PropertyType } from '../src';
 import { expect } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, property, registerElement, whenInitialized } from '../src';
+import { captureReportedErrors } from './support/capture_reported_errors';
 
 /** The Date Type the Properties reference documents: a full ISO 8601 timestamp. */
 const dateType = {
@@ -62,7 +63,7 @@ describe('@property() with a custom Type', () => {
     expect(element.count).to.equal(0);
   });
 
-  it('should read null without an attribute or a Default when the Type names no Empty value', async () => {
+  it('should read a null Default when the field has no initializer and the Type names no Empty value', async () => {
     @registerElement('property-type-null-test')
     class NullTest extends ImpulseElement {
       @property({ type: dateType }) publishedAt: Date | null;
@@ -190,9 +191,58 @@ describe('@property() with a custom Type', () => {
     }).to.throw(RangeError, 'Unwritable.');
     expect(element.getAttribute('code')).to.equal('x');
   });
+
+  it('should throw rather than hand out an Empty value its Type cannot write and read back', async () => {
+    // Writes an empty Set as no attribute, so its Empty value, shared by every element, never survives the trip.
+    const sparseTokensType = {
+      fromAttribute: (attribute) => new Set(attribute.split(/\s+/).filter(Boolean)),
+      toAttribute: (tokens) => (tokens.size ? Array.from(tokens).join(' ') : null),
+      emptyValue: new Set<string>(),
+    } satisfies PropertyType<Set<string>>;
+
+    @registerElement('property-type-sparse-empty-test')
+    class SparseEmptyTest extends ImpulseElement {
+      @property({ type: sparseTokensType }) tags: Set<string>;
+    }
+
+    const element = await connect<SparseEmptyTest>('property-type-sparse-empty-test');
+    expect(() => element.tags).to.throw(TypeError, '@property() on the field "tags" cannot read its Default');
+
+    element.setAttribute('tags', 'news');
+    expect(Array.from(element.tags)).to.deep.equal(['news']);
+  });
+
+  it('should report an error the Type throws as the attribute changes, and still run the other fields\' callbacks', async () => {
+    const strictType = {
+      fromAttribute: () => {
+        throw new SyntaxError('Unreadable foo-url.');
+      },
+      toAttribute: String,
+    } satisfies PropertyType<string>;
+
+    @registerElement('property-type-shared-attribute-test')
+    class SharedAttributeTest extends ImpulseElement {
+      fooURLChanged = Sinon.fake();
+      fooUrlChanged = Sinon.fake();
+      @property({ type: strictType }) fooURL: string | null;
+      @property() fooUrl: string;
+    }
+
+    const element = await connect<SharedAttributeTest>('property-type-shared-attribute-test');
+    const { reported, release } = captureReportedErrors('Unreadable foo-url.');
+    try {
+      element.setAttribute('foo-url', 'a');
+    } finally {
+      release();
+    }
+
+    expect(reported.map((error) => error.message)).to.deep.equal(['Unreadable foo-url.']);
+    expect(element.fooURLChanged.called).to.be.false;
+    expect(element.fooUrlChanged.calledOnceWith('a', '')).to.be.true;
+  });
 });
 
-describe('@property() with a type that is neither built in nor a Type', () => {
+describe('@property() with a type that is not a Type', () => {
   it('should throw for a constructor that is not built in', () => {
     expect(() => {
       class DateTest extends ImpulseElement {
@@ -202,8 +252,8 @@ describe('@property() with a type that is neither built in nor a Type', () => {
       return DateTest;
     }).to.throw(
       TypeError,
-      '@property() on the field "publishedAt" takes a type of String, Number, Boolean, Array, or Object, or a Type ' +
-      'with fromAttribute and toAttribute functions, not Date.',
+      '@property() on the field "publishedAt" takes a built-in Type (String, Number, Boolean, Array, or Object) or a ' +
+      'Type with fromAttribute and toAttribute functions, not Date.',
     );
   });
 
@@ -214,7 +264,7 @@ describe('@property() with a type that is neither built in nor a Type', () => {
         @property({ type: { fromAttribute: String } }) code: string;
       }
       return HalfTest;
-    }).to.throw(TypeError, 'or a Type with fromAttribute and toAttribute functions, not an object without them.');
+    }).to.throw(TypeError, 'or a Type with fromAttribute and toAttribute functions, not an object without both.');
   });
 
   it('should throw for null', () => {
@@ -234,6 +284,9 @@ describe('@property() with a type that is neither built in nor a Type', () => {
         @property({ type: { ...dateType, isEqual: true } }) publishedAt: Date;
       }
       return IsEqualTest;
-    }).to.throw(TypeError, '@property() on the field "publishedAt" takes a Type whose isEqual, if it has one, is a function.');
+    }).to.throw(
+      TypeError,
+      '@property() on the field "publishedAt" takes a Type whose isEqual, if it has one, is a function, not true.',
+    );
   });
 });

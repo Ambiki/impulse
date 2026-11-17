@@ -1,4 +1,5 @@
 import type { FieldDecorator } from './field';
+import { builtInType } from '../property';
 import { PROPERTIES } from '../registry';
 import { fieldDecorator } from './field';
 
@@ -8,14 +9,20 @@ import { fieldDecorator } from './field';
  */
 export interface PropertyDeclaration {
   key: string;
-  // `any`: a Type's functions take only its own values, so Types of different values share no narrower type.
-  type: PropertyConstructor | PropertyType<any>;
+  type: PropertyTypeOption;
 }
 
 /**
+ * What `@property({ type })` takes: a built-in Type, by its constructor, or one of the author's own. `any`, because a
+ * Type's functions take only its own values, so Types of different values share no narrower type.
+ */
+type PropertyTypeOption = PropertyConstructor | PropertyType<any>;
+
+/**
  * A property's Type: how it reads its attribute as a value, how it writes a value back to that attribute, and which two
- * values are the same. A Type never sees nothing: a missing attribute and an assignment of `null` or `undefined` are
- * handled before it is asked.
+ * values are the same. A Type is never handed nothing to read, write, or compare: a missing attribute, an assignment of
+ * `null` or `undefined`, and a `null` value are all handled before it is asked. Only the Default that `toAttribute` is
+ * handed can be `null`.
  *
  * @example
  * ```ts
@@ -31,18 +38,20 @@ export interface PropertyDeclaration {
 export interface PropertyType<T> {
   /**
    * The value `attribute` holds, or `null` or `undefined` when it does not parse, so the property reads its Default.
-   * Never called for a missing attribute, which reads as the Default without asking.
+   * Never called for a missing attribute, which reads as the Default.
    */
   fromAttribute: (attribute: string) => T | null | undefined;
   /**
    * The attribute `value` is written as, or `null` to remove the attribute, after which the property reads
-   * `defaultValue`. Never called with `null` or `undefined`, since assigning either removes the attribute without asking.
+   * `defaultValue`. Never called with `null` or `undefined`, since assigning either removes the attribute.
    */
   toAttribute: (value: T, defaultValue: T | null) => string | null;
   /** Whether two values are the same, so a change from one to the other is not reported. */
   isEqual?: (left: T, right: T) => boolean;
   /**
-   * The Empty value: what a property reads while its attribute is missing and it has no Default. `null` when omitted.
+   * The Empty value: the Default of a property whose field initializer is `null` or `undefined`, and `null` when
+   * omitted. Every element using the Type shares it, so a mutable one has to survive being written with `toAttribute`
+   * and read back with `fromAttribute`, which hands out a fresh copy: reading it otherwise throws.
    */
   emptyValue?: T;
 }
@@ -63,7 +72,7 @@ export type PropertyConstructor =
  *
  * The decorator only records the field; `Property` defines the accessors when the element connects, which is what lets
  * a field initializer act as the default value. Declaring a property also registers the attribute as observed, so a
- * `[field]Changed(newValue, oldValue)` method is invoked when the converted value changes.
+ * `[field]Changed(newValue, oldValue)` method is invoked when the value it reads changes.
  *
  * @param options - Optional settings.
  * @param options.type - The Type the attribute is read and written with: `String`, `Number`, `Boolean`, `Array`, or
@@ -83,37 +92,39 @@ export type PropertyConstructor =
  * }
  * ```
  */
-// `any`: a Type's functions take only its own values, so Types of different values share no narrower type.
-export function property({ type = String }: { type?: PropertyConstructor | PropertyType<any> } = {}): FieldDecorator {
+export function property({ type = String }: { type?: PropertyTypeOption } = {}): FieldDecorator {
   return fieldDecorator('@property()', PROPERTIES, (key) => {
     assertPropertyType(key, type);
     return { key, type };
   });
 }
 
-const BUILT_IN_TYPES: readonly unknown[] = [String, Number, Boolean, Array, Object];
-
 /**
- * Throws a `TypeError` naming the field `key` unless `type` is a built-in constructor or a Type, so a mistake surfaces
- * when the class is defined rather than when an element first reads the property.
+ * Throws a `TypeError` naming the field `key` unless `type` is a built-in Type's constructor or a Type of the author's
+ * own, so a mistake surfaces when the class is defined rather than when an element first reads the property.
  */
 function assertPropertyType(key: string, type: unknown) {
-  if (BUILT_IN_TYPES.includes(type)) return;
+  if (builtInType(type)) return;
 
   const { fromAttribute, toAttribute, isEqual } = (type ?? {}) as Partial<Record<keyof PropertyType<unknown>, unknown>>;
   if (typeof fromAttribute !== 'function' || typeof toAttribute !== 'function') {
+    const received = typeof type === 'object' && type !== null ? 'an object without both' : describe(type);
     throw new TypeError(
-      `@property() on the field "${key}" takes a type of String, Number, Boolean, Array, or Object, or a Type with ` +
-      `fromAttribute and toAttribute functions, not ${describeType(type)}.`,
+      `@property() on the field "${key}" takes a built-in Type (String, Number, Boolean, Array, or Object) or a Type ` +
+      `with fromAttribute and toAttribute functions, not ${received}.`,
     );
   }
   if (isEqual !== undefined && typeof isEqual !== 'function') {
-    throw new TypeError(`@property() on the field "${key}" takes a Type whose isEqual, if it has one, is a function.`);
+    throw new TypeError(
+      `@property() on the field "${key}" takes a Type whose isEqual, if it has one, is a function, ` +
+      `not ${describe(isEqual)}.`,
+    );
   }
 }
 
-function describeType(type: unknown): string {
-  if (typeof type === 'function') return type.name || 'an anonymous function';
-  if (typeof type === 'object' && type !== null) return 'an object without them';
-  return typeof type === 'string' ? JSON.stringify(type) : String(type);
+/** How a value an author passed is named in an error: a function by its name, a string quoted. */
+function describe(value: unknown): string {
+  if (typeof value === 'function') return value.name || 'an anonymous function';
+  if (typeof value === 'object' && value !== null) return Array.isArray(value) ? 'an array' : 'an object';
+  return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
