@@ -117,8 +117,14 @@ describe('recordEvents', () => {
       const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);
       const event = dispatch(element, 'record:a');
+      // Due before any task the wait could start, so it has run by then if the wait took one.
+      let taskRan = false;
+      setTimeout(() => {
+        taskRan = true;
+      }, 0);
 
       expect(await recording.waitFor('record:a')).to.equal(event);
+      expect(taskRan).to.be.false;
     });
 
     it('resolves with an event dispatched after the call', async () => {

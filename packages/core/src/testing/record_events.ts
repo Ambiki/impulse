@@ -92,7 +92,8 @@ export function recordEvents(
     void afterDispatch(event).then(waiter.resolve);
   };
 
-  const wait = (type: string, { timeout = DEFAULT_TIMEOUT }: { timeout?: number } = {}): Promise<Event> => {
+  // Claims the earliest unclaimed `type` event for one `waitFor()`, or the next one to be recorded.
+  const claim = (type: string, { timeout = DEFAULT_TIMEOUT }: { timeout?: number } = {}): Promise<Event> => {
     const index = unclaimed.findIndex((event) => event.type === type);
     if (index !== -1) return afterDispatch(unclaimed.splice(index, 1)[0]);
     if (!kept.has(type)) {
@@ -118,7 +119,7 @@ export function recordEvents(
     },
     // The event's type is the caller's word for it: an event cannot be checked against a type argument.
     waitFor: <E extends Event = Event>(type: string, options?: { timeout?: number }) =>
-      wait(type, options) as Promise<E>,
+      claim(type, options) as Promise<E>,
     stop() {
       if (stopped) return;
       stopped = true;
