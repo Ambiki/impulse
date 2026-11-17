@@ -1,3 +1,4 @@
+import { warnUnlessCleanupRegistered } from './auto_cleanup';
 import { whenSettled } from './when_settled';
 
 // The container of every Fixture not yet removed.
@@ -36,6 +37,7 @@ export async function fixture<T extends Element = Element>(
   const element = container.firstElementChild;
   if (!element) throw new Error(`fixture() was given markup with no element: ${JSON.stringify(html)}.`);
 
+  warnUnlessCleanupRegistered();
   containers.add(container);
   document.body.append(container);
   await whenSettled({ timeout });
