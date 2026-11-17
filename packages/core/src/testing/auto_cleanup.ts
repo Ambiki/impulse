@@ -22,8 +22,8 @@ export function registerCleanup(cleanup: () => void): void {
 
 /**
  * Warns, once, when the runner has an `afterEach` that the entry point did not register `cleanup()` with: it was
- * imported before the runner defined `afterEach`, as a Jest `setupFiles` script imports it, so every Fixture would
- * outlive its test without a word. Called by whatever a `cleanup()` would have to undo.
+ * imported before the runner defined `afterEach`, as a Jest `setupFiles` script imports it, so every Fixture and
+ * Recording would outlive its test without a word. Called by whatever a `cleanup()` would have to undo.
  *
  * It cannot tell a suite that registered `cleanup()` itself, so it says only what the entry point did not do. A runner
  * with no `afterEach` global at all is not warned: there `afterEach(cleanup)` is the test suite's to call.

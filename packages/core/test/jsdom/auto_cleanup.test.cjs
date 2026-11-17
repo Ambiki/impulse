@@ -57,6 +57,18 @@ describe('the testing entry point, imported before the runner has `afterEach`', 
     expect(warn.mock.calls).toEqual([[NOT_REGISTERED]]);
   });
 
+  it('warns from the first Recording, when no fixture came before it', () => {
+    const testing = importBeforeAfterEach();
+
+    try {
+      testing.recordEvents(document, ['cleanup:warned']);
+      testing.recordEvents(document, ['cleanup:warned']);
+    } finally {
+      testing.cleanup();
+    }
+    expect(warn.mock.calls).toEqual([[NOT_REGISTERED]]);
+  });
+
   it('says nothing to a runner that has no `afterEach` at all', async () => {
     const testing = importBeforeAfterEach();
 

@@ -1,7 +1,7 @@
 import { expect } from '@open-wc/testing';
-import { isInitialized } from '../../src';
-import { cleanup, fixture, whenSettled } from '../../src/testing';
-import { defineImpulseElement } from './support';
+import { ImpulseElement, isInitialized } from '../../src';
+import { cleanup, fixture, recordEvents, whenSettled } from '../../src/testing';
+import { defineImpulseElement, rejectionOf } from './support';
 
 describe('cleanup', () => {
   it('removes every fixture', async () => {
@@ -16,6 +16,26 @@ describe('cleanup', () => {
 
     await whenSettled();
     expect(isInitialized(first)).to.be.false;
+  });
+
+  it('stops every Recording before removing the fixtures', async () => {
+    // An element that announces its own removal, which a Recording still running would record.
+    const tag = defineImpulseElement('cleanup-announced', class extends ImpulseElement {
+      disconnected() {
+        this.dispatchEvent(new Event('cleanup:removed'));
+      }
+    });
+    const element = await fixture(`<${tag}></${tag}>`);
+    const onElement = recordEvents(element, ['cleanup:removed']);
+    const onDocument = recordEvents(document, ['cleanup:after']);
+    const waiting = onDocument.waitFor('cleanup:after');
+
+    cleanup();
+    document.dispatchEvent(new Event('cleanup:after'));
+    expect(onElement.types).to.eql([]);
+    expect(onDocument.types).to.eql([]);
+    const error = await rejectionOf(waiting);
+    expect(error.message).to.equal('No "cleanup:after" before the recording was stopped. Recorded: none.');
   });
 
   it('can be called again', async () => {

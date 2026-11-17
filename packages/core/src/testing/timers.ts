@@ -24,10 +24,17 @@ export interface Deadline {
   clear: () => void;
 }
 
-/** Starts a deadline that passes after `timeout` milliseconds. One that is not finite never passes. */
-export function startDeadline(timeout: number): Deadline {
+/**
+ * Starts a deadline that passes after `timeout` milliseconds, calling `onPass` when it does. One that is not finite
+ * never passes.
+ */
+export function startDeadline(timeout: number, onPass?: () => void): Deadline {
   let passed = false;
-  const timer = Number.isFinite(timeout) ? setTimer(() => (passed = true), timeout) : undefined;
+  const pass = () => {
+    passed = true;
+    onPass?.();
+  };
+  const timer = Number.isFinite(timeout) ? setTimer(pass, timeout) : undefined;
   return {
     get passed() {
       return passed;
