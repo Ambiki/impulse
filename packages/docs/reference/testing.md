@@ -80,7 +80,7 @@ recordEvents(target: EventTarget, types: string[], options?: { self?: boolean })
 interface Recording {
   readonly events: Event[];
   readonly types: string[];
-  waitFor(type: string, options?: { timeout?: number }): Promise<Event>;
+  waitFor<E extends Event = Event>(type: string, options?: { timeout?: number }): Promise<E>;
   stop(): void;
 }
 ```
@@ -106,6 +106,10 @@ expect(recording.types).to.eql(['accordion-item:show', 'accordion-item:shown']);
 - `waitFor(type)` resolves with the earliest recorded `type` event that an earlier `waitFor` has not handed out. It
   resolves at once when that event was dispatched before the call, so a test cannot start listening too late, and two
   calls resolve with two different events. It rejects at once for a type the Recording does not keep.
+- `waitFor` never resolves while the event is still being dispatched, so every listener has run by the time the test
+  goes on, also for an event the browser dispatches itself, such as `transitionend`.
+- `waitFor` resolves with an `Event`. Name the type to read more from it:
+  `await recording.waitFor<CustomEvent<{ id: string }>>('accordion-item:shown')`. The type is not checked.
 - `stop()` ends the Recording early. A `waitFor` still pending rejects.
 
 ## cleanup
@@ -123,6 +127,10 @@ import { cleanup } from '@ambiki/impulse/testing';
 
 afterEach(cleanup);
 ```
+
+It registers itself as `@ambiki/impulse/testing` is imported, so import it once the runner has defined `afterEach`: from
+a test file, or from Jest's `setupFilesAfterEnv` rather than its `setupFiles`. Imported earlier, the first fixture or
+Recording warns that nothing was registered.
 
 ## Deadlines
 
