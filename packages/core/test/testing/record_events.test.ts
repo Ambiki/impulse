@@ -19,8 +19,14 @@ declare global {
   }
 }
 
-/** Compiles only when `A` and `B` are the same type. */
+/** `true` when `A` and `B` are the same type, and `false` otherwise. */
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+/** Compiles only when its type argument is `true`, as `Equal` is for two types that are the same. */
+function expectType<_T extends true>(): void {}
+
+/** An event as a Recording types it: `E`, with its `type` narrowed to `K`. */
+type Recorded<E, K extends string> = E & { readonly type: K };
 
 function dispatch(target: EventTarget, type: string, init: EventInit = {}): Event {
   const event = new Event(type, init);
@@ -130,17 +136,17 @@ describe('recordEvents', () => {
     );
   });
 
-  describe('types', () => {
+  describe('event types', () => {
     it('types the events and their types by the event map', () => {
       const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a', 'record:detail']);
       element.dispatchEvent(new CustomEvent('record:detail', { detail: { id: 7 } }));
 
-      const typed: [
-        Equal<typeof recording.events, (Event | CustomEvent<{ id: number }>)[]>,
-        Equal<typeof recording.types, ('record:a' | 'record:detail')[]>,
-      ] = [true, true];
-      expect(typed).to.eql([true, true]);
+      expectType<Equal<
+        typeof recording.events,
+        (Recorded<Event, 'record:a'> | Recorded<CustomEvent<{ id: number }>, 'record:detail'>)[]
+      >>();
+      expectType<Equal<typeof recording.types, ('record:a' | 'record:detail')[]>>();
       expect(recording.types).to.eql(['record:detail']);
     });
 
@@ -153,23 +159,34 @@ describe('recordEvents', () => {
       expect(recording.events.map((event) => event.detail.id)).to.eql([7, 8]);
     });
 
-    it('takes the event types the target is sent', () => {
+    it('tells the events apart by `type`, with no cast', () => {
       const element = appendMarkup('<div></div>');
-      const onWindow = recordEvents(window, ['storage', 'record:a']);
-      const onDocument = recordEvents(document, ['visibilitychange', 'record:a']);
-      const onElement = recordEvents(element, ['keydown', 'fullscreenchange', 'record:a']);
-      const onFragment = recordEvents(document.createDocumentFragment(), ['keydown', 'record:a']);
+      const recording = recordEvents(element, ['record:a', 'record:detail']);
+      dispatch(element, 'record:a');
+      element.dispatchEvent(new CustomEvent('record:detail', { detail: { id: 7 } }));
 
-      const typed: [
-        Equal<typeof onWindow.events, (StorageEvent | Event)[]>,
-        Equal<typeof onDocument.events, Event[]>,
-        Equal<typeof onElement.events, (KeyboardEvent | Event)[]>,
-        Equal<typeof onFragment.events, (KeyboardEvent | Event)[]>,
-      ] = [true, true, true, true];
-      expect(typed).to.eql([true, true, true, true]);
+      const ids = recording.events.filter((event) => event.type === 'record:detail').map((event) => event.detail.id);
+      expect(ids).to.eql([7]);
+    });
 
+    it('takes any event a node or the window is sent, on each of them', () => {
+      const element = appendMarkup('<div></div>');
+      const onWindow = recordEvents(window, ['visibilitychange', 'record:a']);
+      const onDocument = recordEvents(document, ['storage', 'record:a']);
+      const onElement = recordEvents(element, ['enterpictureinpicture', 'keydown', 'record:a']);
+      const onShadowRoot = recordEvents(element.attachShadow({ mode: 'open' }), ['slotchange', 'record:a']);
+
+      expectType<Equal<typeof onDocument.events[number]['type'], 'storage' | 'record:a'>>();
+      expectType<Equal<
+        typeof onElement.events,
+        (
+          | Recorded<PictureInPictureEvent, 'enterpictureinpicture'> |
+          Recorded<KeyboardEvent, 'keydown'> |
+          Recorded<Event, 'record:a'>
+        )[]
+      >>();
       dispatch(element, 'record:a', { bubbles: true });
-      expect([onWindow.types, onDocument.types, onElement.types, onFragment.types]).to.eql([
+      expect([onWindow.types, onDocument.types, onElement.types, onShadowRoot.types]).to.eql([
         ['record:a'],
         ['record:a'],
         ['record:a'],
@@ -177,31 +194,13 @@ describe('recordEvents', () => {
       ]);
     });
 
-    it('takes the event types a media element is sent', () => {
-      const video = appendMarkup<HTMLVideoElement>('<video></video>');
-      const audio = appendMarkup<HTMLAudioElement>('<audio></audio>');
-      const onVideo = recordEvents(video, ['enterpictureinpicture', 'encrypted']);
-      const onAudio = recordEvents(audio, ['encrypted']);
+    it('takes any type, as an `Event`, on a target that is not a node or the window', () => {
+      const target = new EventTarget();
+      const recording = recordEvents(target, ['record:undeclared']);
 
-      const typed: [
-        Equal<typeof onVideo.events, (PictureInPictureEvent | MediaEncryptedEvent)[]>,
-        Equal<typeof onAudio.events, MediaEncryptedEvent[]>,
-      ] = [true, true];
-      expect(typed).to.eql([true, true]);
-
-      dispatch(video, 'encrypted');
-      expect([onVideo.types, onAudio.types]).to.eql([['encrypted'], []]);
-    });
-
-    it('takes the event types a shadow root is sent', () => {
-      const shadowRoot = appendMarkup('<div></div>').attachShadow({ mode: 'open' });
-      const recording = recordEvents(shadowRoot, ['slotchange', 'keydown']);
-
-      const typed: Equal<typeof recording.events, (Event | KeyboardEvent)[]> = true;
-      expect(typed).to.be.true;
-
-      dispatch(shadowRoot, 'slotchange');
-      expect(recording.types).to.eql(['slotchange']);
+      expectType<Equal<typeof recording.events, Recorded<Event, 'record:undeclared'>[]>>();
+      dispatch(target, 'record:undeclared');
+      expect(recording.types).to.eql(['record:undeclared']);
     });
 
     it('does not compile with a type the event map does not declare', () => {
@@ -209,11 +208,23 @@ describe('recordEvents', () => {
 
       // @ts-expect-error A misspelled type is not in the event map.
       const recording = recordEvents(element, ['record:a', 'record:misspelled']);
-      // @ts-expect-error An element is not sent a window's `storage`.
-      recordEvents(element, ['storage']);
-      // @ts-expect-error Nor is `<body>`, though its `addEventListener()` takes the window's own events.
-      recordEvents(document.body, ['popstate']);
       expect(recording.types).to.eql([]);
+    });
+
+    it('takes the event map as a type argument', async () => {
+      const element = appendMarkup('<div></div>');
+      // A custom event named like a native one, which the global event map types otherwise.
+      const recording = recordEvents<{ 'error': CustomEvent<{ status: number }>; 'record:undeclared': Event }>(
+        element,
+        ['error', 'record:undeclared'],
+      );
+      element.dispatchEvent(new CustomEvent('error', { detail: { status: 500 } }));
+
+      const event = await recording.waitFor('error');
+      expectType<Equal<typeof event, CustomEvent<{ status: number }>>>();
+      expect(event.detail.status).to.equal(500);
+      // @ts-expect-error The map given names no `record:a`.
+      recordEvents<{ 'record:b': Event }>(element, ['record:a']);
     });
   });
 
@@ -249,8 +260,7 @@ describe('recordEvents', () => {
       element.dispatchEvent(new CustomEvent('record:detail', { detail: { id: 7 } }));
 
       const event = await recording.waitFor('record:detail');
-      const typed: Equal<typeof event, CustomEvent<{ id: number }>> = true;
-      expect(typed).to.be.true;
+      expectType<Equal<typeof event, CustomEvent<{ id: number }>>>();
       expect(event.detail.id).to.equal(7);
     });
 

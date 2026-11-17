@@ -75,11 +75,9 @@ wait at its deadline, with the tag named.
 ## recordEvents
 
 ```ts
-recordEvents<T extends EventTarget, K extends keyof EventMapOf<T>>(
-  target: T,
-  types: readonly K[],
-  options?: { self?: boolean },
-): Recording<Pick<EventMapOf<T>, K>>
+// Each type is one the DOM's event maps declare. See Event types, below.
+recordEvents(target: EventTarget, types: string[], options?: { self?: boolean }): Recording
+recordEvents<Events>(target: EventTarget, types: (keyof Events)[], options?: { self?: boolean }): Recording<Events>
 
 interface Recording<Events> {
   readonly events: Events[keyof Events][];
@@ -116,13 +114,10 @@ expect(recording.types).to.eql(['accordion-item:show', 'accordion-item:shown']);
 
 ### Event types
 
-`EventMapOf<T>` is the event map `target.addEventListener()` takes: `WindowEventMap` for the window, `DocumentEventMap`
-for a document, and `HTMLElementEventMap` for an element, or a media element's own map. So a type the map does not
-declare, such as a misspelled one, fails to compile, and `events` and `waitFor` have the type each event has in the
-map, with no cast to read a `detail`.
-
-Every one of those maps extends `GlobalEventHandlersEventMap`. Declare an element's events there, and a Recording on
-the element, the document, or the window types them:
+On an element, a document, a shadow root, or the window, a Recording takes its types from the event maps of the DOM,
+such as `HTMLElementEventMap` and `WindowEventMap`. A type no map declares, such as a misspelled one, fails to compile,
+and each event has the type its map gives it, so reading a `detail` needs no cast. Every one of those maps extends
+`GlobalEventHandlersEventMap`: declare an element's events there.
 
 ```ts
 declare global {
@@ -138,7 +133,16 @@ const event = await recording.waitFor('accordion-item:shown'); // CustomEvent<{ 
 expect(event.detail.id).to.equal(accordion.id);
 ```
 
-A list of types kept in a variable needs `as const`, or it is a `string[]` that names no event in particular.
+- Each event in `events` has its `type` as its type, so comparing the `type` tells the events of a Recording apart:
+  inside `if (event.type === 'accordion-item:shown')`, `event.detail` is typed. `filter()` narrows the same way from
+  TypeScript 5.5.
+- A type is any of the DOM's, not only one `target` is sent: `recordEvents(button, ['popstate'])` compiles, and records
+  nothing.
+- A list of types kept in a variable needs `as const`. Otherwise it is a `string[]`, which names no event in particular.
+- On any other event target, such as an `EventTarget` of its own, a type is any string, and an event an `Event`.
+- For an event no map declares, or declares as another type, such as a custom event named `error`, give the event map
+  as the type argument: `recordEvents<{ error: CustomEvent<{ status: number }> }>(autocomplete, ['error'])`.
+- The types are the event maps' word for each event. Nothing checks an event against them.
 
 ## cleanup
 

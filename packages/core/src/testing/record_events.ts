@@ -5,11 +5,14 @@ import { DEFAULT_TIMEOUT, nextTask, startDeadline } from './timers';
  * The events of the types a test names that reach one target, in the order they were dispatched.
  *
  * `Events` maps each type recorded to its event, as an event map does, such as
- * `{ 'accordion-item:shown': CustomEvent<{ id: string }> }`.
+ * `{ 'accordion-item:shown': CustomEvent<{ id: string }> }`. Nothing checks an event against it.
  */
 export interface Recording<Events extends object = Record<string, Event>> {
-  /** The events recorded so far. The same array is kept up to date. */
-  readonly events: Events[keyof Events][];
+  /**
+   * The events recorded so far. The same array is kept up to date. Each has its `type` as its type, so comparing the
+   * `type` tells the events apart.
+   */
+  readonly events: RecordedEvent<Events>[];
   /** The `type` of each event recorded so far, which is what an assertion should compare. */
   readonly types: (keyof Events & string)[];
   /**
@@ -24,27 +27,22 @@ export interface Recording<Events extends object = Record<string, Event>> {
   stop: () => void;
 }
 
+/** An event of `Events`, with its `type` narrowed to its key. */
+type RecordedEvent<Events> = { [K in keyof Events]: Events[K] & { readonly type: K } }[keyof Events];
+
 /**
- * The event map of the events that reach `T`, by which `recordEvents()` types what it records. Each extends
- * `GlobalEventHandlersEventMap`, where an application declares its own events, so they are typed on every target.
- *
- * It is the map `T.addEventListener()` takes, with two exceptions. Any element is sent the events of
- * `HTMLElementEventMap`, even where `addEventListener()` takes fewer. And the map of `<body>` and `<svg>` leaves out
- * the window's own events, such as `popstate`, which are dispatched at the window and so never reach an element.
+ * Every event a node or the window can be sent, whether dispatched at it or bubbling up to it. Each of the maps
+ * extends `GlobalEventHandlersEventMap`, where an application declares its own events.
  */
-type EventMapOf<T extends EventTarget> = T extends Window ?
-  WindowEventMap :
-  T extends Document ?
-    DocumentEventMap :
-    T extends HTMLVideoElement ?
-      HTMLVideoElementEventMap :
-      T extends HTMLMediaElement ?
-        HTMLMediaElementEventMap :
-        T extends Element ?
-          HTMLElementEventMap :
-          T extends ShadowRoot ?
-            ShadowRootEventMap & GlobalEventHandlersEventMap :
-            GlobalEventHandlersEventMap;
+type DomEventMap = WindowEventMap & DocumentEventMap & HTMLVideoElementEventMap & ShadowRootEventMap;
+
+/**
+ * `T`, as a type TypeScript cannot infer from, so a call has to give it. `NoInfer<T>`, before TypeScript 5.4 had it.
+ */
+type Given<T> = [T][T extends unknown ? 0 : never];
+
+/** The event map `recordEvents()` types a Recording on `T` by. No map is known for a target that is not in the DOM. */
+type EventMapOf<T extends EventTarget> = T extends Node | Window ? DomEventMap : Record<string, Event>;
 
 interface Waiter {
   type: string;
@@ -64,9 +62,9 @@ const recordings = new Set<Recording>();
  * event before any listener on a descendant, or any bubbling listener on `target`, has run. Those can neither stop the
  * event from being recorded nor have an event they dispatch recorded ahead of it.
  *
- * Each type is one of the event map of `target`, which is the map `target.addEventListener()` takes, so a type the
- * map does not declare is an error at compile time. Declare an element's events in `GlobalEventHandlersEventMap` so
- * that a Recording on any target, element, document, or window, types them:
+ * On a node or the window, each type is one of the event maps of the DOM, so a type no map declares, such as a
+ * misspelled one, is an error at compile time, and each event has the type its map gives it. Declare an element's
+ * events in `GlobalEventHandlersEventMap`, which every map of the DOM extends:
  *
  * ```ts
  * declare global {
@@ -75,6 +73,8 @@ const recordings = new Set<Recording>();
  *   }
  * }
  * ```
+ *
+ * On any other target, a type is any string, and an event an `Event`.
  *
  * @param target - The element, document, window, or other event target to record on.
  * @param types - The event types to record, written in full (`'accordion-item:show'`).
@@ -96,6 +96,20 @@ export function recordEvents<T extends EventTarget, K extends keyof EventMapOf<T
   types: readonly K[],
   options?: { self?: boolean },
 ): Recording<Pick<EventMapOf<T>, K>>;
+/**
+ * Starts a Recording typed by `Events`, the event map the test gives, in place of the maps of the DOM. It is for events
+ * no map declares, or declares as another type, such as a custom event named `error`. Each type is one of `Events`.
+ *
+ * @example
+ * ```ts
+ * const recording = recordEvents<{ error: CustomEvent<{ status: number }> }>(autocomplete, ['error']);
+ * ```
+ */
+export function recordEvents<Events extends object>(
+  target: EventTarget,
+  types: readonly (keyof Given<Events> & string)[],
+  options?: { self?: boolean },
+): Recording<Events>;
 export function recordEvents(
   target: EventTarget,
   types: readonly string[],
