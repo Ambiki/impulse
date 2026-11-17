@@ -2,7 +2,7 @@ import { expect } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, registerElement, target } from '../../src';
 import { fixture, recordEvents } from '../../src/testing';
-import { mount, rejectionOf, unmountAll } from './support';
+import { appendMarkup, rejectionOf, removeAppended } from './support';
 
 function dispatch(target: EventTarget, type: string, init: EventInit = {}): Event {
   const event = new Event(type, init);
@@ -11,10 +11,10 @@ function dispatch(target: EventTarget, type: string, init: EventInit = {}): Even
 }
 
 describe('recordEvents', () => {
-  afterEach(() => unmountAll());
+  afterEach(() => removeAppended());
 
   it('records the events of the given types that reach the target, in the order they were dispatched', () => {
-    const element = mount('<div></div>');
+    const element = appendMarkup('<div></div>');
     const recording = recordEvents(element, ['record:a', 'record:b']);
 
     const first = dispatch(element, 'record:b');
@@ -27,7 +27,7 @@ describe('recordEvents', () => {
   });
 
   it('records nothing dispatched before it started', () => {
-    const element = mount('<div></div>');
+    const element = appendMarkup('<div></div>');
     dispatch(element, 'record:a');
 
     const recording = recordEvents(element, ['record:a']);
@@ -35,7 +35,7 @@ describe('recordEvents', () => {
   });
 
   it('keeps the events array it hands out up to date', () => {
-    const element = mount('<div></div>');
+    const element = appendMarkup('<div></div>');
     const recording = recordEvents(element, ['record:a']);
     const { events } = recording;
 
@@ -45,7 +45,7 @@ describe('recordEvents', () => {
   });
 
   it('keeps events bubbling up from descendants, and the target\'s own that do not bubble', () => {
-    const element = mount('<div><p></p></div>');
+    const element = appendMarkup('<div><p></p></div>');
     const child = element.querySelector('p')!;
     const recording = recordEvents(element, ['record:a', 'record:b', 'record:c']);
 
@@ -57,7 +57,7 @@ describe('recordEvents', () => {
   });
 
   it('keeps only the events the target dispatched when `self` is set', () => {
-    const element = mount('<div><p></p></div>');
+    const element = appendMarkup('<div><p></p></div>');
     const child = element.querySelector('p')!;
     const recording = recordEvents(element, ['record:a', 'record:b'], { self: true });
 
@@ -68,7 +68,7 @@ describe('recordEvents', () => {
   });
 
   it('keeps an event that a listener stops from going further', () => {
-    const element = mount('<div><p></p></div>');
+    const element = appendMarkup('<div><p></p></div>');
     const child = element.querySelector('p')!;
     child.addEventListener('record:a', (event) => event.stopPropagation());
     element.addEventListener('record:b', (event) => event.stopImmediatePropagation());
@@ -80,18 +80,31 @@ describe('recordEvents', () => {
     expect(recording.types).to.eql(['record:a', 'record:b']);
   });
 
+  it('records an event ahead of one a listener dispatches while handling it', () => {
+    const element = appendMarkup('<div><p></p></div>');
+    const child = element.querySelector('p')!;
+    child.addEventListener('record:a', () => dispatch(element, 'record:b'));
+    element.addEventListener('record:c', () => dispatch(element, 'record:d'));
+    const recording = recordEvents(element, ['record:a', 'record:b', 'record:c', 'record:d']);
+
+    dispatch(child, 'record:a', { bubbles: true });
+    dispatch(element, 'record:c');
+
+    expect(recording.types).to.eql(['record:a', 'record:b', 'record:c', 'record:d']);
+  });
+
   it('records on the window and the document', () => {
     const onWindow = recordEvents(window, ['record:a']);
     const onDocument = recordEvents(document, ['record:a']);
 
-    dispatch(mount('<div></div>'), 'record:a', { bubbles: true });
+    dispatch(appendMarkup('<div></div>'), 'record:a', { bubbles: true });
 
     expect(onWindow.types).to.eql(['record:a']);
     expect(onDocument.types).to.eql(['record:a']);
   });
 
   it('rejects types that are not an array', () => {
-    const element = mount('<div></div>');
+    const element = appendMarkup('<div></div>');
 
     expect(() => recordEvents(element, 'record:a' as unknown as string[])).to.throw(
       TypeError,
@@ -101,7 +114,7 @@ describe('recordEvents', () => {
 
   describe('waitFor', () => {
     it('resolves at once with an event dispatched before the call', async () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);
       const event = dispatch(element, 'record:a');
 
@@ -109,7 +122,7 @@ describe('recordEvents', () => {
     });
 
     it('resolves with an event dispatched after the call', async () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a', 'record:b']);
 
       const waiting = recording.waitFor('record:b');
@@ -120,7 +133,7 @@ describe('recordEvents', () => {
     });
 
     it('hands out each event once, earliest first', async () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);
       const first = dispatch(element, 'record:a');
 
@@ -132,7 +145,7 @@ describe('recordEvents', () => {
     });
 
     it('rejects at the deadline, naming the type and what was recorded', async () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a', 'record:b']);
       dispatch(element, 'record:a');
       dispatch(element, 'record:a');
@@ -142,21 +155,21 @@ describe('recordEvents', () => {
     });
 
     it('says when nothing was recorded', async () => {
-      const recording = recordEvents(mount('<div></div>'), ['record:a']);
+      const recording = recordEvents(appendMarkup('<div></div>'), ['record:a']);
 
       const error = await rejectionOf(recording.waitFor('record:a', { timeout: 0 }));
       expect(error.message).to.equal('No "record:a" within 0ms. Recorded: none.');
     });
 
     it('rejects at once for a type it does not record', async () => {
-      const recording = recordEvents(mount('<div></div>'), ['record:a', 'record:b']);
+      const recording = recordEvents(appendMarkup('<div></div>'), ['record:a', 'record:b']);
 
       const error = await rejectionOf(recording.waitFor('record:c'));
       expect(error.message).to.equal('"record:c" is not one of the types recorded: record:a, record:b.');
     });
 
     it('keeps to its deadline with fake timers', async () => {
-      const recording = recordEvents(mount('<div></div>'), ['record:a']);
+      const recording = recordEvents(appendMarkup('<div></div>'), ['record:a']);
       const clock = Sinon.useFakeTimers();
       try {
         const error = await rejectionOf(recording.waitFor('record:a', { timeout: 20 }));
@@ -169,7 +182,7 @@ describe('recordEvents', () => {
 
   describe('stop', () => {
     it('records nothing more', () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);
       dispatch(element, 'record:a');
 
@@ -179,7 +192,7 @@ describe('recordEvents', () => {
     });
 
     it('rejects a wait still pending', async () => {
-      const recording = recordEvents(mount('<div></div>'), ['record:a']);
+      const recording = recordEvents(appendMarkup('<div></div>'), ['record:a']);
 
       const waiting = recording.waitFor('record:a');
       recording.stop();
@@ -189,7 +202,7 @@ describe('recordEvents', () => {
     });
 
     it('still hands out an event recorded before it', async () => {
-      const element = mount('<div></div>');
+      const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);
       const event = dispatch(element, 'record:a');
 

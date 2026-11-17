@@ -7,10 +7,10 @@ export interface Recording {
   /** The `type` of each event recorded so far, which is what an assertion should compare. */
   readonly types: string[];
   /**
-   * Resolves with the earliest recorded `type` event that an earlier `waitFor()` has not handed out. It resolves at once
-   * when that event was dispatched before the call, so there is no listening too late, and two calls resolve with two
-   * different events. Rejects at the deadline (1000ms unless `timeout` says otherwise), naming the types recorded, at
-   * once for a type the Recording does not keep, and once the Recording is stopped.
+   * Resolves with the earliest recorded `type` event that an earlier `waitFor()` has not handed out. It resolves at
+   * once when that event was dispatched before the call, so there is no listening too late, and two calls resolve with
+   * two different events. Rejects at the deadline (1000ms unless `timeout` says otherwise; `Infinity` means none),
+   * naming the types recorded, at once for a type the Recording does not keep, and once the Recording is stopped.
    */
   waitFor: (type: string, options?: { timeout?: number }) => Promise<Event>;
   /** Ends the Recording early. `cleanup()` ends every Recording after each test. */
@@ -31,8 +31,9 @@ const recordings = new Set<Recording>();
  * Starts a Recording: the events of `types` that reach `target` from now on, in the order they were dispatched.
  *
  * Like a `data-action` on `target`, it keeps the events bubbling up from its descendants, and with `self: true`, like
- * `.self`, only the ones `target` dispatched. It listens in the capture phase, so it records an event before any
- * listener can stop it from going further.
+ * `.self`, only the ones `target` dispatched. Unlike a `data-action`, it listens in the capture phase, so it records an
+ * event before any listener on a descendant, or any bubbling listener on `target`, has run. Those can neither stop the
+ * event from being recorded nor have an event they dispatch recorded ahead of it.
  *
  * @param target - The element, document, window, or other event target to record on.
  * @param types - The event types to record, written in full (`'accordion-item:show'`).
@@ -55,7 +56,8 @@ export function recordEvents(
   { self = false }: { self?: boolean } = {},
 ): Recording {
   if (!Array.isArray(types)) {
-    throw new TypeError(`recordEvents() takes the event types as an array, not ${types === null ? 'null' : typeof types}.`);
+    const given = types === null ? 'null' : typeof types;
+    throw new TypeError(`recordEvents() takes the event types as an array, not ${given}.`);
   }
   const kept = new Set(types);
   const events: Event[] = [];
@@ -64,8 +66,11 @@ export function recordEvents(
   const waiters: Waiter[] = [];
   let stopped = false;
 
-  const typesRecorded = () => events.map((event) => event.type);
-  const recorded = () => (events.length > 0 ? typesRecorded().join(', ') : 'none');
+  const typesOf = () => events.map((event) => event.type);
+  // How a rejection lists what was recorded.
+  const recordedList = () => (events.length > 0 ? typesOf().join(', ') : 'none');
+  const stoppedError = (type: string) =>
+    new Error(`No "${type}" before the recording was stopped. Recorded: ${recordedList()}.`);
 
   const listener = (event: Event) => {
     // As for a `data-action` on the target, a descendant's event counts only if it bubbles.
@@ -85,7 +90,7 @@ export function recordEvents(
   const recording: Recording = {
     events,
     get types() {
-      return typesRecorded();
+      return typesOf();
     },
     waitFor(type, { timeout = DEFAULT_TIMEOUT } = {}) {
       const index = unclaimed.findIndex((event) => event.type === type);
@@ -93,13 +98,13 @@ export function recordEvents(
       if (!kept.has(type)) {
         return Promise.reject(new Error(`"${type}" is not one of the types recorded: ${Array.from(kept).join(', ')}.`));
       }
-      if (stopped) return Promise.reject(new Error(`No "${type}" before the recording was stopped. Recorded: ${recorded()}.`));
+      if (stopped) return Promise.reject(stoppedError(type));
 
       return new Promise<Event>((resolve, reject) => {
         const waiter: Waiter = { type, resolve, reject, clearDeadline: () => {} };
         const deadline = startDeadline(timeout, () => {
           waiters.splice(waiters.indexOf(waiter), 1);
-          reject(new Error(`No "${type}" within ${timeout}ms. Recorded: ${recorded()}.`));
+          reject(new Error(`No "${type}" within ${timeout}ms. Recorded: ${recordedList()}.`));
         });
         waiter.clearDeadline = deadline.clear;
         waiters.push(waiter);
@@ -112,7 +117,7 @@ export function recordEvents(
       for (const type of kept) target.removeEventListener(type, listener, true);
       for (const waiter of waiters.splice(0)) {
         waiter.clearDeadline();
-        waiter.reject(new Error(`No "${waiter.type}" before the recording was stopped. Recorded: ${recorded()}.`));
+        waiter.reject(stoppedError(waiter.type));
       }
     },
   };
