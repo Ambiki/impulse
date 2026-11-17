@@ -27,8 +27,8 @@ await whenSettled();
 expect(group.items).to.have.length(3);
 ```
 
-Don't sleep instead. A frame (`nextFrame()`) or a timeout is long enough for most changes, by accident, and too short for
-an element whose JavaScript is still loading. Waiting for each element with
+Don't sleep instead. A frame (`nextFrame()`) or a timeout is long enough for most changes, by accident, and too short
+for an element whose JavaScript is still loading. Waiting for each element with
 [`whenInitialized`](/utilities/when-initialized) misses the nested ones and a change delivered to an element that is
 already initialized.
 
@@ -97,7 +97,10 @@ expect(recording.types).to.eql(['accordion-item:show', 'accordion-item:shown']);
 ```
 
 - Like a `data-action` on `target`, it keeps the events bubbling up from its descendants. With `self: true`, like the
-  `.self` modifier, it keeps only the ones `target` dispatched. It records an event before any listener can stop it.
+  `.self` modifier, it keeps only the ones `target` dispatched.
+- Unlike a `data-action`, it listens in the capture phase, so it records an event before any listener on a descendant,
+  or any bubbling listener on `target`, has run. Those can neither stop the event from being recorded nor have an event
+  they dispatch recorded ahead of it.
 - `events` is the live array of recorded events, and `types` their `type` strings, which is what an assertion should
   compare.
 - `waitFor(type)` resolves with the earliest recorded `type` event that an earlier `waitFor` has not handed out. It
@@ -121,12 +124,11 @@ import { cleanup } from '@ambiki/impulse/testing';
 afterEach(cleanup);
 ```
 
-An element the test's code appends anywhere else is the test's to remove.
-
 ## Deadlines
 
 Every wait gives up after 1000ms, less than any runner's own timeout, so a test fails naming what it was waiting on
-rather than as a timeout that names nothing. Pass `timeout` (in milliseconds) to change it for one call.
+rather than as a timeout that names nothing. Pass `timeout` (in milliseconds) to change it for one call, or `Infinity`
+for no deadline.
 
 ```txt
 Not settled within 1000ms: <acordion-item> is not defined; <accordion-item> is not initialized.
