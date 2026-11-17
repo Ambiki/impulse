@@ -91,8 +91,8 @@ export default class Property {
   /**
    * Invokes `[field]Changed(newValue, oldValue)` for each field that reads `attribute` and has the method, unless
    * `oldAttribute` and `newAttribute` read as the same value: `8_000` rewritten as `8000`, reformatted JSON, or an
-   * attribute removed while it read as the Default. A callback that throws is reported like an uncaught error, so the
-   * callbacks of other fields reading the same attribute still run.
+   * attribute removed while it read as the Default. A callback that throws, or a Type that throws while reading the
+   * values, is reported like an uncaught error, so the callbacks of other fields reading the same attribute still run.
    *
    * Throws for an attribute no field reads, such as one a subclass adds to `observedAttributes`, when the element has a
    * `[camelized attribute]Changed` method, since it would never be invoked.
@@ -115,8 +115,11 @@ export default class Property {
       if (typeof fn !== 'function') continue;
       // Every field is bound by the time its attribute changes are reported: `start()` binds them before the element
       // can be Initialized.
-      const change = this.bound.get(key)!.change(oldAttribute, newAttribute);
-      if (change) invokeReporting(() => fn.call(this.instance, change.newValue, change.oldValue));
+      const property = this.bound.get(key)!;
+      invokeReporting(() => {
+        const change = property.change(oldAttribute, newAttribute);
+        if (change) fn.call(this.instance, change.newValue, change.oldValue);
+      });
     }
   }
 }
@@ -191,6 +194,13 @@ const PROPERTY_TYPES = new Map<PropertyConstructor, AnyPropertyType>([
 ]);
 
 /**
+ * The built-in Type `type` names by its constructor, such as `Number`, or nothing when it names none.
+ */
+export function builtInType(type: unknown): AnyPropertyType | undefined {
+  return PROPERTY_TYPES.get(type as PropertyConstructor);
+}
+
+/**
  * One `@property()` of one element: its attribute, its type, and its Default.
  */
 class BoundProperty {
@@ -205,8 +215,8 @@ class BoundProperty {
     defaultValue: unknown,
   ) {
     this.attributeName = dasherize(key);
-    // `@property()` rejects anything but a built-in constructor or a Type, so what isn't built in is a Type.
-    this.type = PROPERTY_TYPES.get(type as PropertyConstructor) ?? (type as AnyPropertyType);
+    // `@property()` rejects anything but a built-in Type's constructor or a Type, so what isn't built in is a Type.
+    this.type = builtInType(type) ?? (type as AnyPropertyType);
     this.defaultValue = defaultValue ?? this.type.emptyValue ?? null;
   }
 
@@ -234,7 +244,7 @@ class BoundProperty {
    * Whether two values read from the attribute are the same, so a change from one to the other is not reported. A Type
    * without `isEqual` takes them as the same when they write the same attribute: two such values can't be told apart
    * through it, and a Type that doesn't write canonically costs an extra callback, never a missed one. A `null` value,
-   * read while a Type that names no Empty value has no Default, never reaches the Type.
+   * which a property reads while its Default is `null`, never reaches the Type.
    */
   private isSame(left: unknown, right: unknown) {
     if (left === null || right === null) return left === right;
@@ -259,7 +269,8 @@ class BoundProperty {
    *
    * A Default that does not survive the trip, because the Type writes it as no attribute or cannot read back what it
    * wrote, reads as itself when it is a primitive, which nothing can mutate. An object is never handed out itself, so
-   * reading one throws. A `null` Default, of a Type that names no Empty value, never reaches the Type.
+   * reading one throws. A `null` Default, of a field without an initializer whose Type names no Empty value, never
+   * reaches the Type.
    */
   private readDefault() {
     if (this.defaultValue === null) return null;
