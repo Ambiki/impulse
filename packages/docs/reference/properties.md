@@ -215,11 +215,6 @@ mutation would change the default, or for an `emptyValue` the default of every e
 throws a `TypeError` instead. A type that writes an empty `Set` as `null`, for example, cannot name an empty `Set` as
 its `emptyValue`.
 
-::: tip Coming from Lit?
-Lit's `converter` is `type` here, and its `hasChanged` is the type's `isEqual`, which lives in the type because how two
-values compare follows from how they were read.
-:::
-
 ## Naming conventions
 
 Always use kebab-case in your HTML, and use camelCase in your `.ts` file.
