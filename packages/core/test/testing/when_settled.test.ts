@@ -2,17 +2,18 @@ import { expect } from '@open-wc/testing';
 import Sinon from 'sinon';
 import { ImpulseElement, isInitialized, registerElement, targets } from '../../src';
 import { whenSettled } from '../../src/testing';
-import { defineImpulseElement, mount, rejectionOf, uniqueTag, unmountAll } from './support';
+import { appendMarkup, defineImpulseElement, rejectionOf, removeAppended, uniqueTag } from './support';
 
-// `document.createElement('button', { is })` and `<button is>` make a customized built-in, which WebKit does not support.
+// `document.createElement('button', { is })` and `<button is>` make a customized built-in, which WebKit (and jsdom)
+// does not support.
 const supportsCustomizedBuiltIns = document.createElement('button', { is: 'probe-button' }).matches(':not(:defined)');
 
 describe('whenSettled', () => {
-  afterEach(() => unmountAll());
+  afterEach(() => removeAppended());
 
   it('resolves once an appended Impulse element is initialized', async () => {
     const tag = defineImpulseElement('settled-appended');
-    const element = mount(`<${tag}></${tag}>`);
+    const element = appendMarkup(`<${tag}></${tag}>`);
     expect(isInitialized(element)).to.be.false;
 
     await whenSettled();
@@ -22,7 +23,7 @@ describe('whenSettled', () => {
   it('resolves once every nested Impulse element is initialized', async () => {
     const outer = defineImpulseElement('settled-outer');
     const inner = defineImpulseElement('settled-inner');
-    const element = mount(`<${outer}><${inner}></${inner}><div><${inner}></${inner}></div></${outer}>`);
+    const element = appendMarkup(`<${outer}><${inner}></${inner}><div><${inner}></${inner}></div></${outer}>`);
 
     await whenSettled();
     const elements = [element, ...element.querySelectorAll(inner)];
@@ -45,7 +46,7 @@ describe('whenSettled', () => {
     }
 
     it('resolves once an added target is delivered', async () => {
-      const group = mount<SettledGroup>('<settled-group></settled-group>');
+      const group = appendMarkup<SettledGroup>('<settled-group></settled-group>');
       await whenSettled();
 
       const item = document.createElement('div');
@@ -59,7 +60,7 @@ describe('whenSettled', () => {
     });
 
     it('resolves once a removed target is delivered', async () => {
-      const group = mount<SettledGroup>(
+      const group = appendMarkup<SettledGroup>(
         '<settled-group><div id="removed" data-target="settled-group.items"></div></settled-group>',
       );
       await whenSettled();
@@ -79,7 +80,7 @@ describe('whenSettled', () => {
           disconnected();
         }
       });
-      const element = mount(`<${tag}></${tag}>`);
+      const element = appendMarkup(`<${tag}></${tag}>`);
       await whenSettled();
 
       element.remove();
@@ -91,7 +92,7 @@ describe('whenSettled', () => {
 
   it('waits for a custom element to be defined', async () => {
     const tag = uniqueTag('settled-defined-later');
-    const element = mount(`<${tag}></${tag}>`);
+    const element = appendMarkup(`<${tag}></${tag}>`);
     setTimeout(() => customElements.define(tag, class extends HTMLElement {}), 20);
 
     await whenSettled();
@@ -100,7 +101,7 @@ describe('whenSettled', () => {
 
   it('waits for an Impulse element defined later to be initialized', async () => {
     const tag = uniqueTag('settled-impulse-later');
-    const element = mount(`<${tag}></${tag}>`);
+    const element = appendMarkup(`<${tag}></${tag}>`);
     setTimeout(() => customElements.define(tag, class extends ImpulseElement {}), 20);
 
     await whenSettled();
@@ -109,7 +110,7 @@ describe('whenSettled', () => {
 
   it('resolves once an element it was waiting for is removed', async () => {
     const tag = uniqueTag('settled-removed-undefined');
-    const element = mount(`<${tag}></${tag}>`);
+    const element = appendMarkup(`<${tag}></${tag}>`);
     setTimeout(() => element.remove(), 20);
 
     await whenSettled();
@@ -118,7 +119,7 @@ describe('whenSettled', () => {
 
   it('rejects at the deadline, naming an element that is not defined', async () => {
     const tag = uniqueTag('settled-typo');
-    mount(`<${tag}></${tag}><${tag}></${tag}>`);
+    appendMarkup(`<${tag}></${tag}><${tag}></${tag}>`);
 
     const error = await rejectionOf(whenSettled({ timeout: 50 }));
     expect(error.message).to.equal(`Not settled within 50ms: <${tag}> is not defined.`);
@@ -130,7 +131,7 @@ describe('whenSettled', () => {
       // The host waits for its descendants to be defined (the deprecated wait). This silences its warning.
       static migratedToWhenInitialized = true;
     });
-    mount(`<${host}><${missing}></${missing}></${host}>`);
+    appendMarkup(`<${host}><${missing}></${missing}></${host}>`);
 
     const error = await rejectionOf(whenSettled({ timeout: 50 }));
     expect(error.message).to.equal(
@@ -140,7 +141,7 @@ describe('whenSettled', () => {
 
   it('has a deadline of 1000ms by default', async () => {
     const tag = uniqueTag('settled-default-deadline');
-    mount(`<${tag}></${tag}>`);
+    appendMarkup(`<${tag}></${tag}>`);
 
     const started = Date.now();
     const error = await rejectionOf(whenSettled());
@@ -150,7 +151,7 @@ describe('whenSettled', () => {
   });
 
   it('ignores a custom element whose name can never be defined', async () => {
-    const row = mount('<table><tbody><tr is="vue:row"></tr></tbody></table>').querySelector('tr')!;
+    const row = appendMarkup('<table><tbody><tr is="vue:row"></tr></tbody></table>').querySelector('tr')!;
     expect(row).to.exist;
 
     await whenSettled({ timeout: 0 });
@@ -159,7 +160,7 @@ describe('whenSettled', () => {
   (supportsCustomizedBuiltIns ? describe : describe.skip)('with a customized built-in element', () => {
     it('waits for it to be defined', async () => {
       const name = uniqueTag('settled-fancy-button');
-      const button = mount(`<button is="${name}"></button>`);
+      const button = appendMarkup(`<button is="${name}"></button>`);
       setTimeout(() => customElements.define(name, class extends HTMLButtonElement {}, { extends: 'button' }), 20);
 
       await whenSettled();
@@ -168,7 +169,7 @@ describe('whenSettled', () => {
 
     it('names one that is not defined by its tag and its `is`', async () => {
       const name = uniqueTag('settled-missing-button');
-      mount(`<button is="${name}"></button>`);
+      appendMarkup(`<button is="${name}"></button>`);
 
       const error = await rejectionOf(whenSettled({ timeout: 50 }));
       expect(error.message).to.equal(`Not settled within 50ms: <button is="${name}"> is not defined.`);
@@ -176,7 +177,7 @@ describe('whenSettled', () => {
 
     it('names one created with `document.createElement()`, which has no `is` attribute', async () => {
       const name = uniqueTag('settled-created-button');
-      const container = mount('<div></div>');
+      const container = appendMarkup('<div></div>');
       container.append(document.createElement('button', { is: name }));
 
       const error = await rejectionOf(whenSettled({ timeout: 50 }));
@@ -187,7 +188,7 @@ describe('whenSettled', () => {
   describe('in a shadow tree', () => {
     it('waits for an Impulse element in an open shadow root', async () => {
       const tag = defineImpulseElement('settled-shadowed');
-      const host = mount('<div></div>');
+      const host = appendMarkup('<div></div>');
       const root = host.attachShadow({ mode: 'open' });
       root.innerHTML = `<${tag}></${tag}>`;
 
@@ -197,7 +198,7 @@ describe('whenSettled', () => {
 
     it('names an element that is not defined in a nested open shadow root', async () => {
       const tag = uniqueTag('settled-shadowed-typo');
-      const host = mount('<div></div>');
+      const host = appendMarkup('<div></div>');
       const inner = host.attachShadow({ mode: 'open' }).appendChild(document.createElement('div'));
       inner.attachShadow({ mode: 'open' }).innerHTML = `<${tag}></${tag}>`;
 
@@ -215,7 +216,7 @@ describe('whenSettled', () => {
 
     it('waits with the timers it captured when imported', async () => {
       const tag = defineImpulseElement('settled-fake-timers');
-      const element = mount(`<${tag}></${tag}>`);
+      const element = appendMarkup(`<${tag}></${tag}>`);
 
       await whenSettled();
       expect(isInitialized(element)).to.be.true;
@@ -223,7 +224,7 @@ describe('whenSettled', () => {
 
     it('keeps to its deadline', async () => {
       const tag = uniqueTag('settled-fake-timers-typo');
-      mount(`<${tag}></${tag}>`);
+      appendMarkup(`<${tag}></${tag}>`);
 
       const error = await rejectionOf(whenSettled({ timeout: 50 }));
       expect(error.message).to.equal(`Not settled within 50ms: <${tag}> is not defined.`);
@@ -232,7 +233,7 @@ describe('whenSettled', () => {
 
   it('resolves when called again while a call is waiting', async () => {
     const tag = uniqueTag('settled-concurrent');
-    const element = mount(`<${tag}></${tag}>`);
+    const element = appendMarkup(`<${tag}></${tag}>`);
     setTimeout(() => customElements.define(tag, class extends ImpulseElement {}), 20);
 
     await Promise.all([whenSettled(), whenSettled()]);

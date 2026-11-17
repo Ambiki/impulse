@@ -1,13 +1,14 @@
 # Tests wait for a Settled document
 
-A test that mounts an Impulse element, or changes the DOM around one, has to wait for Impulse before it asserts, and
-nothing said what to wait for. Suites waited a frame (`nextFrame()`, 192 times in Impulse's own suite), a timeout, or one
-`whenInitialized()` per element. `@ambiki/impulse/testing` waits for one state instead: the document is **Settled** when
-no change is waiting to be delivered, no connected custom element is undefined, and every connected Impulse element is
-Initialized. `whenSettled()` waits for it, and `fixture()` mounts markup and then waits for it.
+A test that puts an Impulse element in the document, or changes the DOM around one, has to wait for Impulse before it
+asserts, and nothing said what to wait for. Suites waited a frame (`nextFrame()`, 192 times in Impulse's own suite), a
+timeout, or one `whenInitialized()` per element. `@ambiki/impulse/testing` waits for one state instead: the document is
+**Settled** when no change is waiting to be delivered, no connected custom element is undefined, and every connected
+Impulse element is Initialized. `whenSettled()` waits for it, and `fixture()` puts a Fixture in the document and then
+waits for it.
 
 Settled is a state of the whole document, open shadow trees included, never of a subtree. Delivery is document-wide,
-and a test's elements land outside its fixture (a toast appended to `<body>`).
+and a test's elements land outside its Fixture (a toast appended to `<body>`).
 
 `whenSettled()` is built on the public API alone, from the testing entry point, so nothing is tracked in production for
 the sake of tests. Impulse delivers changes and initializes elements in microtasks, so waiting one task runs whatever it
@@ -25,7 +26,7 @@ Settled.
 
 ## Considered Options
 
-- **Wait for a subtree, such as the fixture.** It misses an element the code under test appends elsewhere, and a change
+- **Wait for a subtree, such as the Fixture.** It misses an element the code under test appends elsewhere, and a change
   waiting to be delivered anywhere can still run callbacks inside the subtree.
 - **Let the main entry point report what it has pending.** Exact, and no polling, but it adds state to every page for
   the sake of tests, and a hook the testing entry point would depend on that no application needs.
@@ -33,8 +34,8 @@ Settled.
   for a lazily defined element.
 - **Wake on `whenDefined()` and `whenInitialized()` instead of every task.** Neither says when a blocking element is
   removed, so the wait would also need a timer, and each round would add a waiter to every element still blocking.
-- **Fail at once on an undefined element.** A `lazyImport()` still in flight would fail every test that mounts its
-  element.
+- **Fail at once on an undefined element.** A `lazyImport()` still in flight would fail every test whose Fixture holds
+  its element.
 
 ## Consequences
 

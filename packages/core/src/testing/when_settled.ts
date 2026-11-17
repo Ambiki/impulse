@@ -2,19 +2,19 @@ import { ImpulseElement, isInitialized } from '../index';
 import { DEFAULT_TIMEOUT, nextTask, startDeadline } from './timers';
 
 /**
- * Resolves once the document is Settled: no change is waiting to be delivered, no connected custom element is undefined,
- * and every connected Impulse element is Initialized. Call it after changing the DOM, before asserting on what Impulse
- * does with the change.
+ * Resolves once the document is Settled: no change is waiting to be delivered, no connected custom element is
+ * undefined, and every connected Impulse element is Initialized. Call it after changing the DOM, before asserting on
+ * what Impulse does with the change.
  *
  * It is a state of the whole document, open shadow trees included, never of a subtree: an element a test appends
- * anywhere is waited for. A custom element whose name can never be defined, such as `<tr is="vue:row">`, does not count.
- * An Impulse element in a closed shadow root is out of reach; wait for it with `whenInitialized()`.
+ * anywhere is waited for. A custom element whose name can never be defined, such as `<tr is="vue:row">`, does not
+ * count. An Impulse element in a closed shadow root is out of reach; wait for it with `whenInitialized()`.
  *
- * An element that is not defined holds the wait rather than failing it at once, so one defined by a `lazyImport()` still
- * in flight is waited for, and one that is never defined (a typo, a missing import) fails it at the deadline.
+ * An element that is not defined holds the wait rather than failing it at once, so one defined by a `lazyImport()`
+ * still in flight is waited for, and one that is never defined (a typo, a missing import) fails it at the deadline.
  *
  * @param options - Optional settings.
- * @param options.timeout - Milliseconds to wait before rejecting, 1000 by default.
+ * @param options.timeout - Milliseconds to wait before rejecting, 1000 by default. `Infinity` means no deadline.
  * @returns A promise that resolves once the document is Settled, and rejects at the deadline naming each element it was
  * still waiting on.
  *
@@ -34,8 +34,8 @@ export async function whenSettled({ timeout = DEFAULT_TIMEOUT }: { timeout?: num
     // passes.
     for (;;) {
       await nextTask();
-      const { pending, unknown } = inspect();
-      if (unknown) continue;
+      const { pending, unclassified } = inspect();
+      if (unclassified) continue;
       if (pending.length === 0) return;
       if (deadline.passed) throw new Error(`Not settled within ${timeout}ms: ${pending.join('; ')}.`);
     }
@@ -46,13 +46,13 @@ export async function whenSettled({ timeout = DEFAULT_TIMEOUT }: { timeout?: num
 
 /**
  * What keeps the document from being Settled, as one description per tag: the custom elements that are not defined,
- * then the Impulse elements that are not Initialized. `unknown` is whether a name was found that
- * no earlier check had seen, which cannot be classified until the next task.
+ * then the Impulse elements that are not Initialized. `unclassified` is whether an undefined element has a name no
+ * earlier check had seen, which cannot be told definable or not until the next task.
  */
-function inspect(): { pending: string[]; unknown: boolean } {
+function inspect(): { pending: string[]; unclassified: boolean } {
   const notDefined = new Set<string>();
   const notInitialized = new Set<string>();
-  let unknown = false;
+  let unclassified = false;
 
   const visit = (root: Document | ShadowRoot) => {
     for (const element of root.querySelectorAll(':not(:defined)')) {
@@ -61,8 +61,8 @@ function inspect(): { pending: string[]; unknown: boolean } {
       // or it is a customized built-in whose definition extends another tag.
       if (name === null || customElements.get(name)) continue;
       const definable = isDefinable(name);
-      if (definable === undefined) unknown = true;
-      else if (definable) notDefined.add(name === element.localName ? `<${name}>` : `<${element.localName} is="${name}">`);
+      if (definable === undefined) unclassified = true;
+      else if (definable) notDefined.add(describeUndefined(element, name));
     }
     for (const element of root.querySelectorAll('*')) {
       if (element instanceof ImpulseElement && !isInitialized(element)) notInitialized.add(`<${element.localName}>`);
@@ -76,8 +76,13 @@ function inspect(): { pending: string[]; unknown: boolean } {
       ...Array.from(notDefined, (tag) => `${tag} is not defined`),
       ...Array.from(notInitialized, (tag) => `${tag} is not initialized`),
     ],
-    unknown,
+    unclassified,
   };
+}
+
+/** How a rejection names an undefined element: by its tag, and its `is` when it is a customized built-in. */
+function describeUndefined(element: Element, name: string): string {
+  return name === element.localName ? `<${name}>` : `<${element.localName} is="${name}">`;
 }
 
 /**
@@ -93,9 +98,9 @@ function definitionName(element: Element): string | null {
   return /^<[^\s>]+(?:\s[^\s=]+="[^"]*")*\sis="([^"]*)"/.exec(element.outerHTML)?.[1] ?? null;
 }
 
-// The names `customElements.whenDefined()` has been asked about, and the ones it rejected. It rejects at once a name that
-// no definition can have, such as the `vue:row` of `<tr is="vue:row">`, so a name it has not rejected by the next task
-// is one a definition can have.
+// The names `customElements.whenDefined()` has been asked about, and the ones it rejected. It rejects at once a name
+// that no definition can have, such as the `vue:row` of `<tr is="vue:row">`, so a name it has not rejected by the next
+// task is one a definition can have.
 const askedNames = new Set<string>();
 const neverDefinedNames = new Set<string>();
 

@@ -28,20 +28,21 @@ export async function rejectionOf(promise: Promise<unknown>): Promise<Error> {
   throw new Error('Expected the promise to reject, but it fulfilled.');
 }
 
-const mounted: Element[] = [];
+const appended: Element[] = [];
 
 /**
- * Puts `html` in a `<div>` appended to `parent`, and returns the `<div>`'s first element. Unlike `fixture()`, it waits
- * for nothing. The `<div>` is removed by {@link unmountAll}.
+ * Puts `html` in a `<div>` appended to `<body>`, and returns the `<div>`'s first element. Unlike `fixture()`, it waits
+ * for nothing, so a test of a wait can start from a document that is not Settled. The `<div>` is removed by
+ * {@link removeAppended}.
  */
-export function mount<T extends Element = Element>(html: string, parent: ParentNode = document.body): T {
+export function appendMarkup<T extends Element = Element>(html: string): T {
   const container = document.createElement('div');
   container.innerHTML = html;
-  parent.append(container);
-  mounted.push(container);
+  document.body.append(container);
+  appended.push(container);
   return container.firstElementChild as T;
 }
 
-export function unmountAll() {
-  for (const container of mounted.splice(0)) container.remove();
+export function removeAppended() {
+  for (const container of appended.splice(0)) container.remove();
 }

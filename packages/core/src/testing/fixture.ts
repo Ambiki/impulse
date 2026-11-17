@@ -1,6 +1,6 @@
-import { whenSettled } from './settled';
+import { whenSettled } from './when_settled';
 
-// The container of every fixture not yet removed.
+// The container of every Fixture not yet removed.
 const containers = new Set<HTMLElement>();
 
 /**
@@ -10,9 +10,10 @@ const containers = new Set<HTMLElement>();
  * @param html - The markup, as a string. Text and comments before its first element are skipped.
  * @param options - Optional settings.
  * @param options.timeout - Milliseconds to wait for the document to be Settled before rejecting, 1000 by default.
+ * `Infinity` means no deadline.
  * @returns A promise that resolves with the first element of the markup.
- * @throws A `TypeError` for anything but a string, and an `Error` for markup that holds no element; either way, nothing is
- * added to the document.
+ * @throws A `TypeError` for anything but a string, and an `Error` for markup that holds no element; either way, nothing
+ * is added to the document.
  *
  * @example
  * ```ts
@@ -41,7 +42,7 @@ export async function fixture<T extends Element = Element>(
   return element as T;
 }
 
-/** Removes every fixture from the document. */
+/** Removes every Fixture from the document. */
 export function removeFixtures() {
   for (const container of containers) container.remove();
   containers.clear();

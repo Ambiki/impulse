@@ -12,9 +12,9 @@ const testing = path.join(root, 'src', 'testing');
 
 /**
  * Keeps the testing entry point from bundling a copy of Impulse. It imports Impulse's public API from `src/index`, as
- * Impulse's own tests run it from source; in the build that import becomes `@ambiki/impulse`, so both entry points share
- * the one instance a project loads (an element of a second copy would not be an instance of its `ImpulseElement`).
- * Anything else outside `src/testing` would be bundled, so it fails the build.
+ * Impulse's own tests run it from source; in the build that import becomes `@ambiki/impulse`, so both entry points
+ * share the one instance a project loads (an element of a second copy would not be an instance of its
+ * `ImpulseElement`). Anything else outside `src/testing` would be bundled, so it fails the build.
  */
 function importImpulseByName() {
   return {
@@ -24,7 +24,8 @@ function importImpulseByName() {
       const resolved = path.resolve(path.dirname(importer), source).replace(/\.ts$/, '');
       if (resolved === main) return { id: '@ambiki/impulse', external: true };
       if (resolved !== testing && !resolved.startsWith(`${testing}${path.sep}`)) {
-        this.error(`${path.relative(root, importer)} imports "${source}". The testing entry point may import only "src/index".`);
+        const file = path.relative(root, importer);
+        this.error(`${file} imports "${source}". The testing entry point may import only "src/index".`);
       }
       return null;
     },
