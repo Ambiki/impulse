@@ -81,6 +81,7 @@ Properties and targets are declared with first-class, typed TypeScript decorator
           { text: 'Actions', link: '/reference/actions' },
           { text: 'Properties', link: '/reference/properties' },
           { text: 'Targets', link: '/reference/targets' },
+          { text: 'Testing', link: '/reference/testing' },
         ],
       },
       {
