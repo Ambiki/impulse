@@ -1,3 +1,4 @@
+import { warnUnlessCleanupRegistered } from './auto_cleanup';
 import { DEFAULT_TIMEOUT, nextTask, startDeadline } from './timers';
 
 /** The events of the types a test names that reach one target, in the order they were dispatched. */
@@ -130,6 +131,7 @@ export function recordEvents(
     },
   };
 
+  warnUnlessCleanupRegistered();
   for (const type of kept) target.addEventListener(type, listener, true);
   recordings.add(recording);
   return recording;
