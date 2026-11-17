@@ -1,26 +1,48 @@
 import { warnUnlessCleanupRegistered } from './auto_cleanup';
 import { DEFAULT_TIMEOUT, nextTask, startDeadline } from './timers';
 
-/** The events of the types a test names that reach one target, in the order they were dispatched. */
-export interface Recording {
-  /** The events recorded so far. The same array is kept up to date. */
-  readonly events: Event[];
+/**
+ * The events of the types a test names that reach one target, in the order they were dispatched.
+ *
+ * `Events` maps each type recorded to its event, as an event map does, such as
+ * `{ 'accordion-item:shown': CustomEvent<{ id: string }> }`. Nothing checks an event against it.
+ */
+export interface Recording<Events extends object = Record<string, Event>> {
+  /**
+   * The events recorded so far. The same array is kept up to date. Each has its `type` as its type, so comparing the
+   * `type` tells the events apart.
+   */
+  readonly events: RecordedEvent<Events>[];
   /** The `type` of each event recorded so far, which is what an assertion should compare. */
-  readonly types: string[];
+  readonly types: (keyof Events & string)[];
   /**
    * Resolves with the earliest recorded `type` event that an earlier `waitFor()` has not handed out. It resolves at
    * once when that event was dispatched before the call, so there is no listening too late, and two calls resolve with
    * two different events. It never resolves while the event is still being dispatched, so every listener has run by
    * the time the test goes on. Rejects at the deadline (1000ms unless `timeout` says otherwise; `Infinity` means none),
    * naming the types recorded, at once for a type the Recording does not keep, and once the Recording is stopped.
-   *
-   * `E` is the type the test says the event has, such as `CustomEvent<{ id: string }>` for one it reads the `detail`
-   * of. Nothing checks the event against it.
    */
-  waitFor: <E extends Event = Event>(type: string, options?: { timeout?: number }) => Promise<E>;
+  waitFor: <K extends keyof Events & string>(type: K, options?: { timeout?: number }) => Promise<Events[K]>;
   /** Ends the Recording early. `cleanup()` ends every Recording after each test. */
   stop: () => void;
 }
+
+/** An event of `Events`, with its `type` narrowed to its key. */
+type RecordedEvent<Events> = { [K in keyof Events]: Events[K] & { readonly type: K } }[keyof Events];
+
+/**
+ * Every event a node or the window can be sent, whether dispatched at it or bubbling up to it. Each of the maps
+ * extends `GlobalEventHandlersEventMap`, where an application declares its own events.
+ */
+type DomEventMap = WindowEventMap & DocumentEventMap & HTMLVideoElementEventMap & ShadowRootEventMap;
+
+/**
+ * `T`, as a type TypeScript cannot infer from, so a call has to give it. `NoInfer<T>`, before TypeScript 5.4 had it.
+ */
+type Given<T> = [T][T extends unknown ? 0 : never];
+
+/** The event map `recordEvents()` types a Recording on `T` by. No map is known for a target that is not in the DOM. */
+type EventMapOf<T extends EventTarget> = T extends Node | Window ? DomEventMap : Record<string, Event>;
 
 interface Waiter {
   type: string;
@@ -40,6 +62,20 @@ const recordings = new Set<Recording>();
  * event before any listener on a descendant, or any bubbling listener on `target`, has run. Those can neither stop the
  * event from being recorded nor have an event they dispatch recorded ahead of it.
  *
+ * On a node or the window, each type is one of the event maps of the DOM, so a type no map declares, such as a
+ * misspelled one, is an error at compile time, and each event has the type its map gives it. Declare an element's
+ * events in `GlobalEventHandlersEventMap`, which every map of the DOM extends:
+ *
+ * ```ts
+ * declare global {
+ *   interface GlobalEventHandlersEventMap {
+ *     'accordion-item:shown': CustomEvent<{ id: string }>;
+ *   }
+ * }
+ * ```
+ *
+ * On any other target, a type is any string, and an event an `Event`.
+ *
  * @param target - The element, document, window, or other event target to record on.
  * @param types - The event types to record, written in full (`'accordion-item:show'`).
  * @param options - Optional settings.
@@ -55,9 +91,28 @@ const recordings = new Set<Recording>();
  * expect(recording.types).to.eql(['accordion-item:show', 'accordion-item:shown']);
  * ```
  */
+export function recordEvents<T extends EventTarget, K extends keyof EventMapOf<T> & string>(
+  target: T,
+  types: readonly K[],
+  options?: { self?: boolean },
+): Recording<Pick<EventMapOf<T>, K>>;
+/**
+ * Starts a Recording typed by `Events`, the event map the test gives, in place of the maps of the DOM. It is for events
+ * no map declares, or declares as another type, such as a custom event named `error`. Each type is one of `Events`.
+ *
+ * @example
+ * ```ts
+ * const recording = recordEvents<{ error: CustomEvent<{ status: number }> }>(autocomplete, ['error']);
+ * ```
+ */
+export function recordEvents<Events extends object>(
+  target: EventTarget,
+  types: readonly (keyof Given<Events> & string)[],
+  options?: { self?: boolean },
+): Recording<Events>;
 export function recordEvents(
   target: EventTarget,
-  types: string[],
+  types: readonly string[],
   { self = false }: { self?: boolean } = {},
 ): Recording {
   if (!Array.isArray(types)) {
@@ -117,9 +172,7 @@ export function recordEvents(
     get types() {
       return typesOf();
     },
-    // The event's type is the caller's word for it: an event cannot be checked against a type argument.
-    waitFor: <E extends Event = Event>(type: string, options?: { timeout?: number }) =>
-      claim(type, options) as Promise<E>,
+    waitFor: claim,
     stop() {
       if (stopped) return;
       stopped = true;

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `recordEvents()` in `@ambiki/impulse/testing`, to record and wait for the events an element dispatches ([#265](https://github.com/Ambiki/impulse/pull/265))
 - `@ambiki/impulse/testing`, with `fixture()`, `whenSettled()`, and `cleanup()` for testing elements ([#264](https://github.com/Ambiki/impulse/pull/264))
 
+### Changed
+
+- `recordEvents()` takes its event types from the DOM's event maps, so `events` and `waitFor()` are typed and a misspelled type fails to compile ([#273](https://github.com/Ambiki/impulse/pull/273))
+
 ## [2.1.0] - 2026-11-13
 
 ### Added
