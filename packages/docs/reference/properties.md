@@ -51,7 +51,8 @@ does not re-trigger downstream effects.
 
 ## Types
 
-A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, with `String` being the default.
+A property can be one of `Array`, `Boolean`, `Number`, `Object`, or `String`, with `String` being the default, or a
+[type of your own](#custom-types).
 
 ```html
 <pop-over placements='["top", "right"]' open></pop-over>
@@ -128,6 +129,90 @@ Assigning `null` or `undefined` removes the attribute, which resets the property
 A `Boolean` set to `true` writes an empty attribute (`open=""`). Set to `false`, it removes the attribute, so `[open]`
 selectors stop matching. A `Boolean` that defaults to `true` is the exception: a missing attribute would read as
 `true`, so `false` is written as `flip="false"`.
+
+## Custom types
+
+When none of the built-in types fits, such as for a `Date`, pass a type of your own. A type is an object with two
+functions: `fromAttribute` reads the attribute as a value, and `toAttribute` writes a value back.
+
+```ts
+// elements/types.ts
+import type { PropertyType } from '@ambiki/impulse';
+
+export const dateType = {
+  fromAttribute(attribute) {
+    const date = new Date(attribute);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  },
+  toAttribute: (date) => date.toISOString(),
+} satisfies PropertyType<Date>;
+```
+
+```html
+<blog-post published-at="2026-11-17T10:00:00.000Z"></blog-post>
+```
+
+```ts{7,10}
+// elements/blog_post_element.ts
+import { ImpulseElement, registerElement, property } from '@ambiki/impulse';
+import { dateType } from './types';
+
+@registerElement('blog-post')
+export default class BlogPostElement extends ImpulseElement {
+  @property({ type: dateType }) publishedAt: Date | null;
+
+  connected() {
+    console.log(this.publishedAt?.getFullYear()); // 2026
+  }
+}
+```
+
+`fromAttribute` returns `undefined` or `null` for an attribute it can't read, such as `published-at="soon"`, and the
+property then reads its [default](#default-property-values), as it does for the built-in types. It is never called for
+a missing attribute, which reads the default without asking.
+
+`toAttribute` returns the attribute to write. It is never called with `null` or `undefined`, since assigning either
+removes the attribute. It can return `null` to remove the attribute too, after which the property reads its default,
+so return `null` only for a value equal to the default. That default is its second argument, which is how a `Boolean`
+writes `false` as `flip="false"` when it defaults to `true`.
+
+An error either function throws reaches whoever read or assigned the property, so return `undefined` for input you
+can't read rather than throwing.
+
+### Comparing values
+
+The [change callback](#change-callbacks) runs only when the value changes. Without anything more, two values are the
+same when `toAttribute` writes the same attribute for both, so `2026-11-17T14:00:00+04:00` rewritten as
+`2026-11-17T10:00:00.000Z` does not run it: both are the same instant. Give the type an `isEqual(left, right)` to
+compare another way. It is never called with `null`.
+
+A list of tokens held in a `Set` needs one, since `toAttribute` writes the tokens in the order they were added, and
+`tags="news sports"` rewritten as `tags="sports news"` would otherwise count as a change:
+
+```ts
+export const tokenListType = {
+  fromAttribute: (attribute) => new Set(attribute.split(/\s+/).filter(Boolean)),
+  toAttribute: (tokens) => Array.from(tokens).join(' '),
+  isEqual: (left, right) => left.size === right.size && Array.from(left).every((token) => right.has(token)),
+  emptyValue: new Set<string>(),
+} satisfies PropertyType<Set<string>>;
+```
+
+### Empty values and defaults
+
+Without a default, a property of your own type reads `null` while its attribute is missing, so declare its field as
+`Date | null`. A type that has an empty value, such as the empty `Set` above, names it as `emptyValue`, and a property
+without a default reads that instead.
+
+A default, or an `emptyValue`, is read as the attribute holding it would be: written with `toAttribute` and read back
+with `fromAttribute`. Every read is a fresh value, so mutating what the property returns never changes the default. A
+default that doesn't survive the trip, because `toAttribute` writes it as `null` or `fromAttribute` can't read it back,
+reads as itself.
+
+::: tip Coming from Lit?
+Lit's `converter` is `type` here, and its `hasChanged` is the type's `isEqual`, which lives in the type because how two
+values compare follows from how they were read.
+:::
 
 ## Naming conventions
 
