@@ -132,6 +132,15 @@ describe('recordEvents', () => {
       expect(await waiting).to.equal(event);
     });
 
+    it('resolves with the event as the type the test names', async () => {
+      const element = appendMarkup('<div></div>');
+      const recording = recordEvents(element, ['record:a']);
+      element.dispatchEvent(new CustomEvent('record:a', { detail: { id: 7 } }));
+
+      const event = await recording.waitFor<CustomEvent<{ id: number }>>('record:a');
+      expect(event.detail.id).to.equal(7);
+    });
+
     it('hands out each event once, earliest first', async () => {
       const element = appendMarkup('<div></div>');
       const recording = recordEvents(element, ['record:a']);

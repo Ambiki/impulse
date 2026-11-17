@@ -12,8 +12,11 @@ export interface Recording {
    * two different events. It never resolves while the event is still being dispatched, so every listener has run by
    * the time the test goes on. Rejects at the deadline (1000ms unless `timeout` says otherwise; `Infinity` means none),
    * naming the types recorded, at once for a type the Recording does not keep, and once the Recording is stopped.
+   *
+   * `E` is the type the test says the event has, such as `CustomEvent<{ id: string }>` for one it reads the `detail`
+   * of. Nothing checks the event against it.
    */
-  waitFor: (type: string, options?: { timeout?: number }) => Promise<Event>;
+  waitFor: <E extends Event = Event>(type: string, options?: { timeout?: number }) => Promise<E>;
   /** Ends the Recording early. `cleanup()` ends every Recording after each test. */
   stop: () => void;
 }
@@ -88,29 +91,33 @@ export function recordEvents(
     void afterDispatch(event).then(waiter.resolve);
   };
 
+  const wait = (type: string, { timeout = DEFAULT_TIMEOUT }: { timeout?: number } = {}): Promise<Event> => {
+    const index = unclaimed.findIndex((event) => event.type === type);
+    if (index !== -1) return afterDispatch(unclaimed.splice(index, 1)[0]);
+    if (!kept.has(type)) {
+      return Promise.reject(new Error(`"${type}" is not one of the types recorded: ${Array.from(kept).join(', ')}.`));
+    }
+    if (stopped) return Promise.reject(stoppedError(type));
+
+    return new Promise<Event>((resolve, reject) => {
+      const waiter: Waiter = { type, resolve, reject, clearDeadline: () => {} };
+      const deadline = startDeadline(timeout, () => {
+        waiters.splice(waiters.indexOf(waiter), 1);
+        reject(new Error(`No "${type}" within ${timeout}ms. Recorded: ${recordedList()}.`));
+      });
+      waiter.clearDeadline = deadline.clear;
+      waiters.push(waiter);
+    });
+  };
+
   const recording: Recording = {
     events,
     get types() {
       return typesOf();
     },
-    waitFor(type, { timeout = DEFAULT_TIMEOUT } = {}) {
-      const index = unclaimed.findIndex((event) => event.type === type);
-      if (index !== -1) return afterDispatch(unclaimed.splice(index, 1)[0]);
-      if (!kept.has(type)) {
-        return Promise.reject(new Error(`"${type}" is not one of the types recorded: ${Array.from(kept).join(', ')}.`));
-      }
-      if (stopped) return Promise.reject(stoppedError(type));
-
-      return new Promise<Event>((resolve, reject) => {
-        const waiter: Waiter = { type, resolve, reject, clearDeadline: () => {} };
-        const deadline = startDeadline(timeout, () => {
-          waiters.splice(waiters.indexOf(waiter), 1);
-          reject(new Error(`No "${type}" within ${timeout}ms. Recorded: ${recordedList()}.`));
-        });
-        waiter.clearDeadline = deadline.clear;
-        waiters.push(waiter);
-      });
-    },
+    // The event's type is the caller's word for it: an event cannot be checked against a type argument.
+    waitFor: <E extends Event = Event>(type: string, options?: { timeout?: number }) =>
+      wait(type, options) as Promise<E>,
     stop() {
       if (stopped) return;
       stopped = true;
