@@ -3,6 +3,13 @@ import { ImpulseElement, isInitialized } from '../../src';
 import { cleanup, fixture, recordEvents, whenSettled } from '../../src/testing';
 import { defineImpulseElement, rejectionOf } from './support';
 
+declare global {
+  interface GlobalEventHandlersEventMap {
+    'cleanup:removed': Event;
+    'cleanup:after': Event;
+  }
+}
+
 describe('cleanup', () => {
   it('removes every fixture', async () => {
     const tag = defineImpulseElement('cleanup-removed');

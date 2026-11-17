@@ -75,12 +75,16 @@ wait at its deadline, with the tag named.
 ## recordEvents
 
 ```ts
-recordEvents(target: EventTarget, types: string[], options?: { self?: boolean }): Recording
+recordEvents<T extends EventTarget, K extends keyof EventMapOf<T>>(
+  target: T,
+  types: readonly K[],
+  options?: { self?: boolean },
+): Recording<Pick<EventMapOf<T>, K>>
 
-interface Recording {
-  readonly events: Event[];
-  readonly types: string[];
-  waitFor<E extends Event = Event>(type: string, options?: { timeout?: number }): Promise<E>;
+interface Recording<Events> {
+  readonly events: Events[keyof Events][];
+  readonly types: (keyof Events)[];
+  waitFor<K extends keyof Events>(type: K, options?: { timeout?: number }): Promise<Events[K]>;
   stop(): void;
 }
 ```
@@ -105,12 +109,36 @@ expect(recording.types).to.eql(['accordion-item:show', 'accordion-item:shown']);
   compare.
 - `waitFor(type)` resolves with the earliest recorded `type` event that an earlier `waitFor` has not handed out. It
   resolves at once when that event was dispatched before the call, so a test cannot start listening too late, and two
-  calls resolve with two different events. It rejects at once for a type the Recording does not keep.
+  calls resolve with two different events. A type the Recording does not keep fails to compile, and rejects at once.
 - `waitFor` never resolves while the event is still being dispatched, so every listener has run by the time the test
   goes on, also for an event the browser dispatches itself, such as `transitionend`.
-- `waitFor` resolves with an `Event`. Name the type to read more from it:
-  `await recording.waitFor<CustomEvent<{ id: string }>>('accordion-item:shown')`. The type is not checked.
 - `stop()` ends the Recording early. A `waitFor` still pending rejects.
+
+### Event types
+
+`EventMapOf<T>` is the event map `target.addEventListener()` takes: `WindowEventMap` for the window, `DocumentEventMap`
+for a document, and `HTMLElementEventMap` for an element, or a media element's own map. So a type the map does not
+declare, such as a misspelled one, fails to compile, and `events` and `waitFor` have the type each event has in the
+map, with no cast to read a `detail`.
+
+Every one of those maps extends `GlobalEventHandlersEventMap`. Declare an element's events there, and a Recording on
+the element, the document, or the window types them:
+
+```ts
+declare global {
+  interface GlobalEventHandlersEventMap {
+    'accordion-item:shown': CustomEvent<{ id: string }>;
+  }
+}
+
+const recording = recordEvents(document, ['accordion-item:shown']);
+accordion.toggleButton.click();
+const event = await recording.waitFor('accordion-item:shown'); // CustomEvent<{ id: string }>
+
+expect(event.detail.id).to.equal(accordion.id);
+```
+
+A list of types kept in a variable needs `as const`, or it is a `string[]` that names no event in particular.
 
 ## cleanup
 
