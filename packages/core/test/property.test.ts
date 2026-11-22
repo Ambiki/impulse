@@ -146,6 +146,48 @@ describe('@property', () => {
     expect(el).not.to.have.attribute('score');
   });
 
+  it('should read a default of the wrong type as the attribute holding it would read', async () => {
+    @registerElement('property-mistyped-default-test')
+    class MistypedDefaultTest extends ImpulseElement {
+      @property() count = 5;
+      @property({ type: Boolean }) flag = 'yes';
+    }
+
+    const element = document.createElement('property-mistyped-default-test') as MistypedDefaultTest;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(element).to.have.property('count', '5');
+    expect(element).to.have.property('flag', true);
+    expect(element).not.to.have.attribute('count');
+    expect(element).not.to.have.attribute('flag');
+    element.remove();
+  });
+
+  it('should throw rather than hand out an object default that its type cannot write and read back', async () => {
+    @registerElement('property-unreadable-default-test')
+    class UnreadableDefaultTest extends ImpulseElement {
+      @property({ type: Object }) config = ['dark'];
+      @property({ type: Array }) items = { first: 'one' };
+    }
+
+    const element = document.createElement('property-unreadable-default-test') as UnreadableDefaultTest;
+    document.body.append(element);
+    await whenInitialized(element);
+
+    expect(() => element.config).to.throw(
+      TypeError,
+      '@property() on the field "config" cannot read its Default, since its Type does not write it as an attribute ' +
+      'it reads back, and handing out the object itself would let a mutation change the Default.',
+    );
+    expect(() => element.items).to.throw(TypeError, '@property() on the field "items" cannot read its Default');
+
+    // An attribute it can read is unaffected.
+    element.setAttribute('config', '{ "theme": "dark" }');
+    expect(element.config).to.deep.equal({ theme: 'dark' });
+    element.remove();
+  });
+
   it('should read the default after a Number is assigned NaN', () => {
     el.session = Number.NaN;
     expect(el).to.have.property('session', 12);

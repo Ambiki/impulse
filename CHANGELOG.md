@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `recordEvents()` takes its event types from the DOM's event maps, so `events` and `waitFor()` are typed and a misspelled type fails to compile ([#273](https://github.com/Ambiki/impulse/pull/273))
+- A `@property()` default reads as its attribute holding it would, so `@property() count = 5` reads `"5"`, and an object default its type cannot write and read back throws when read ([#268](https://github.com/Ambiki/impulse/pull/268))
 
 ## [2.1.0] - 2026-11-13
 
