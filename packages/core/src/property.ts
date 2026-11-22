@@ -1,4 +1,4 @@
-import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
+import type { PropertyConstructor, PropertyDeclaration, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { isDeepEqual } from './helpers/equality';
 import { invokeReporting } from './helpers/errors';
@@ -91,8 +91,8 @@ export default class Property {
   /**
    * Invokes `[field]Changed(newValue, oldValue)` for each field that reads `attribute` and has the method, unless
    * `oldAttribute` and `newAttribute` read as the same value: `8_000` rewritten as `8000`, reformatted JSON, or an
-   * attribute removed while it read as the Default. A callback that throws is reported like an uncaught error, so the
-   * callbacks of other fields reading the same attribute still run.
+   * attribute removed while it read as the Default. A callback that throws, or a Type that throws while reading the
+   * values, is reported like an uncaught error, so the callbacks of other fields reading the same attribute still run.
    *
    * Throws for an attribute no field reads, such as one a subclass adds to `observedAttributes`, when the element has a
    * `[camelized attribute]Changed` method, since it would never be invoked.
@@ -115,35 +115,13 @@ export default class Property {
       if (typeof fn !== 'function') continue;
       // Every field is bound by the time its attribute changes are reported: `start()` binds them before the element
       // can be Initialized.
-      const change = this.bound.get(key)!.change(oldAttribute, newAttribute);
-      if (change) invokeReporting(() => fn.call(this.instance, change.newValue, change.oldValue));
+      const property = this.bound.get(key)!;
+      invokeReporting(() => {
+        const change = property.change(oldAttribute, newAttribute);
+        if (change) fn.call(this.instance, change.newValue, change.oldValue);
+      });
     }
   }
-}
-
-/**
- * A property's Type: how it reads its attribute as a value, how it writes a value back to that attribute, and which two
- * values are the same. A Type never sees nothing: a missing attribute and an assignment of `null` or `undefined` are
- * handled before it is asked.
- */
-interface PropertyType<T> {
-  /**
-   * The value `attribute` holds, or `null` or `undefined` when it does not parse, so the property reads its Default.
-   * Never called for a missing attribute, which reads as the Default without asking.
-   */
-  fromAttribute: (attribute: string) => T | null | undefined;
-  /**
-   * The attribute `value` is written as, or `null` to remove the attribute, after which the property reads
-   * `defaultValue`. Never called with `null` or `undefined`, since assigning either removes the attribute without asking.
-   */
-  toAttribute: (value: T, defaultValue: T | null) => string | null;
-  /** Whether two values are the same, so a change from one to the other is not reported. */
-  isEqual: (left: T, right: T) => boolean;
-  /**
-   * The Empty value: what a property reads while its attribute is missing and it has no Default. Never handed out
-   * itself, since the Default is read as an attribute holding it would be, so a mutable one is safe to share.
-   */
-  emptyValue: T;
 }
 
 /**
@@ -216,6 +194,13 @@ const PROPERTY_TYPES = new Map<PropertyConstructor, AnyPropertyType>([
 ]);
 
 /**
+ * The built-in Type `type` names by its constructor, such as `Number`, or nothing when it names none.
+ */
+export function builtInType(type: unknown): AnyPropertyType | undefined {
+  return PROPERTY_TYPES.get(type as PropertyConstructor);
+}
+
+/**
  * One `@property()` of one element: its attribute, its type, and its Default.
  */
 class BoundProperty {
@@ -226,12 +211,13 @@ class BoundProperty {
   constructor(
     private readonly element: Element,
     private readonly key: string,
-    type: PropertyConstructor,
+    type: PropertyDeclaration['type'],
     defaultValue: unknown,
   ) {
     this.attributeName = dasherize(key);
-    this.type = PROPERTY_TYPES.get(type)!;
-    this.defaultValue = defaultValue ?? this.type.emptyValue;
+    // `@property()` rejects anything but a built-in Type's constructor or a Type, so what isn't built in is a Type.
+    this.type = builtInType(type) ?? (type as AnyPropertyType);
+    this.defaultValue = defaultValue ?? this.type.emptyValue ?? null;
   }
 
   get value() {
@@ -251,7 +237,19 @@ class BoundProperty {
   change(oldAttribute: string | null, newAttribute: string | null) {
     const oldValue = this.read(oldAttribute);
     const newValue = this.read(newAttribute);
-    return this.type.isEqual(newValue, oldValue) ? null : { newValue, oldValue };
+    return this.isSame(newValue, oldValue) ? null : { newValue, oldValue };
+  }
+
+  /**
+   * Whether two values read from the attribute are the same, so a change from one to the other is not reported. A Type
+   * without `isEqual` takes them as the same when they write the same attribute: two such values can't be told apart
+   * through it, and a Type that doesn't write canonically costs an extra callback, never a missed one. A `null` value,
+   * which a property reads while its Default is `null`, never reaches the Type.
+   */
+  private isSame(left: unknown, right: unknown) {
+    if (left === null || right === null) return left === right;
+    if (this.type.isEqual) return this.type.isEqual(left, right);
+    return this.type.toAttribute(left, this.defaultValue) === this.type.toAttribute(right, this.defaultValue);
   }
 
   /**
@@ -271,9 +269,11 @@ class BoundProperty {
    *
    * A Default that does not survive the trip, because the Type writes it as no attribute or cannot read back what it
    * wrote, reads as itself when it is a primitive, which nothing can mutate. An object is never handed out itself, so
-   * reading one throws.
+   * reading one throws. A `null` Default, of a field without an initializer whose Type names no Empty value, never
+   * reaches the Type.
    */
   private readDefault() {
+    if (this.defaultValue === null) return null;
     const value = this.parse(this.type.toAttribute(this.defaultValue, this.defaultValue));
     if (!isNothing(value)) return value;
     if (!isMutable(this.defaultValue)) return this.defaultValue;
