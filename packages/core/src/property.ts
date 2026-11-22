@@ -1,4 +1,4 @@
-import type { PropertyConstructor, PropertyDeclaration } from './decorators/property';
+import type { PropertyConstructor, PropertyDeclaration, PropertyType } from './decorators/property';
 import type { ImpulseElement } from './element';
 import { isDeepEqual } from './helpers/equality';
 import { invokeReporting } from './helpers/errors';
@@ -91,8 +91,8 @@ export default class Property {
   /**
    * Invokes `[field]Changed(newValue, oldValue)` for each field that reads `attribute` and has the method, unless
    * `oldAttribute` and `newAttribute` read as the same value: `8_000` rewritten as `8000`, reformatted JSON, or an
-   * attribute removed while it read as the Default. A callback that throws is reported like an uncaught error, so the
-   * callbacks of other fields reading the same attribute still run.
+   * attribute removed while it read as the Default. A callback that throws, or a Type that throws while reading the
+   * values, is reported like an uncaught error, so the callbacks of other fields reading the same attribute still run.
    *
    * Throws for an attribute no field reads, such as one a subclass adds to `observedAttributes`, when the element has a
    * `[camelized attribute]Changed` method, since it would never be invoked.
@@ -115,103 +115,109 @@ export default class Property {
       if (typeof fn !== 'function') continue;
       // Every field is bound by the time its attribute changes are reported: `start()` binds them before the element
       // can be Initialized.
-      const change = this.bound.get(key)!.change(oldAttribute, newAttribute);
-      if (change) invokeReporting(() => fn.call(this.instance, change.newValue, change.oldValue));
+      const property = this.bound.get(key)!;
+      invokeReporting(() => {
+        const change = property.change(oldAttribute, newAttribute);
+        if (change) fn.call(this.instance, change.newValue, change.oldValue);
+      });
     }
   }
 }
 
 /**
- * How the values of one property type are read from and written to an attribute.
+ * An Array or Object Type, stored as JSON. A value parsed from an attribute is a fresh one on every read, so values
+ * compare structurally.
  */
-interface PropertyType {
-  /** The Empty value. A new one on every call, so no two properties share an Array or Object. */
-  empty: () => unknown;
-  /** The value `attribute` holds, or `undefined` when it does not parse as this type. */
-  fromAttribute: (attribute: string) => unknown;
-  /** The attribute `value` is written as, or `null` when the attribute is removed instead. */
-  toAttribute: (value: unknown, defaultValue: unknown) => string | null;
-  /** Whether two values are the same, so a change from one to the other is not reported. */
-  equals: (left: unknown, right: unknown) => boolean;
-  /** A copy of `value` that is safe to mutate. */
-  copy: (value: unknown) => unknown;
-}
-
-const identity = (value: unknown) => value;
-
-/**
- * An Array or Object type, stored as JSON. A value parsed from an attribute is a fresh one on every read, so values
- * compare structurally, and copies go through JSON too, so a copy of the Default is what parsing it would give.
- */
-function jsonType(isKind: (value: unknown) => boolean, empty: () => unknown): PropertyType {
+function jsonType<T>(isKind: (value: unknown) => value is T, emptyValue: T): PropertyType<T> {
   return {
-    empty,
-    fromAttribute: (attribute) => {
+    fromAttribute(attribute) {
       const parsed = parseJSON(attribute, null);
       return isKind(parsed) ? parsed : undefined;
     },
     toAttribute: (value) => JSON.stringify(value),
-    equals: isDeepEqual,
-    copy: (value) => JSON.parse(JSON.stringify(value)),
+    isEqual: isDeepEqual,
+    emptyValue,
   };
 }
 
-const PROPERTY_TYPES = new Map<PropertyConstructor, PropertyType>([
+/**
+ * A Type of any values. Its functions take only its own values, so Types of different values can be held together, or
+ * handed values read through themselves, only as `any`.
+ */
+type AnyPropertyType = PropertyType<any>;
+
+const PROPERTY_TYPES = new Map<PropertyConstructor, AnyPropertyType>([
   [
     String,
     {
-      empty: () => '',
       // Any string is a String, the empty one included.
-      fromAttribute: identity,
+      fromAttribute: (attribute) => attribute,
       toAttribute: String,
-      equals: Object.is,
-      copy: identity,
-    },
+      isEqual: Object.is,
+      emptyValue: '',
+    } satisfies PropertyType<string>,
   ],
   [
     Number,
     {
-      empty: () => 0,
-      fromAttribute: (attribute) => {
+      fromAttribute(attribute) {
         const digits = attribute.replace(/_/g, '').trim();
         const number = Number(digits);
         return digits === '' || Number.isNaN(number) ? undefined : number;
       },
       toAttribute: String,
-      equals: Object.is,
-      copy: identity,
-    },
+      isEqual: Object.is,
+      emptyValue: 0,
+    } satisfies PropertyType<number>,
   ],
   [
     Boolean,
     {
-      empty: () => false,
       fromAttribute: (attribute) => attribute !== 'false',
-      toAttribute: (value, defaultValue) => {
+      toAttribute(value, defaultValue) {
         if (value) return '';
         // A missing attribute would read as a `true` Default, so `false` has to be spelled out.
         return defaultValue ? 'false' : null;
       },
-      equals: Object.is,
-      copy: identity,
-    },
+      isEqual: Object.is,
+      emptyValue: false,
+    } satisfies PropertyType<boolean>,
   ],
-  [Array, jsonType(Array.isArray, () => [])],
-  [Object, jsonType((value) => typeof value === 'object' && value !== null && !Array.isArray(value), () => ({}))],
+  [Array, jsonType((value): value is unknown[] => Array.isArray(value), [])],
+  [
+    Object,
+    jsonType(
+      (value): value is object => typeof value === 'object' && value !== null && !Array.isArray(value),
+      {},
+    ),
+  ],
 ]);
+
+/**
+ * The built-in Type `type` names by its constructor, such as `Number`, or nothing when it names none.
+ */
+export function builtInType(type: unknown): AnyPropertyType | undefined {
+  return PROPERTY_TYPES.get(type as PropertyConstructor);
+}
 
 /**
  * One `@property()` of one element: its attribute, its type, and its Default.
  */
 class BoundProperty {
   private readonly attributeName: string;
-  private readonly type: PropertyType;
+  private readonly type: AnyPropertyType;
   private readonly defaultValue: unknown;
 
-  constructor(private readonly element: Element, key: string, type: PropertyConstructor, defaultValue: unknown) {
+  constructor(
+    private readonly element: Element,
+    private readonly key: string,
+    type: PropertyDeclaration['type'],
+    defaultValue: unknown,
+  ) {
     this.attributeName = dasherize(key);
-    this.type = PROPERTY_TYPES.get(type)!;
-    this.defaultValue = defaultValue ?? this.type.empty();
+    // `@property()` rejects anything but a built-in Type's constructor or a Type, so what isn't built in is a Type.
+    this.type = builtInType(type) ?? (type as AnyPropertyType);
+    this.defaultValue = defaultValue ?? this.type.emptyValue ?? null;
   }
 
   get value() {
@@ -220,7 +226,7 @@ class BoundProperty {
 
   write(value: unknown) {
     // Assigning nothing removes the attribute, so the property reads its Default again.
-    const attribute = value === null || value === undefined ? null : this.type.toAttribute(value, this.defaultValue);
+    const attribute = isNothing(value) ? null : this.type.toAttribute(value, this.defaultValue);
     if (attribute === null) {
       this.element.removeAttribute(this.attributeName);
     } else {
@@ -231,17 +237,63 @@ class BoundProperty {
   change(oldAttribute: string | null, newAttribute: string | null) {
     const oldValue = this.read(oldAttribute);
     const newValue = this.read(newAttribute);
-    return this.type.equals(newValue, oldValue) ? null : { newValue, oldValue };
+    return this.isSame(newValue, oldValue) ? null : { newValue, oldValue };
+  }
+
+  /**
+   * Whether two values read from the attribute are the same, so a change from one to the other is not reported. A Type
+   * without `isEqual` takes them as the same when they write the same attribute: two such values can't be told apart
+   * through it, and a Type that doesn't write canonically costs an extra callback, never a missed one. A `null` value,
+   * which a property reads while its Default is `null`, never reaches the Type.
+   */
+  private isSame(left: unknown, right: unknown) {
+    if (left === null || right === null) return left === right;
+    if (this.type.isEqual) return this.type.isEqual(left, right);
+    return this.type.toAttribute(left, this.defaultValue) === this.type.toAttribute(right, this.defaultValue);
   }
 
   /**
    * Converts an attribute value into the property's value. Both the getter and `change` read through this, so
    * `this.prop` and the values handed to `[property]Changed` can never disagree. A missing attribute reads as the
-   * Default, and so does one that does not parse as the type.
+   * Default, and so does one that does not parse as the Type.
    */
   private read(attribute: string | null) {
-    const value = attribute === null ? undefined : this.type.fromAttribute(attribute);
-    // A copy, as parsing an attribute would give, so mutating what the getter returns never changes the Default.
-    return value === undefined ? this.type.copy(this.defaultValue) : value;
+    const value = this.parse(attribute);
+    return isNothing(value) ? this.readDefault() : value;
   }
+
+  /**
+   * The Default, read as an attribute holding it would be: written with the Type and parsed back. A missing attribute
+   * therefore reads the same as one holding the Default, and every read is a fresh value, so mutating what the getter
+   * returns never changes the Default.
+   *
+   * A Default that does not survive the trip, because the Type writes it as no attribute or cannot read back what it
+   * wrote, reads as itself when it is a primitive, which nothing can mutate. An object is never handed out itself, so
+   * reading one throws. A `null` Default, of a field without an initializer whose Type names no Empty value, never
+   * reaches the Type.
+   */
+  private readDefault() {
+    if (this.defaultValue === null) return null;
+    const value = this.parse(this.type.toAttribute(this.defaultValue, this.defaultValue));
+    if (!isNothing(value)) return value;
+    if (!isMutable(this.defaultValue)) return this.defaultValue;
+    throw new TypeError(
+      `@property() on the field "${this.key}" cannot read its Default, since its Type does not write it as an ` +
+      `attribute it reads back, and handing out the object itself would let a mutation change the Default.`,
+    );
+  }
+
+  /** The value `attribute` holds, or nothing when it is missing or does not parse as the Type. */
+  private parse(attribute: string | null) {
+    return attribute === null ? undefined : this.type.fromAttribute(attribute);
+  }
+}
+
+function isNothing(value: unknown): value is null | undefined {
+  return value === null || value === undefined;
+}
+
+/** Whether `value` can be changed in place, as an object or function can and a primitive cannot. */
+function isMutable(value: unknown): value is object {
+  return (typeof value === 'object' && value !== null) || typeof value === 'function';
 }

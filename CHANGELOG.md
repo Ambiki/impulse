@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `@property({ type })` takes a type of your own, such as one for a `Date` ([#269](https://github.com/Ambiki/impulse/pull/269))
+
+### Changed
+
+- A `@property()` default reads as its attribute holding it would, so `@property() count = 5` reads `"5"`, and an object default its type cannot write and read back throws when read ([#268](https://github.com/Ambiki/impulse/pull/268))
+
 ## [2.2.0-rc.1] - 2026-11-17
 
 ### Changed

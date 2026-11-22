@@ -24,14 +24,15 @@ declaring it again in a subclass replaces the inherited one, whatever kind eithe
 _Avoid_: Registration, entry, decorated field
 
 **Default**:
-The value a property reads as while its attribute is missing or can't be read as its type: the value it holds once the
-element is constructed, or its Empty value when that is `null` or `undefined`. It lives only in JavaScript: an element
-never writes it to the attribute on its own.
+The value a property reads as while its attribute is missing or can't be read as its Type: the value it holds once the
+element is constructed, or its Empty value when that is `null` or `undefined`. It reads as if the attribute held it,
+so a property reads the same value whether its attribute is missing or holds the Default. It lives only in JavaScript:
+an element never writes it to the attribute on its own.
 _Avoid_: Initial value, fallback, reflected value
 
 **Empty value**:
-What a property's type holds when it holds nothing: `''` for a String, `0` for a Number, `false` for a Boolean, `[]`
-for an Array, and `{}` for an Object.
+What a property's Type holds when it holds nothing: `''` for a String, `0` for a Number, `false` for a Boolean, `[]`
+for an Array, `{}` for an Object, and `null` for a Type that names none.
 _Avoid_: Blank, zero value, falsy value
 
 **Initialized**:
@@ -88,6 +89,12 @@ An element an Owner's `@target()` or `@targets()` field holds through a `data-ta
 `[field]Connected` callback until its `[field]Disconnected` callback. An element carrying the token whose connected
 callback has not run is not yet a Target.
 _Avoid_: Ref, reference, child
+
+**Type**:
+How a property reads its attribute as a value, how it writes a value back to that attribute, and which two values are
+the same, so that changing from one to the other is no change. `String`, `Number`, `Boolean`, `Array`, and `Object`
+are built in, and an author can define others. A property has exactly one Type, `String` unless it declares another.
+_Avoid_: Converter, serializer, codec
 
 **Watcher**:
 A selector registered with the shared document observer, together with the callbacks run as elements start and stop
