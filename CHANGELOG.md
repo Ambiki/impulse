@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-11-27
+
+Changes since 2.2.0-rc.1. Earlier changes since 2.1.0 are listed under the `2.2.0-rc.*` sections.
+
 ### Added
 
 - `@property({ type })` takes a type of your own, such as one for a `Date` ([#269](https://github.com/Ambiki/impulse/pull/269))
@@ -238,7 +242,8 @@ Same as 2.0.0-rc.3. Changes since 1.1.0 are listed under the `2.0.0-rc.*` sectio
 
 - Everything!
 
-[unreleased]: https://github.com/Ambiki/impulse/compare/v2.2.0-rc.1...HEAD
+[unreleased]: https://github.com/Ambiki/impulse/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/Ambiki/impulse/compare/v2.1.0...v2.2.0
 [2.2.0-rc.1]: https://github.com/Ambiki/impulse/compare/v2.2.0-rc.0...v2.2.0-rc.1
 [2.2.0-rc.0]: https://github.com/Ambiki/impulse/compare/v2.1.0...v2.2.0-rc.0
 [2.1.0]: https://github.com/Ambiki/impulse/compare/v2.0.0...v2.1.0
